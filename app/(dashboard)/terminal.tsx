@@ -84,4 +84,4 @@ const Terminal = () => {
   );
 };
 
-export default AirlineTerminal;
+export default Terminal;
