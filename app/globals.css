@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* globals.css */
+  html {
+    transition: background-color 0.3s ease;
+  }
+
+  /* Light mode (default) */
+  body {
+    background-color: var(--background, white);
+    color: var(--foreground, black);
+  }
+
+  /* Dark mode styling for body and text */
+  .dark body {
+    background-color: var(--background, #1a202c); /* Dark mode background */
+    color: var(--foreground, #e2e8f0); /* Dark mode text */
+  }
+
+  /* Additional color variable settings */
+/* Light theme default colors */
+:root {
+  --background: white;
+  --foreground: black;
+  --card-background: #f9fafb; /* Card or section backgrounds */
+  --card-foreground: #1a202c; /* Card text color */
+  --border-color: #e2e8f0;
+  --primary: #3182ce; /* Primary color, can be customized */
+  --secondary: #2b6cb0; /* Secondary color, can be customized */
+}
+
+/* Dark theme colors when .dark is added to html */
+.dark {
+  --background: #1a202c;
+  --foreground: #e2e8f0;
+  --card-background: #2d3748;
+  --card-foreground: #f7fafc;
+  --border-color: #4a5568;
+  --primary: #63b3ed; /* Adjusted for dark mode */
+  --secondary: #4299e1; /* Adjusted for dark mode */
+}
+
+  /* Apply to all elements */
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+   /* Table styling */
+   table, th, td {
+    background-color: var(--background);
+    color: var(--foreground);
+    border: 1px solid var(--border-color);
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  /* Additional dark mode-specific classes */
+  .dark .border-light {
+    border-color: var(--border-color);
+  }
+}
+

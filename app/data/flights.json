@@ -1,0 +1,36 @@
+{
+    "flights": [
+      {
+        "ident": "TK1095",
+        "scheduled_out": "2024-11-06T11:30:00Z",
+        "scheduled_on": "2024-11-06T11:30:00Z",
+        "gate": "6",
+        "origin": {
+          "code": "IST",
+          "name": "Istanbul International Airport"
+        },
+        "destination": {
+          "code": "IST",
+          "name": "Istanbul International Airport"
+        },
+        "status": "On Time"
+      }
+    ],
+    "departures": [
+      {
+        "ident": "TK1096",
+        "scheduled_out": "2024-11-06T08:45:00Z",
+        "actual_out": "2024-11-06T08:45:00Z",
+        "gate": "6",
+        "origin": {
+          "code": "IST",
+          "name": "Istanbul International Airport"
+        },
+        "destination": {
+          "code": "IST",
+          "name": "Istanbul International Airport"
+        },
+        "status": "Check In"
+      }
+    ]
+  }
