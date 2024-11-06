@@ -5,6 +5,7 @@ interface BaggageAnnouncementProps {
   isFlightPlaying: boolean;
 }
 
+
 const BaggageAnnouncement: React.FC<BaggageAnnouncementProps> = ({ isFlightPlaying }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [lastPlayed, setLastPlayed] = useState<string | null>(null);
