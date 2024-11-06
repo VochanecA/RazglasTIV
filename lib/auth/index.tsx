@@ -1,4 +1,3 @@
-// lib/auth/index.tsx
 'use client';
 
 import {
@@ -8,6 +7,7 @@ import {
   useState,
   useEffect,
 } from 'react';
+import { use } from 'react';
 import { User } from '@/lib/db/schema';
 
 type UserContextType = {
@@ -18,7 +18,7 @@ type UserContextType = {
 const UserContext = createContext<UserContextType | null>(null);
 
 export function useUser(): UserContextType {
-  const context = useContext(UserContext);
+  let context = useContext(UserContext);
   if (context === null) {
     throw new Error('useUser must be used within a UserProvider');
   }
@@ -32,14 +32,12 @@ export function UserProvider({
   children: ReactNode;
   userPromise: Promise<User | null>;
 }) {
-  const [user, setUser] = useState<User | null>(null); // Start with null
+  let initialUser = use(userPromise);
+  let [user, setUser] = useState<User | null>(initialUser);
 
-  // Fetch user data on mount
   useEffect(() => {
-    userPromise.then((fetchedUser) => {
-      setUser(fetchedUser);
-    });
-  }, [userPromise]); // Run only when userPromise changes
+    setUser(initialUser);
+  }, [initialUser]);
 
   return (
     <UserContext.Provider value={{ user, setUser }}>
