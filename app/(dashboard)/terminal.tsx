@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Copy, Check, Speaker } from 'lucide-react';
 
-const AirlineTerminal = () => {
+const Terminal = () => {
   const [terminalStep, setTerminalStep] = useState(0);
   const [copied, setCopied] = useState(false);
   
