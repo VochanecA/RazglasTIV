@@ -5,7 +5,7 @@ import type { Metadata, Viewport } from 'next';
 import { Manrope } from 'next/font/google'; // Import the Manrope font
 import { UserProvider } from '@/lib/auth'; // Import UserProvider for authentication context
 import { getUser } from '@/lib/db/queries'; // Import user fetching function
-import Navbar from '@/components/Navbar'; // Import the Navbar component
+import Navbar from '@/components/ui/navbar'; // Import the Navbar component
 
 // Metadata for the application
 export const metadata: Metadata = {
