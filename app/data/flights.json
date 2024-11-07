@@ -19,8 +19,8 @@
     "departures": [
       {
         "ident": "TK1096",
-        "scheduled_out": "2024-11-07T08:25:00Z",
-        "actual_out": "2024-11-07T08:25:00Z",
+        "scheduled_out": "2024-11-07T08:30:00Z",
+        "actual_out": "2024-11-07T08:30:00Z",
         "gate": "6",
         "origin": {
           "code": "IST",
