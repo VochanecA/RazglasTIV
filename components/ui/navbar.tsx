@@ -1,9 +1,12 @@
+// components/ui/navbar.tsx
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
+import { ArrowDownIcon } from 'lucide-react';
+import { ExternalLinkIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { CircleIcon, Home, LogOut, Sun, Moon } from 'lucide-react'; // Import Sun and Moon icons
+import { CircleIcon, Home, LogOut, Sun, Moon } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,7 +17,14 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useUser } from '@/lib/auth';
 import { signOut } from '@/app/(login)/actions';
 import { useRouter } from 'next/navigation';
-import { menuData } from './menuData'; // Import menu data
+
+const menuData = [
+  { id: 1, title: 'Home', path: '/' },
+  { id: 2, title: 'Dashboard', path: '/dashboard' },
+  { id: 3, title: 'Flights', path: '/flights', newTab: true },
+  { id: 4, title: 'About', path: '/about' },
+  { id: 5, title: 'Contact', path: '/contact' },
+];
 
 function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -44,24 +54,39 @@ function Navbar() {
   if (!hasMounted) return null;
 
   return (
-    <header className="border-b border-gray-200">
+    <header className="border-b border-gray-200 bg-white dark:bg-gray-800 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
         <Link href="/" className="flex items-center">
           <CircleIcon className="h-6 w-6 text-orange-500" />
           <span className="ml-2 text-xl font-semibold text-gray-900 dark:text-gray-100">AeroVoice by ALen</span>
         </Link>
         <div className="flex items-center space-x-4">
-          {/* Map through menuData to create links */}
-          {menuData.map((menuItem) => (
-            <Link
-              key={menuItem.id}
-              href={menuItem.path}
-              target={menuItem.newTab ? '_blank' : '_self'}
-              className="text-sm font-medium text-gray-700 dark:text-gray-100 hover:text-gray-900"
-            >
-              {menuItem.title}
-            </Link>
-          ))}
+          <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+            <DropdownMenuTrigger asChild>
+            <Button className="bg-grey hover:bg-gray-100 text-gray-900 dark:text-gray-100 dark:hover:text-gray-200 border border-gray-200 rounded-full text-sm px-4 py-2 inline-flex items-center">
+  Menu
+  <ArrowDownIcon className="ml-2 h-4 w-4" />
+</Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg">
+              {menuData.map((menuItem) => (
+                <DropdownMenuItem key={menuItem.id} className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
+        <Link href={menuItem.path} className="flex items-center">
+  {menuItem.title}
+  {menuItem.newTab && <ExternalLinkIcon className="ml-2 h-4 w-4" />}
+</Link>
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuItem className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
+                <form action={signOut} className="w-full">
+                  <button type="submit" className="flex w-full items-center">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Sign out</span>
+                  </button>
+                </form>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <button
             onClick={toggleTheme}
@@ -71,7 +96,7 @@ function Navbar() {
             {isDarkMode ? 'Light Mode' : 'Dark Mode'}
           </button>
 
-          {user ? (
+          {user && (
             <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
               <DropdownMenuTrigger asChild>
                 <Avatar className="cursor-pointer size-9">
@@ -98,13 +123,6 @@ function Navbar() {
                 </form>
               </DropdownMenuContent>
             </DropdownMenu>
-          ) : (
-            <Button
-              asChild
-              className="bg-black hover:bg-gray-800 text-white text-sm px-4 py-2 rounded-full"
-            >
-              <Link href="/sign-up">Sign Up</Link>
-            </Button>
           )}
         </div>
       </div>

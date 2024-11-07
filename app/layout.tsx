@@ -1,11 +1,10 @@
 // app/layout.tsx
-
-import './globals.css'; // Import global CSS styles
+import './globals.css';
 import type { Metadata, Viewport } from 'next';
-import { Manrope } from 'next/font/google'; // Import the Manrope font
-import { UserProvider } from '@/lib/auth'; // Import UserProvider for authentication context
-import { getUser } from '@/lib/db/queries'; // Import user fetching function
-import Navbar from '@/components/ui/navbar'; // Import the Navbar component
+import { Manrope } from 'next/font/google';
+import { UserProvider } from '@/lib/auth';
+import { getUser } from '@/lib/db/queries';
+import Navbar from '@/components/ui/navbar';
 
 // Metadata for the application
 export const metadata: Metadata = {
@@ -34,15 +33,11 @@ export default async function RootLayout({
       lang="en"
       className={`bg-white dark:bg-gray-950 text-black dark:text-white ${manrope.className}`}
     >
-      <body className="min-h-[100dvh] bg-gray-50">
+      <body className="min-h-[100dvh] bg-gray-50 flex flex-col">
         <UserProvider userPromise={userPromise}>
-          {/* Include the Navbar at the top */}
-          <Navbar />
-          
-          {/* Main content area */}
-          <main>
-            {children}
-          </main>
+          { <Navbar /> }
+          {/* Render the children passed to this layout */}
+          <main className="flex-1">{children}</main>
         </UserProvider>
       </body>
     </html>
