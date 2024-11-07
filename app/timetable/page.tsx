@@ -1,4 +1,5 @@
 'use client';
+import { PlaneTakeoff, PlaneLanding } from 'lucide-react';
 
 import { useEffect, useState } from 'react';
 
@@ -52,7 +53,6 @@ const Departures = () => {
       setLoading(false);
     }
   };
-  
 
   useEffect(() => {
     fetchFlights(); // Fetch data initially
@@ -70,32 +70,37 @@ const Departures = () => {
     <div>
       {/* Tabs */}
       <div className="flex mb-4">
-        <button
-          className={`w-1/2 px-4 py-2 rounded-l-lg text-lg font-semibold ${
-            activeTab === 'departures'
-              ? 'bg-blue-500 text-white'
-              : 'bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-100'
-          }`}
-          onClick={() => setActiveTab('departures')}
-        >
-          Departures
-        </button>
-        <button
-          className={`w-1/2 px-4 py-2 rounded-r-lg text-lg font-semibold ${
-            activeTab === 'arrivals'
-              ? 'bg-blue-500 text-white'
-              : 'bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-100'
-          }`}
-          onClick={() => setActiveTab('arrivals')}
-        >
-          Arrivals
-        </button>
+      <button
+        className={`w-1/2 px-4 py-2 rounded-l-lg text-lg font-semibold flex items-center justify-center space-x-2 ${
+          activeTab === 'departures'
+            ? 'bg-blue-500 text-white'
+            : 'bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-100'
+        }`}
+        onClick={() => setActiveTab('departures')}
+      >
+        <PlaneTakeoff size={20} /> {/* Departure icon */}
+        <span>Departures</span>
+      </button>
+      <button
+        className={`w-1/2 px-4 py-2 rounded-r-lg text-lg font-semibold flex items-center justify-center space-x-2 ${
+          activeTab === 'arrivals'
+            ? 'bg-blue-500 text-white'
+            : 'bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-100'
+        }`}
+        onClick={() => setActiveTab('arrivals')}
+      >
+        <PlaneLanding size={20} /> {/* Arrival icon */}
+        <span>Arrivals</span>
+      </button>
       </div>
 
       {/* Tab Content */}
       {activeTab === 'departures' && (
         <>
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Departures</h2>
+<h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 flex items-center space-x-2 mt-8">
+        <PlaneTakeoff size={24} /> {/* Departure icon */}
+        <span>Departures</span>
+      </h2>
           <div className="grid grid-cols-1 gap-4">
             {departures.length > 0 ? (
               departures.map((departure) => (
@@ -157,7 +162,10 @@ const Departures = () => {
 
       {activeTab === 'arrivals' && (
         <>
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mt-8">Arrivals</h2>
+<h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 flex items-center space-x-2 mt-8">
+        <PlaneLanding size={24} /> {/* Arrival icon */}
+        <span>Arrivals</span>
+      </h2>
           <div className="grid grid-cols-1 gap-4">
             {arrivals.length > 0 ? (
               arrivals.map((arrival) => (
@@ -185,6 +193,10 @@ const Departures = () => {
                         <div className="font-medium dark:text-gray-200">{formatTime(arrival.scheduled_out)}</div>
                       </div>
                       <div>
+                        <div className="text-gray-500 dark:text-gray-400">Estimated</div>
+                        <div className="font-medium dark:text-gray-200">{formatTime(arrival.estimated_out)}</div>
+                      </div>
+                      <div>
                         <div className="text-gray-500 dark:text-gray-400">Actual</div>
                         <div className="font-medium dark:text-gray-200">
                           {arrival.actual_out ? formatTime(arrival.actual_out) : '-'}
@@ -196,7 +208,7 @@ const Departures = () => {
                       </div>
                       <div>
                         <div className="text-gray-500 dark:text-gray-400">Destination</div>
-                        <div className="font-medium text-red-900 dark:text-yellow-500 text-lg">{arrival.destination.code}</div>
+                        <div className="font-medium text-red-500 dark:text-red-500 text-lg">{arrival.destination.code}</div>
                       </div>
                       <div>
                         <div className="text-gray-500 dark:text-gray-400">Airline</div>
@@ -213,9 +225,7 @@ const Departures = () => {
         </>
       )}
 
-      <div className="text-sm text-gray-600 dark:text-gray-300 mt-8">
-        Last updated: {lastUpdated}
-      </div>
+      <div className="mt-8 text-sm text-gray-500 dark:text-gray-400">Last updated at: {lastUpdated}</div>
     </div>
   );
 };
