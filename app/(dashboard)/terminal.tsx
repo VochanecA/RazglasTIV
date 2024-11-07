@@ -8,13 +8,13 @@ const Terminal = () => {
   const [copied, setCopied] = useState(false);
   
   const terminalSteps = [
-    'Flight BA237 to New York (JFK) now boarding at Gate A12',
-    'Lufthansa LH453 from Frankfurt has arrived at Terminal 2',
-    'Final call for Emirates EK089 to Dubai at Gate B7',
-    'Flight delay: Air France AF226 to Paris delayed by 30 minutes',
-    'Singapore Airlines SQ317 is now ready for boarding at Gate C15',
-    'Baggage collection for Flight TK784 from Istanbul at Belt 4 🛄',
-  ];
+    'Flight JU 681 to Belgrade (BEG) now boarding at Gate 2',
+    'Flight 6H 178 to Tel Aviv (TLV) departing at Gate 5 & 6',
+    'Final call for Air Serbia flight JU 681 to Belgrade at Gate 2',
+    'Flight delay: Flight 6H 178 to Tel Aviv delayed by 20 minutes',
+    'Baggage collection for Flight JU 681 from Belgrade at Belt 2 🛄',
+    'Flight EY 7947 to Belgrade has arrived at Terminal 1',
+];
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -37,7 +37,7 @@ const Terminal = () => {
       <div className="bg-sky-600 p-4 rounded-t-lg flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <Speaker className="h-6 w-6 text-white animate-pulse" />
-          <h2 className="text-white font-bold">International Terminal</h2>
+          <h2 className="text-white font-bold">Tivat Terminal 1 & 2</h2>
         </div>
         <img 
           src="/api/placeholder/50/50" 

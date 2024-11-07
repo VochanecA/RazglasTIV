@@ -14,15 +14,13 @@ export default function HomePage() {
   My AeroVoice SaaS
   <span className="block text-orange-500">Faster Than Ever for A/D Tivat</span>
 </h1>
-              <p className="mt-3 text-base text-gray-500 sm:mt-5 sm:text-xl lg:text-lg xl:text-xl">
-                Launch your SaaS product in record time with our powerful,
-                ready-to-use template. Packed with modern technologies and
-                essential integrations.
-              </p>
+<p className="mt-3 text-base text-gray-300 sm:mt-5 sm:text-xl lg:text-lg xl:text-xl">
+  Stay informed with the Tivat timetable and the AeroVoice app, ensuring you never miss an important PA announcement during your travels.
+</p>
               <div className="mt-8 sm:max-w-lg sm:mx-auto sm:text-center lg:text-left lg:mx-0">
-              <a href="https://razglas-tiv.vercel.app/flights">
+              <a href="/timetable">
   <Button className="bg-white hover:bg-gray-100 text-black border border-gray-200 rounded-full text-lg px-8 py-4 inline-flex items-center justify-center">
-    View flights
+  Check today's timetable.
     <ArrowRight className="ml-2 h-5 w-5" />
   </Button>
 </a>
@@ -94,14 +92,12 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="lg:grid lg:grid-cols-2 lg:gap-8 lg:items-center">
             <div>
-              <h2 className="text-3xl font-bold text-gray-900 sm:text-4xl">
-                Ready to launch your SaaS?
-              </h2>
-              <p className="mt-3 max-w-3xl text-lg text-yellow-500">
-                Our web app provides everything you need to get your SaaS up
-                and running quickly. Don't waste time on boilerplate - focus on
-                what makes your product unique.
-              </p>
+            <h2 className="text-3xl font-bold text-gray-900 sm:text-4xl">
+  Ready to Elevate Your Business with Our Web App?
+</h2>
+<p className="mt-3 max-w-3xl text-lg text-yellow-500">
+  Our web app is designed to empower your business with seamless functionality and customization options. Whether you're looking to purchase a ready-to-use solution or tailor it to fit your unique needs, we have you covered. Focus on what sets your product apart while we handle the technical details.
+</p>
             </div>
             <div className="mt-8 lg:mt-0 flex justify-center lg:justify-end">
               <a
