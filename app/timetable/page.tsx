@@ -36,18 +36,23 @@ const Departures = () => {
     try {
       const response = await fetch('/api/fetchFlights');
       if (!response.ok) throw new Error('Failed to fetch flights data');
-
+  
       const data = await response.json();
       // Only update flight data if the new data is different from the current data
       setDepartures(data.departures || []); // Ensure we set an empty array if data.departures is undefined
       setArrivals(data.arrivals || []); // Ensure we set an empty array if data.arrivals is undefined
       setLastUpdated(new Date().toLocaleTimeString()); // Update the last updated time
-    } catch (error) {
-      console.error(error.message);
+    } catch (error: unknown) { // Explicitly type `error` as `unknown`
+      if (error instanceof Error) {
+        console.error(error.message); // Now we can safely access `error.message`
+      } else {
+        console.error('An unexpected error occurred');
+      }
     } finally {
       setLoading(false);
     }
   };
+  
 
   useEffect(() => {
     fetchFlights(); // Fetch data initially

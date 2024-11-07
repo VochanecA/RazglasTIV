@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { ReactNode } from 'react';
 
-const TimetableLayout: React.FC = ({ children }) => {
+const TimetableLayout: React.FC<{ children: ReactNode }> = ({ children }) => {
   return (
     <div className="container mx-auto px-4 py-8">
       {/* You can add common layout elements here, like a title or navigation */}
