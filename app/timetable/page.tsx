@@ -70,37 +70,37 @@ const Departures = () => {
     <div>
       {/* Tabs */}
       <div className="flex mb-4">
-      <button
-        className={`w-1/2 px-4 py-2 rounded-l-lg text-lg font-semibold flex items-center justify-center space-x-2 ${
-          activeTab === 'departures'
-            ? 'bg-blue-500 text-white'
-            : 'bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-100'
-        }`}
-        onClick={() => setActiveTab('departures')}
-      >
-        <PlaneTakeoff size={20} /> {/* Departure icon */}
-        <span>Departures</span>
-      </button>
-      <button
-        className={`w-1/2 px-4 py-2 rounded-r-lg text-lg font-semibold flex items-center justify-center space-x-2 ${
-          activeTab === 'arrivals'
-            ? 'bg-blue-500 text-white'
-            : 'bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-100'
-        }`}
-        onClick={() => setActiveTab('arrivals')}
-      >
-        <PlaneLanding size={20} /> {/* Arrival icon */}
-        <span>Arrivals</span>
-      </button>
+        <button
+          className={`w-1/2 px-4 py-2 rounded-l-lg text-lg font-semibold flex items-center justify-center space-x-2 ${
+            activeTab === 'departures'
+              ? 'bg-blue-500 text-white'
+              : 'bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-100'
+          }`}
+          onClick={() => setActiveTab('departures')}
+        >
+          <PlaneTakeoff size={20} /> {/* Departure icon */}
+          <span>Departures</span>
+        </button>
+        <button
+          className={`w-1/2 px-4 py-2 rounded-r-lg text-lg font-semibold flex items-center justify-center space-x-2 ${
+            activeTab === 'arrivals'
+              ? 'bg-blue-500 text-white'
+              : 'bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-100'
+          }`}
+          onClick={() => setActiveTab('arrivals')}
+        >
+          <PlaneLanding size={20} /> {/* Arrival icon */}
+          <span>Arrivals</span>
+        </button>
       </div>
 
       {/* Tab Content */}
       {activeTab === 'departures' && (
         <>
-<h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 flex items-center space-x-2 mt-8">
-        <PlaneTakeoff size={24} /> {/* Departure icon */}
-        <span>Departures</span>
-      </h2>
+          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 flex items-center space-x-2 mt-8">
+            <PlaneTakeoff size={24} /> {/* Departure icon */}
+            <span>Departures</span>
+          </h2>
           <div className="grid grid-cols-1 gap-4">
             {departures.length > 0 ? (
               departures.map((departure) => (
@@ -149,6 +149,26 @@ const Departures = () => {
                         <div className="text-gray-500 dark:text-gray-400">Airline</div>
                         <div className="font-medium text-blue-500 dark:text-blue-400">{departure.KompanijaNaziv}</div>
                       </div>
+
+                      {/* CheckIn pill */}
+                      <div>
+                        <div className="text-gray-500 dark:text-gray-400">CheckIn</div>
+                        {/* <div className="font-medium text-blue-500 dark:text-blue-400">{departure.checkIn}</div> */}
+                        {/* Add the rounded green pill under CheckIn */}
+                        <div className="mt-2 inline-flex items-center px-4 py-1 text-sm font-medium text-green-800 bg-green-100 rounded-full dark:text-green-100 dark:bg-green-900">
+                          {departure.checkIn}
+                        </div>
+                      </div>
+
+                      {/* Gate pill */}
+                      <div>
+                        <div className="text-gray-500 dark:text-gray-400">Gate</div>
+                        {/* <div className="font-medium text-blue-500 dark:text-blue-400">{departure.gate}</div> */}
+                        {/* Add the rounded green pill under Gate */}
+                        <div className="mt-2 inline-flex items-center px-4 py-1 text-sm font-medium text-green-800 bg-green-100 rounded-full dark:text-green-100 dark:bg-green-900">
+                          {departure.gate}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -160,12 +180,12 @@ const Departures = () => {
         </>
       )}
 
-      {activeTab === 'arrivals' && (
+{activeTab === 'arrivals' && (
         <>
-<h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 flex items-center space-x-2 mt-8">
-        <PlaneLanding size={24} /> {/* Arrival icon */}
-        <span>Arrivals</span>
-      </h2>
+          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 flex items-center space-x-2 mt-8">
+            <PlaneLanding size={24} />
+            <span>Arrivals</span>
+          </h2>
           <div className="grid grid-cols-1 gap-4">
             {arrivals.length > 0 ? (
               arrivals.map((arrival) => (
@@ -224,8 +244,6 @@ const Departures = () => {
           </div>
         </>
       )}
-
-      <div className="mt-8 text-sm text-gray-500 dark:text-gray-400">Last updated at: {lastUpdated}</div>
     </div>
   );
 };
