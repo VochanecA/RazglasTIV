@@ -144,7 +144,9 @@ className={`px-2 py-1 text-sm font-semibold rounded-full ${
                       </div>
                       <div>
                         <div className="text-gray-500 dark:text-gray-400">Destination</div>
-                        <div className="font-medium text-red-500 dark:text-red-500 text-lg">{departure.destination.code}</div>
+                        <div className="text-red-500 dark:text-red-600 font-bold" style={{ fontSize: '24px' }}>
+  {departure.destination.code}
+</div>
                       </div>
                       <div>
                         <div className="text-gray-500 dark:text-gray-400">Airline</div>
@@ -193,13 +195,14 @@ className={`px-2 py-1 text-sm font-semibold rounded-full ${
                         {arrival.Kompanija} {arrival.ident}
                       </span>
                       <span
-                        className={`px-2 py-1 text-sm font-semibold rounded-full ${
-                          arrival.status === 'Arrived'
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100'
-                            : arrival.status === 'Delayed'
-                            ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100'
-                            : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100'
-                        }`}
+   className={`px-2 py-1 text-sm font-semibold rounded-full ${
+    arrival.status === 'Arrived'
+      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100'
+      : arrival.status === 'Delayed'
+      ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100 blink'
+      : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100'
+  }`}
+  
                       >
                         {arrival.status}
                       </span>
@@ -225,7 +228,9 @@ className={`px-2 py-1 text-sm font-semibold rounded-full ${
                       </div>
                       <div>
                         <div className="text-gray-500 dark:text-gray-400">Destination</div>
-                        <div className="font-medium text-red-500 dark:text-red-500 text-lg">{arrival.destination.code}</div>
+                        <div className="text-red-500 dark:text-red-600 font-bold" style={{ fontSize: '24px' }}>
+  {arrival.destination.code}
+</div>
                       </div>
                       <div>
                         <div className="text-gray-500 dark:text-gray-400">Airline</div>
