@@ -104,7 +104,7 @@ const Departures = () => {
                 <div key={departure.ident} className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
                   <div className="p-4 space-y-4">
                     <div className="flex justify-between items-center">
-                      <span className="text-xl font-bold text-yellow-300">
+                      <span className="text-2xl font-bold text-yellow-300">
                         {departure.Kompanija} {departure.ident}
                       </span>
                       <span
@@ -189,7 +189,7 @@ className={`px-2 py-1 text-sm font-semibold rounded-full ${
                 <div key={arrival.ident} className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
                   <div className="p-4 space-y-4">
                     <div className="flex justify-between items-center">
-                      <span className="text-xl font-bold text-yellow-300">
+                      <span className="text-2xl font-bold text-yellow-300">
                         {arrival.Kompanija} {arrival.ident}
                       </span>
                       <span
