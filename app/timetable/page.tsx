@@ -1,7 +1,8 @@
 'use client';
 import { PlaneTakeoff, PlaneLanding } from 'lucide-react';
-
 import { useEffect, useState } from 'react';
+import '../globals.css'; // Adjust path if your file is in a different folder
+
 
 interface Flight {
   ident: string;
@@ -19,33 +20,32 @@ interface Flight {
 
 // Helper function to format time from HHMM to HH:MM format
 const formatTime = (time: string) => {
-  if (!time || time.length !== 4) return '-'; // Return '-' if time is invalid or empty
+  if (!time || time.length !== 4) return '-';
   const hours = time.substring(0, 2);
   const minutes = time.substring(2, 4);
   return `${hours}:${minutes}`;
 };
 
 const Departures = () => {
-  const [departures, setDepartures] = useState<Flight[]>([]); // Initialize as empty array
-  const [arrivals, setArrivals] = useState<Flight[]>([]); // Initialize as empty array
+  const [departures, setDepartures] = useState<Flight[]>([]);
+  const [arrivals, setArrivals] = useState<Flight[]>([]);
   const [loading, setLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<string>(''); // To store the last updated time
-  const [activeTab, setActiveTab] = useState<'departures' | 'arrivals'>('departures'); // Active tab state
+  const [lastUpdated, setLastUpdated] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<'departures' | 'arrivals'>('departures');
 
   const fetchFlights = async () => {
     setLoading(true);
     try {
       const response = await fetch('/api/fetchFlights');
       if (!response.ok) throw new Error('Failed to fetch flights data');
-  
+
       const data = await response.json();
-      // Only update flight data if the new data is different from the current data
-      setDepartures(data.departures || []); // Ensure we set an empty array if data.departures is undefined
-      setArrivals(data.arrivals || []); // Ensure we set an empty array if data.arrivals is undefined
-      setLastUpdated(new Date().toLocaleTimeString()); // Update the last updated time
-    } catch (error: unknown) { // Explicitly type `error` as `unknown`
+      setDepartures(data.departures || []);
+      setArrivals(data.arrivals || []);
+      setLastUpdated(new Date().toLocaleTimeString());
+    } catch (error: unknown) {
       if (error instanceof Error) {
-        console.error(error.message); // Now we can safely access `error.message`
+        console.error(error.message);
       } else {
         console.error('An unexpected error occurred');
       }
@@ -55,12 +55,9 @@ const Departures = () => {
   };
 
   useEffect(() => {
-    fetchFlights(); // Fetch data initially
+    fetchFlights();
 
-    // Set up periodic fetching every 60 seconds
     const intervalId = setInterval(fetchFlights, 60000);
-
-    // Clean up the interval on component unmount
     return () => clearInterval(intervalId);
   }, []);
 
@@ -78,7 +75,7 @@ const Departures = () => {
           }`}
           onClick={() => setActiveTab('departures')}
         >
-          <PlaneTakeoff size={20} /> {/* Departure icon */}
+          <PlaneTakeoff size={20} />
           <span>Departures</span>
         </button>
         <button
@@ -89,7 +86,7 @@ const Departures = () => {
           }`}
           onClick={() => setActiveTab('arrivals')}
         >
-          <PlaneLanding size={20} /> {/* Arrival icon */}
+          <PlaneLanding size={20} />
           <span>Arrivals</span>
         </button>
       </div>
@@ -98,7 +95,7 @@ const Departures = () => {
       {activeTab === 'departures' && (
         <>
           <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 flex items-center space-x-2 mt-8">
-            <PlaneTakeoff size={24} /> {/* Departure icon */}
+            <PlaneTakeoff size={24} />
             <span>Departures</span>
           </h2>
           <div className="grid grid-cols-1 gap-4">
@@ -111,25 +108,29 @@ const Departures = () => {
                         {departure.Kompanija} {departure.ident}
                       </span>
                       <span
-                        className={`px-2 py-1 text-sm font-semibold rounded-full ${
-                          departure.status === 'Departed'
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100'
-                            : departure.status === 'Delayed'
-                            ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100'
-                            : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100'
-                        }`}
+className={`px-2 py-1 text-sm font-semibold rounded-full ${
+    departure.status === 'Departed'
+      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100'
+      : departure.status === 'Delayed'
+      ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100'
+      : departure.status === 'Processing'
+      ? 'bg-yellow-400 text-black font-bold blink'
+      : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100 font-bold'
+  }`}
+  
+          
                       >
                         {departure.status}
                       </span>
                     </div>
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <div className="text-gray-500 dark:text-gray-400">Scheduled</div>
-                        <div className="font-medium dark:text-gray-200">{formatTime(departure.scheduled_out)}</div>
+                        <div className="text-gray-500 dark:text-gray-400 text-xl font-bold">Scheduled</div>
+                        <div className="dark:text-gray-200 text-xl font-bold">{formatTime(departure.scheduled_out)}</div>
                       </div>
                       <div>
                         <div className="text-gray-500 dark:text-gray-400">Estimated</div>
-                        <div className="font-medium dark:text-gray-200">{formatTime(departure.estimated_out)}</div>
+                        <div className="font-xl font-bold dark:text-gray-200">{formatTime(departure.estimated_out)}</div>
                       </div>
                       <div>
                         <div className="text-gray-500 dark:text-gray-400">Actual</div>
@@ -138,7 +139,7 @@ const Departures = () => {
                         </div>
                       </div>
                       <div>
-                        <div className="text-gray-500 dark:text-gray-400">Origin</div>
+                        <div className="text-gray-500 dark:text-gray-400">IATA code:</div>
                         <div className="font-medium text-yellow-500 dark:text-yellow-400">{departure.origin.code}</div>
                       </div>
                       <div>
@@ -153,8 +154,6 @@ const Departures = () => {
                       {/* CheckIn pill */}
                       <div>
                         <div className="text-gray-500 dark:text-gray-400">CheckIn</div>
-                        {/* <div className="font-medium text-blue-500 dark:text-blue-400">{departure.checkIn}</div> */}
-                        {/* Add the rounded green pill under CheckIn */}
                         <div className="mt-2 inline-flex items-center px-4 py-1 text-sm font-medium text-green-800 bg-green-100 rounded-full dark:text-green-100 dark:bg-green-900">
                           {departure.checkIn}
                         </div>
@@ -163,8 +162,6 @@ const Departures = () => {
                       {/* Gate pill */}
                       <div>
                         <div className="text-gray-500 dark:text-gray-400">Gate</div>
-                        {/* <div className="font-medium text-blue-500 dark:text-blue-400">{departure.gate}</div> */}
-                        {/* Add the rounded green pill under Gate */}
                         <div className="mt-2 inline-flex items-center px-4 py-1 text-sm font-medium text-green-800 bg-green-100 rounded-full dark:text-green-100 dark:bg-green-900">
                           {departure.gate}
                         </div>
@@ -180,7 +177,7 @@ const Departures = () => {
         </>
       )}
 
-{activeTab === 'arrivals' && (
+      {activeTab === 'arrivals' && (
         <>
           <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 flex items-center space-x-2 mt-8">
             <PlaneLanding size={24} />
@@ -209,8 +206,8 @@ const Departures = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <div className="text-gray-500 dark:text-gray-400">Scheduled</div>
-                        <div className="font-medium dark:text-gray-200">{formatTime(arrival.scheduled_out)}</div>
+                        <div className="text-gray-500 dark:text-gray-400 text-xl font-bold">Scheduled</div>
+                        <div className="text-xl font-bold dark:text-gray-200">{formatTime(arrival.scheduled_out)}</div>
                       </div>
                       <div>
                         <div className="text-gray-500 dark:text-gray-400">Estimated</div>
@@ -223,7 +220,7 @@ const Departures = () => {
                         </div>
                       </div>
                       <div>
-                        <div className="text-gray-500 dark:text-gray-400">Origin</div>
+                        <div className="text-gray-500 dark:text-gray-400">IATA Code:</div>
                         <div className="font-medium text-yellow-500 dark:text-yellow-400">{arrival.origin.code}</div>
                       </div>
                       <div>
@@ -244,6 +241,10 @@ const Departures = () => {
           </div>
         </>
       )}
+      {/* Display Last Update Time */}
+      <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+        Last data fetched at: <span>{lastUpdated}</span>
+      </div>
     </div>
   );
 };
