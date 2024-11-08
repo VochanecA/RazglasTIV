@@ -117,10 +117,8 @@ className={`px-2 py-1 text-sm font-semibold rounded-full ${
       ? 'bg-yellow-400 text-black font-bold blink'
       : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100 font-bold'
   }`}
-  
-          
-                      >
-                        {departure.status}
+>
+  {departure.status === 'Processing' ? 'Check In Open' : departure.status}
                       </span>
                     </div>
                     <div className="grid grid-cols-2 gap-4 text-sm">
