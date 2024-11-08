@@ -69,21 +69,21 @@ const FlightCard = ({ flight, type }: { flight: Flight; type: 'departure' | 'arr
       <div className="p-4 space-y-4">
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-4">
-            <div className="w-20 h-12 relative">
-              <Image
-                src={logoError ? placeholderUrl : logoUrl}
-                alt={`${flight.KompanijaNaziv} logo`}
-                fill
-                className="object-contain"
-                onError={() => setLogoError(true)}
-                unoptimized
-                loading="eager"
-                priority={true}
-              />
-            </div>
-            <span className="text-2xl font-bold text-yellow-300">
-              {flight.Kompanija} {flight.ident}
-            </span>
+          <div className="w-20 h-12 relative bg-white">
+  <Image
+    src={logoError ? placeholderUrl : logoUrl}
+    alt={`${flight.KompanijaNaziv} logo`}
+    fill
+    className="object-contain"
+    onError={() => setLogoError(true)}
+    unoptimized
+    loading="eager"
+    priority={true}
+  />
+</div>
+            <span className="text-2xl font-bold text-blue-600 dark:text-yellow-400">
+  {flight.Kompanija} {flight.ident}
+</span>
           </div>
           <span
             className={`px-2 py-1 text-sm font-semibold rounded-full ${
@@ -121,7 +121,7 @@ const FlightCard = ({ flight, type }: { flight: Flight; type: 'departure' | 'arr
           </div>
           <div>
             <div className="text-gray-500 dark:text-gray-400">Destination</div>
-            <div className="text-red-500 dark:text-red-600 font-bold text-2xl">
+            <div className="text-red-500 dark:text-blue-300 font-bold text-2xl">
               {flight.destination.code}
             </div>
           </div>
