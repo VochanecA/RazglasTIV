@@ -187,7 +187,7 @@ const Departures = () => {
       fetchFlightData();
       
       // Set up polling interval
-      const interval = setInterval(fetchFlightData, 60000); // Refresh every minute
+      const interval = setInterval(fetchFlightData, 90000); // Refresh every minute
       
       // Cleanup interval on component unmount
       return () => clearInterval(interval);
