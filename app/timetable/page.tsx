@@ -70,16 +70,15 @@ const FlightCard = ({ flight, type }: { flight: Flight; type: 'departure' | 'arr
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-4">
           <div className="w-20 h-12 relative bg-white">
-  <Image
-    src={logoError ? placeholderUrl : logoUrl}
-    alt={`${flight.KompanijaNaziv} logo`}
-    fill
-    className="object-contain"
-    onError={() => setLogoError(true)}
-    unoptimized
-    loading="eager"
-    priority={true}
-  />
+          <Image
+  src={logoError ? placeholderUrl : logoUrl}
+  alt={`${flight.KompanijaNaziv} logo`}
+  fill
+  className="object-contain"
+  onError={() => setLogoError(true)}
+  loading="eager" // Or "lazy" if appropriate
+  priority={true} // Set to true if this image is critical for LCP
+/>
 </div>
             <span className="text-2xl font-bold text-blue-600 dark:text-yellow-400">
   {flight.Kompanija} {flight.ident}
