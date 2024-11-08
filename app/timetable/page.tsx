@@ -1,8 +1,13 @@
 'use client';
 import { PlaneTakeoff, PlaneLanding } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import '../globals.css'; // Adjust path if your file is in a different folder
+import Image from 'next/image';
 
+// Custom Skeleton Component
+const Skeleton = ({ className = '' }: { className?: string }) => {
+  const baseClasses = "bg-gray-200 dark:bg-gray-700 animate-pulse rounded";
+  return <div className={`${baseClasses} ${className}`} />;
+};
 
 interface Flight {
   ident: string;
@@ -12,13 +17,18 @@ interface Flight {
   actual_out: string | null;
   origin: { code: string };
   destination: { code: string };
-  Kompanija: string; // Airline IATA code
-  KompanijaNaziv: string; // Airline name
-  checkIn: string; // CheckIn data
-  gate: string; // Gate data
+  Kompanija: string;
+  KompanijaICAO: string;
+  KompanijaNaziv: string;
+  checkIn: string;
+  gate: string;
 }
 
-// Helper function to format time from HHMM to HH:MM format
+interface FlightData {
+  departures: Flight[];
+  arrivals: Flight[];
+}
+
 const formatTime = (time: string) => {
   if (!time || time.length !== 4) return '-';
   const hours = time.substring(0, 2);
@@ -26,49 +36,181 @@ const formatTime = (time: string) => {
   return `${hours}:${minutes}`;
 };
 
-const Departures = () => {
-  const [departures, setDepartures] = useState<Flight[]>([]);
-  const [arrivals, setArrivals] = useState<Flight[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'departures' | 'arrivals'>('departures');
+// Loading skeleton component for flight cards
+const FlightCardSkeleton = () => (
+  <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden animate-pulse">
+    <div className="p-4 space-y-4">
+      <div className="flex justify-between items-center">
+        <div className="flex items-center space-x-4">
+          <Skeleton className="w-20 h-12" />
+          <Skeleton className="h-8 w-48" />
+        </div>
+        <Skeleton className="h-6 w-24" />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        {[...Array(6)].map((_, i) => (
+          <div key={i}>
+            <Skeleton className="h-4 w-24 mb-2" />
+            <Skeleton className="h-6 w-32" />
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+);
 
-  const fetchFlights = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch('/api/fetchFlights');
-      if (!response.ok) throw new Error('Failed to fetch flights data');
-
-      const data = await response.json();
-      setDepartures(data.departures || []);
-      setArrivals(data.arrivals || []);
-      setLastUpdated(new Date().toLocaleTimeString());
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        console.error(error.message);
-      } else {
-        console.error('An unexpected error occurred');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchFlights();
-
-    const intervalId = setInterval(fetchFlights, 60000);
-    return () => clearInterval(intervalId);
-  }, []);
-
-  if (loading) return <p>Loading...</p>;
+const FlightCard = ({ flight, type }: { flight: Flight; type: 'departure' | 'arrival' }) => {
+  const [logoError, setLogoError] = useState(false);
+  const logoUrl = `https://www.flightaware.com/images/airline_logos/180px/${flight.KompanijaICAO}.png`;
+  const placeholderUrl = 'https://via.placeholder.com/180x120?text=No+Logo';
 
   return (
-    <div>
-      {/* Tabs */}
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden transition-all duration-200 ease-in-out">
+      <div className="p-4 space-y-4">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center space-x-4">
+            <div className="w-20 h-12 relative">
+              <Image
+                src={logoError ? placeholderUrl : logoUrl}
+                alt={`${flight.KompanijaNaziv} logo`}
+                fill
+                className="object-contain"
+                onError={() => setLogoError(true)}
+                unoptimized
+                loading="eager"
+                priority={true}
+              />
+            </div>
+            <span className="text-2xl font-bold text-yellow-300">
+              {flight.Kompanija} {flight.ident}
+            </span>
+          </div>
+          <span
+            className={`px-2 py-1 text-sm font-semibold rounded-full ${
+              flight.status === (type === 'departure' ? 'Departed' : 'Arrived')
+                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100'
+                : flight.status === 'Delayed'
+                ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100'
+                : flight.status === 'Processing'
+                ? 'bg-yellow-400 text-black font-bold blink'
+                : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100 font-bold'
+            }`}
+          >
+            {flight.status === 'Processing' ? 'Check In Open' : flight.status}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <div className="text-gray-500 dark:text-gray-400 text-xl font-bold">Scheduled</div>
+            <div className="dark:text-gray-200 text-xl font-bold">{formatTime(flight.scheduled_out)}</div>
+          </div>
+          <div>
+            <div className="text-gray-500 dark:text-gray-400">Estimated</div>
+            <div className="font-xl font-bold dark:text-gray-200">{formatTime(flight.estimated_out)}</div>
+          </div>
+          <div>
+            <div className="text-gray-500 dark:text-gray-400">Actual</div>
+            <div className="font-medium dark:text-gray-200">
+              {flight.actual_out ? formatTime(flight.actual_out) : '-'}
+            </div>
+          </div>
+          <div>
+            <div className="text-gray-500 dark:text-gray-400">IATA code:</div>
+            <div className="font-medium text-yellow-500 dark:text-yellow-400">{flight.origin.code}</div>
+          </div>
+          <div>
+            <div className="text-gray-500 dark:text-gray-400">Destination</div>
+            <div className="text-red-500 dark:text-red-600 font-bold text-2xl">
+              {flight.destination.code}
+            </div>
+          </div>
+          <div>
+            <div className="text-gray-500 dark:text-gray-400">Airline</div>
+            <div className="font-medium text-blue-500 dark:text-blue-400">{flight.KompanijaNaziv}</div>
+          </div>
+
+          {type === 'departure' && (
+            <>
+              <div>
+                <div className="text-gray-500 dark:text-gray-400">CheckIn</div>
+                <div className="mt-2 inline-flex items-center px-4 py-1 text-sm font-medium text-green-800 bg-green-100 rounded-full dark:text-green-100 dark:bg-green-900">
+                  {flight.checkIn}
+                </div>
+              </div>
+              <div>
+                <div className="text-gray-500 dark:text-gray-400">Gate</div>
+                <div className="mt-2 inline-flex items-center px-4 py-1 text-sm font-medium text-green-800 bg-green-100 rounded-full dark:text-green-100 dark:bg-green-900">
+                  {flight.gate}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+const Departures = () => {
+    const [activeTab, setActiveTab] = useState<'departures' | 'arrivals'>('departures');
+    const [data, setData] = useState<FlightData | null>(null);
+    const [error, setError] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [lastUpdated, setLastUpdated] = useState<string>(''); // Initialize as empty string
+  
+    const fetchFlightData = async () => {
+      try {
+        setIsLoading(true);
+        const res = await fetch('/api/fetchFlights');
+        if (!res.ok) throw new Error('Failed to fetch flights data');
+        const newData = await res.json();
+        setData(newData);
+        setError(null);
+        // Use a consistent time format
+        const now = new Date();
+        setLastUpdated(now.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true
+        }));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch flights data');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+  
+    // Only set up the data fetching after initial mount
+    useEffect(() => {
+      fetchFlightData();
+      
+      // Set up polling interval
+      const interval = setInterval(fetchFlightData, 60000); // Refresh every minute
+      
+      // Cleanup interval on component unmount
+      return () => clearInterval(interval);
+    }, []);
+
+  const departures = data?.departures || [];
+  const arrivals = data?.arrivals || [];
+
+  // Render loading skeletons
+  const renderSkeletons = () => (
+    <div className="grid grid-cols-1 gap-4">
+      {[...Array(3)].map((_, index) => (
+        <FlightCardSkeleton key={index} />
+      ))}
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen">
       <div className="flex mb-4">
         <button
-          className={`w-1/2 px-4 py-2 rounded-l-lg text-lg font-semibold flex items-center justify-center space-x-2 ${
+          className={`w-1/2 px-4 py-2 rounded-l-lg text-lg font-semibold flex items-center justify-center space-x-2 transition-colors duration-200 ${
             activeTab === 'departures'
               ? 'bg-blue-500 text-white'
               : 'bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-100'
@@ -79,7 +221,7 @@ const Departures = () => {
           <span>Departures</span>
         </button>
         <button
-          className={`w-1/2 px-4 py-2 rounded-r-lg text-lg font-semibold flex items-center justify-center space-x-2 ${
+          className={`w-1/2 px-4 py-2 rounded-r-lg text-lg font-semibold flex items-center justify-center space-x-2 transition-colors duration-200 ${
             activeTab === 'arrivals'
               ? 'bg-blue-500 text-white'
               : 'bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-100'
@@ -91,7 +233,12 @@ const Departures = () => {
         </button>
       </div>
 
-      {/* Tab Content */}
+      {error && (
+        <div className="text-red-500 dark:text-red-400 p-4 rounded-lg bg-red-100 dark:bg-red-900 mb-4">
+          Error loading flight data. Please try again later.
+        </div>
+      )}
+
       {activeTab === 'departures' && (
         <>
           <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 flex items-center space-x-2 mt-8">
@@ -99,76 +246,11 @@ const Departures = () => {
             <span>Departures</span>
           </h2>
           <div className="grid grid-cols-1 gap-4">
-            {departures.length > 0 ? (
-              departures.map((departure) => (
-                <div key={departure.ident} className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-                  <div className="p-4 space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-2xl font-bold text-yellow-300">
-                        {departure.Kompanija} {departure.ident}
-                      </span>
-                      <span
-className={`px-2 py-1 text-sm font-semibold rounded-full ${
-    departure.status === 'Departed'
-      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100'
-      : departure.status === 'Delayed'
-      ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100'
-      : departure.status === 'Processing'
-      ? 'bg-yellow-400 text-black font-bold blink'
-      : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100 font-bold'
-  }`}
->
-  {departure.status === 'Processing' ? 'Check In Open' : departure.status}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <div className="text-gray-500 dark:text-gray-400 text-xl font-bold">Scheduled</div>
-                        <div className="dark:text-gray-200 text-xl font-bold">{formatTime(departure.scheduled_out)}</div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500 dark:text-gray-400">Estimated</div>
-                        <div className="font-xl font-bold dark:text-gray-200">{formatTime(departure.estimated_out)}</div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500 dark:text-gray-400">Actual</div>
-                        <div className="font-medium dark:text-gray-200">
-                          {departure.actual_out ? formatTime(departure.actual_out) : '-'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500 dark:text-gray-400">IATA code:</div>
-                        <div className="font-medium text-yellow-500 dark:text-yellow-400">{departure.origin.code}</div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500 dark:text-gray-400">Destination</div>
-                        <div className="text-red-500 dark:text-red-600 font-bold" style={{ fontSize: '24px' }}>
-  {departure.destination.code}
-</div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500 dark:text-gray-400">Airline</div>
-                        <div className="font-medium text-blue-500 dark:text-blue-400">{departure.KompanijaNaziv}</div>
-                      </div>
-
-                      {/* CheckIn pill */}
-                      <div>
-                        <div className="text-gray-500 dark:text-gray-400">CheckIn</div>
-                        <div className="mt-2 inline-flex items-center px-4 py-1 text-sm font-medium text-green-800 bg-green-100 rounded-full dark:text-green-100 dark:bg-green-900">
-                          {departure.checkIn}
-                        </div>
-                      </div>
-
-                      {/* Gate pill */}
-                      <div>
-                        <div className="text-gray-500 dark:text-gray-400">Gate</div>
-                        <div className="mt-2 inline-flex items-center px-4 py-1 text-sm font-medium text-green-800 bg-green-100 rounded-full dark:text-green-100 dark:bg-green-900">
-                          {departure.gate}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+            {isLoading ? (
+              renderSkeletons()
+            ) : departures.length > 0 ? (
+              departures.map((departure: Flight) => (
+                <FlightCard key={departure.ident} flight={departure} type="departure" />
               ))
             ) : (
               <p>No departures available.</p>
@@ -184,59 +266,11 @@ className={`px-2 py-1 text-sm font-semibold rounded-full ${
             <span>Arrivals</span>
           </h2>
           <div className="grid grid-cols-1 gap-4">
-            {arrivals.length > 0 ? (
-              arrivals.map((arrival) => (
-                <div key={arrival.ident} className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-                  <div className="p-4 space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-2xl font-bold text-yellow-300">
-                        {arrival.Kompanija} {arrival.ident}
-                      </span>
-                      <span
-   className={`px-2 py-1 text-sm font-semibold rounded-full ${
-    arrival.status === 'Arrived'
-      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100'
-      : arrival.status === 'Delayed'
-      ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100 blink'
-      : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100'
-  }`}
-  
-                      >
-                        {arrival.status}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <div className="text-gray-500 dark:text-gray-400 text-xl font-bold">Scheduled</div>
-                        <div className="text-xl font-bold dark:text-gray-200">{formatTime(arrival.scheduled_out)}</div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500 dark:text-gray-400">Estimated</div>
-                        <div className="font-medium dark:text-gray-200">{formatTime(arrival.estimated_out)}</div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500 dark:text-gray-400">Actual</div>
-                        <div className="font-medium dark:text-gray-200">
-                          {arrival.actual_out ? formatTime(arrival.actual_out) : '-'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500 dark:text-gray-400">IATA Code:</div>
-                        <div className="font-medium text-yellow-500 dark:text-yellow-400">{arrival.origin.code}</div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500 dark:text-gray-400">Destination</div>
-                        <div className="text-red-500 dark:text-red-600 font-bold" style={{ fontSize: '24px' }}>
-  {arrival.destination.code}
-</div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500 dark:text-gray-400">Airline</div>
-                        <div className="font-medium text-blue-500 dark:text-blue-400">{arrival.KompanijaNaziv}</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+            {isLoading ? (
+              renderSkeletons()
+            ) : arrivals.length > 0 ? (
+              arrivals.map((arrival: Flight) => (
+                <FlightCard key={arrival.ident} flight={arrival} type="arrival" />
               ))
             ) : (
               <p>No arrivals available.</p>
@@ -244,7 +278,7 @@ className={`px-2 py-1 text-sm font-semibold rounded-full ${
           </div>
         </>
       )}
-      {/* Display Last Update Time */}
+
       <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
         Last fetched at: <span>{lastUpdated}</span>
       </div>
