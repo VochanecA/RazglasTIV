@@ -246,7 +246,7 @@ className={`px-2 py-1 text-sm font-semibold rounded-full ${
       )}
       {/* Display Last Update Time */}
       <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-        Last data fetched at: <span>{lastUpdated}</span>
+        Last fetched at: <span>{lastUpdated}</span>
       </div>
     </div>
   );
