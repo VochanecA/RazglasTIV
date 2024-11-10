@@ -29,7 +29,9 @@ const NotificationCenter: React.FC = () => {
   const addNotification = (title: string, message: string, type: NotificationType = 'info'): void => {
     const id = Date.now();
     setNotifications(prev => [...prev, { id, title, message, type }]);
-
+    if (navigator.vibrate) {
+        navigator.vibrate(200); // Vibrate for 200ms, adjust duration as desired
+      }
     setTimeout(() => {
       removeNotification(id);
     }, 5000);
