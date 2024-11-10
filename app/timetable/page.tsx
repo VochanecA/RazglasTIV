@@ -2,6 +2,7 @@
 import { PlaneTakeoff, PlaneLanding } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
+import { useNotification } from '@/components/ui/NotificationCenter';
 
 // Custom Skeleton Component
 const Skeleton = ({ className = '' }: { className?: string }) => {
@@ -153,45 +154,64 @@ const FlightCard = ({ flight, type }: { flight: Flight; type: 'departure' | 'arr
 
 
 const Departures = () => {
-    const [activeTab, setActiveTab] = useState<'departures' | 'arrivals'>('departures');
-    const [data, setData] = useState<FlightData | null>(null);
-    const [error, setError] = useState<string | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [lastUpdated, setLastUpdated] = useState<string>(''); // Initialize as empty string
-  
-    const fetchFlightData = async () => {
-      try {
-        setIsLoading(true);
-        const res = await fetch('/api/fetchFlights');
-        if (!res.ok) throw new Error('Failed to fetch flights data');
-        const newData = await res.json();
-        setData(newData);
-        setError(null);
-        // Use a consistent time format
-        const now = new Date();
-        setLastUpdated(now.toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: true
-        }));
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch flights data');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-  
-    // Only set up the data fetching after initial mount
-    useEffect(() => {
-      fetchFlightData();
+  const [activeTab, setActiveTab] = useState<'departures' | 'arrivals'>('departures');
+  const [data, setData] = useState<FlightData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<string>('');
+  const { showNotification } = useNotification(); // Add this line
+  const [notifiedFlights] = useState(new Set<string>()); // Track notified flights
+
+  const fetchFlightData = async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch('/api/fetchFlights');
+      if (!res.ok) throw new Error('Failed to fetch flights data');
+      const newData = await res.json();
       
-      // Set up polling interval
-      const interval = setInterval(fetchFlightData, 90000); // Refresh every minute
-      
-      // Cleanup interval on component unmount
-      return () => clearInterval(interval);
-    }, []);
+      // Check for early arrivals and show notifications
+      newData.arrivals.forEach((flight: Flight) => {
+        if (flight.status === 'Delay' && !notifiedFlights.has(flight.ident)) {
+          showNotification(
+            'Delayed Arrival',
+            // `Flight ${flight.Kompanija} ${flight.ident} from ${flight.origin.code} is arriving earlier than scheduled.`,
+            `Flight ${flight.Kompanija} ${flight.ident} from ${flight.origin.code} is delayed in arrival compared to the scheduled time.`,
+            'info'
+          );
+          notifiedFlights.add(flight.ident); // Mark this flight as notified
+        }
+        if (flight.status === 'Earlier' && !notifiedFlights.has(flight.ident)) {
+          showNotification(
+            'Earlier Arrival',
+            // `Flight ${flight.Kompanija} ${flight.ident} from ${flight.origin.code} is arriving earlier than scheduled.`,
+            `Flight ${flight.Kompanija} ${flight.ident} from ${flight.origin.code} is arriving earlier than scheduled.`,
+            'info'
+          );
+          notifiedFlights.add(flight.ident); // Mark this flight as notified
+        }
+      });
+
+      setData(newData);
+      setError(null);
+      const now = new Date();
+      setLastUpdated(now.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch flights data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchFlightData();
+    const interval = setInterval(fetchFlightData, 90000);
+    return () => clearInterval(interval);
+  }, []);
 
   const departures = data?.departures || [];
   const arrivals = data?.arrivals || [];

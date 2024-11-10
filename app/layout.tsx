@@ -5,6 +5,8 @@ import { Manrope } from 'next/font/google';
 import { UserProvider } from '@/lib/auth';
 import { getUser } from '@/lib/db/queries';
 import Navbar from '@/components/ui/navbar';
+import { NotificationCenter } from '@/components/ui/NotificationCenter';
+
 
 
 interface CustomTwitterMetadata {
@@ -128,6 +130,8 @@ export default async function RootLayout({
           <Navbar />
           <main className="flex-1">{children}</main>
         </UserProvider>
+        <NotificationCenter />
+
       </body>
     </html>
   );
