@@ -1,54 +1,96 @@
 import { NextResponse } from 'next/server';
 
+interface RawFlight {
+  Updateovano: string;
+  Datum: string;
+  Dan: string;
+  TipLeta: string;
+  KompanijaNaziv: string;
+  Kompanija: string;
+  KompanijaICAO: string;
+  BrojLeta: string;
+  IATA: string;
+  Grad: string;
+  Planirano: string;
+  Predvidjeno: string;
+  Aktuelno: string;
+  Terminal: string;
+  CheckIn: string;
+  Gate: string;
+  Aerodrom: string;
+  Status: string;
+  StatusEN: string;
+}
+
+const mapStatus = (statusEN: string, status: string): string => {
+  if (status === 'C01PRO') return 'Processing';
+  if (status === 'C02BRD') return 'Boarding';
+  if (status === 'C03LST') return 'Final Call';
+  if (status === 'A09DEP') return 'Departed';
+  if (status === 'A06ARR') return 'Arrived';
+  return statusEN || 'Scheduled';
+};
+
+const formatTime = (time: string): string => {
+  if (!time || time.trim() === '') return '';
+  return time.replace(/(\d{2})(\d{2})/, '$1:$2');
+};
+
 export async function GET() {
   try {
     const response = await fetch('https://montenegroairports.com/aerodromixs/cache-flights.php?airport=tv', {
-      headers: {
-        'User-Agent': 'Mozilla/5.0', // This can sometimes help with Cloudflare-protected routes.
-      },
+      next: { revalidate: 60 } // Cache for 1 minute
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch data: ${response.statusText}`);
+      throw new Error('Failed to fetch flight data');
     }
 
-    const data = await response.json();
+    const rawData: RawFlight[] = await response.json();
 
-    // Filter departures: TipLeta "O" (Outbound flights)
-    const departures = data.filter((flight: any) => flight.TipLeta === 'O').map((flight: any) => ({
-      ident: flight.BrojLeta,              // Flight number
-      status: flight.StatusEN,             // Status (e.g., Departed, Delayed)
-      scheduled_out: flight.Planirano,     // Scheduled departure time
-      actual_out: flight.Aktuelno || null, // Actual departure time (nullable)
-      origin: { code: flight.IATA },       // Origin airport code
-      destination: { code: flight.Grad },  // Destination airport code
-      Kompanija: flight.Kompanija,         // Airline IATA code
-      KompanijaICAO: flight.KompanijaICAO, // Airline ICAO code
-      KompanijaNaziv: flight.KompanijaNaziv, // Airline name
-      checkIn: flight.CheckIn || 'Not Available', // CheckIn (example field, adapt to actual data)
-      gate: flight.Gate || 'Not Assigned'        // Gate (example field, adapt to actual data)
-    }));
+    const processedData = {
+      departures: rawData
+        .filter(flight => flight.TipLeta === 'O')
+        .map(flight => ({
+          ident: `${flight.BrojLeta}`,
+          status: mapStatus(flight.StatusEN, flight.Status),
+          scheduled_out: formatTime(flight.Planirano),
+          estimated_out: formatTime(flight.Predvidjeno),
+          actual_out: formatTime(flight.Aktuelno),
+          origin: { code: 'TIV' },
+          destination: { code: flight.IATA },
+          grad:  flight.Grad ,
+          Kompanija: flight.Kompanija,
+          KompanijaICAO: flight.KompanijaICAO,
+          KompanijaNaziv: flight.KompanijaNaziv,
+          checkIn: flight.CheckIn,
+          gate: flight.Gate
+        })),
+      arrivals: rawData
+        .filter(flight => flight.TipLeta === 'I')
+        .map(flight => ({
+          ident: `${flight.BrojLeta}`,
+          status: mapStatus(flight.StatusEN, flight.Status),
+          scheduled_out: formatTime(flight.Planirano),
+          estimated_out: formatTime(flight.Predvidjeno),
+          actual_out: formatTime(flight.Aktuelno),
+          origin: { code: flight.IATA },
+          grad:  flight.Grad ,
+          destination: { code: 'TIV' },
+          Kompanija: flight.Kompanija,
+          KompanijaICAO: flight.KompanijaICAO,
+          KompanijaNaziv: flight.KompanijaNaziv,
+          checkIn: flight.CheckIn,
+          gate: flight.Gate
+        }))
+    };
 
-    // Filter arrivals: TipLeta "I" (Inbound flights)
-    const arrivals = data.filter((flight: any) => flight.TipLeta === 'I').map((flight: any) => ({
-      ident: flight.BrojLeta,              // Flight number
-      status: flight.StatusEN,             // Status (e.g., Arrived, Delayed)
-      scheduled_out: flight.Planirano,     // Scheduled arrival time
-      actual_out: flight.Aktuelno || null, // Actual arrival time (nullable)
-      origin: { code: flight.IATA },       // Origin airport code
-      destination: { code: flight.Grad },  // Destination airport code
-      Kompanija: flight.Kompanija,         // Airline IATA code
-      KompanijaICAO: flight.KompanijaICAO, // Airline ICAO code
-      KompanijaNaziv: flight.KompanijaNaziv // Airline name
-    }));
-
-    // Return both departures and arrivals as an object
-    return NextResponse.json({ departures, arrivals });
-  } catch (error: unknown) { // Explicitly type `error` as `unknown`
-    if (error instanceof Error) { // Narrow the type to `Error`
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    } else {
-      return NextResponse.json({ error: 'Unknown error occurred' }, { status: 500 });
-    }
+    return NextResponse.json(processedData);
+  } catch (error) {
+    console.error('Error fetching flight data:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch flight data' },
+      { status: 500 }
+    );
   }
 }

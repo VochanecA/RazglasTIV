@@ -1,8 +1,12 @@
 'use client';
+
 import { PlaneTakeoff, PlaneLanding } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useNotification } from '@/components/ui/NotificationCenter';
+import { getFlightTTSEngine } from '@/lib/flightTTS';
+import type { Flight, FlightData } from '@/types/flight';
+import { TTSInitializer } from '@/components/ui/TTSInitializer';
 
 // Custom Skeleton Component
 const Skeleton = ({ className = '' }: { className?: string }) => {
@@ -10,31 +14,9 @@ const Skeleton = ({ className = '' }: { className?: string }) => {
   return <div className={`${baseClasses} ${className}`} />;
 };
 
-interface Flight {
-  ident: string;
-  status: string;
-  scheduled_out: string;
-  estimated_out: string;
-  actual_out: string | null;
-  origin: { code: string };
-  destination: { code: string };
-  Kompanija: string;
-  KompanijaICAO: string;
-  KompanijaNaziv: string;
-  checkIn: string;
-  gate: string;
-}
-
-interface FlightData {
-  departures: Flight[];
-  arrivals: Flight[];
-}
-
 const formatTime = (time: string) => {
-  if (!time || time.length !== 4) return '-';
-  const hours = time.substring(0, 2);
-  const minutes = time.substring(2, 4);
-  return `${hours}:${minutes}`;
+  if (!time || time.length !== 5) return '-';
+  return time;
 };
 
 // Loading skeleton component for flight cards
@@ -70,20 +52,20 @@ const FlightCard = ({ flight, type }: { flight: Flight; type: 'departure' | 'arr
       <div className="p-4 space-y-4">
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-4">
-          <div className="w-20 h-12 relative bg-white">
-          <Image
-  src={logoError ? placeholderUrl : logoUrl}
-  alt={`${flight.KompanijaNaziv} logo`}
-  fill
-  className="object-contain"
-  onError={() => setLogoError(true)}
-  loading="eager" // Or "lazy" if appropriate
-  priority={true} // Set to true if this image is critical for LCP
-/>
-</div>
+            <div className="w-20 h-12 relative bg-white">
+              <Image
+                src={logoError ? placeholderUrl : logoUrl}
+                alt={`${flight.KompanijaNaziv} logo`}
+                fill
+                className="object-contain"
+                onError={() => setLogoError(true)}
+                loading="eager"
+                priority={true}
+              />
+            </div>
             <span className="text-2xl font-bold text-blue-600 dark:text-yellow-400">
-  {flight.Kompanija} {flight.ident}
-</span>
+              {flight.Kompanija} {flight.ident}
+            </span>
           </div>
           <span
             className={`px-2 py-1 text-sm font-semibold rounded-full ${
@@ -122,7 +104,7 @@ const FlightCard = ({ flight, type }: { flight: Flight; type: 'departure' | 'arr
           <div>
             <div className="text-gray-500 dark:text-gray-400">Destination</div>
             <div className="text-red-500 dark:text-blue-300 font-bold text-2xl">
-              {flight.destination.code}
+              {flight.grad}
             </div>
           </div>
           <div>
@@ -152,15 +134,16 @@ const FlightCard = ({ flight, type }: { flight: Flight; type: 'departure' | 'arr
   );
 };
 
-
 const Departures = () => {
   const [activeTab, setActiveTab] = useState<'departures' | 'arrivals'>('departures');
   const [data, setData] = useState<FlightData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<string>('');
-  const { showNotification } = useNotification(); // Add this line
-  const [notifiedFlights] = useState(new Set<string>()); // Track notified flights
+  const { showNotification } = useNotification();
+  const [notifiedFlights] = useState(new Set<string>());
+  const [processedFlights] = useState(new Set<string>());
+  
 
   const fetchFlightData = async () => {
     try {
@@ -169,25 +152,57 @@ const Departures = () => {
       if (!res.ok) throw new Error('Failed to fetch flights data');
       const newData = await res.json();
       
-      // Check for early arrivals and show notifications
+      // Process TTS announcements
+      const ttsEngine = getFlightTTSEngine();
+      if (ttsEngine) {
+        // Process departures
+        newData.departures.forEach((flight: Flight) => {
+          const flightKey = `${flight.ident}-${flight.status}-${flight.scheduled_out}`;
+          
+          if (!processedFlights.has(flightKey)) {
+            if (flight.status === 'Check In' && ttsEngine.shouldAnnounce(flight, 'Check In')) {
+              ttsEngine.queueAnnouncement(flight, 'checkin');
+              processedFlights.add(flightKey);
+            } else if (flight.status === 'Processing' && ttsEngine.shouldAnnounce(flight, 'Processing')) {
+              ttsEngine.queueAnnouncement(flight, 'checkin');
+              processedFlights.add(flightKey);
+            } else if (flight.status === 'Boarding' && ttsEngine.shouldAnnounce(flight, 'Boarding')) {
+              ttsEngine.queueAnnouncement(flight, 'boarding');
+              processedFlights.add(flightKey);
+            } else if (flight.status === 'Final Call' && ttsEngine.shouldAnnounce(flight, 'Final Call')) {
+              ttsEngine.queueAnnouncement(flight, 'final');
+              processedFlights.add(flightKey);
+            }
+          }
+        });
+
+        // Process arrivals
+        newData.arrivals.forEach((flight: Flight) => {
+          const flightKey = `${flight.ident}-arrived`;
+          if (flight.status === 'Arrived' && !processedFlights.has(flightKey)) {
+            ttsEngine.queueAnnouncement(flight, 'arrived');
+            processedFlights.add(flightKey);
+          }
+        });
+      }
+
+      // Keep existing notification logic
       newData.arrivals.forEach((flight: Flight) => {
         if (flight.status === 'Delay' && !notifiedFlights.has(flight.ident)) {
           showNotification(
             'Delayed Arrival',
-            // `Flight ${flight.Kompanija} ${flight.ident} from ${flight.origin.code} is arriving earlier than scheduled.`,
-            `Flight ${flight.Kompanija} ${flight.ident} from ${flight.origin.code} is delayed in arrival compared to the scheduled time.`,
+            `Flight ${flight.Kompanija} ${flight.ident} from ${flight.origin.code} / ${flight.grad} is delayed in arrival compared to the scheduled time.`,
             'info'
           );
-          notifiedFlights.add(flight.ident); // Mark this flight as notified
+          notifiedFlights.add(flight.ident);
         }
         if (flight.status === 'Earlier' && !notifiedFlights.has(flight.ident)) {
           showNotification(
             'Earlier Arrival',
-            // `Flight ${flight.Kompanija} ${flight.ident} from ${flight.origin.code} is arriving earlier than scheduled.`,
-            `Flight ${flight.Kompanija} ${flight.ident} from ${flight.origin.code} is arriving earlier than scheduled.`,
+            `Flight ${flight.Kompanija} ${flight.ident} from ${flight.origin.code} / ${flight.grad} is arriving earlier than scheduled.`,
             'info'
           );
-          notifiedFlights.add(flight.ident); // Mark this flight as notified
+          notifiedFlights.add(flight.ident);
         }
       });
 
@@ -210,23 +225,21 @@ const Departures = () => {
   useEffect(() => {
     fetchFlightData();
     const interval = setInterval(fetchFlightData, 90000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      const ttsEngine = getFlightTTSEngine();
+      if (ttsEngine) {
+        ttsEngine.stop();
+      }
+    };
   }, []);
 
   const departures = data?.departures || [];
   const arrivals = data?.arrivals || [];
 
-  // Render loading skeletons
-  const renderSkeletons = () => (
-    <div className="grid grid-cols-1 gap-4">
-      {[...Array(3)].map((_, index) => (
-        <FlightCardSkeleton key={index} />
-      ))}
-    </div>
-  );
-
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen p-4">
+            <TTSInitializer />
       <div className="flex mb-4">
         <button
           className={`w-1/2 px-4 py-2 rounded-l-lg text-lg font-semibold flex items-center justify-center space-x-2 transition-colors duration-200 ${
@@ -266,7 +279,7 @@ const Departures = () => {
           </h2>
           <div className="grid grid-cols-1 gap-4">
             {isLoading ? (
-              renderSkeletons()
+              [...Array(3)].map((_, index) => <FlightCardSkeleton key={index} />)
             ) : departures.length > 0 ? (
               departures.map((departure: Flight) => (
                 <FlightCard key={departure.ident} flight={departure} type="departure" />
@@ -286,7 +299,7 @@ const Departures = () => {
           </h2>
           <div className="grid grid-cols-1 gap-4">
             {isLoading ? (
-              renderSkeletons()
+              [...Array(3)].map((_, index) => <FlightCardSkeleton key={index} />)
             ) : arrivals.length > 0 ? (
               arrivals.map((arrival: Flight) => (
                 <FlightCard key={arrival.ident} flight={arrival} type="arrival" />
@@ -304,5 +317,7 @@ const Departures = () => {
     </div>
   );
 };
+
+
 
 export default Departures;
