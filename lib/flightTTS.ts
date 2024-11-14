@@ -79,7 +79,7 @@ class FlightTTSEngine {
       case 'final':
         return `Final call. This is the final call for ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.destination.code}. Please proceed immediately to gate ${flight.gate}`;
       case 'arrived':
-        return `${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} has arrived from ${flight.grad}`;
+        return `Dear passengers, ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} has arrived from ${flight.grad}`;
       default:
         return '';
     }
