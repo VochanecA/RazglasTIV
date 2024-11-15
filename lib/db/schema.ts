@@ -79,6 +79,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   invitationsSent: many(invitations),
 }));
 
+
 export const invitationsRelations = relations(invitations, ({ one }) => ({
   team: one(teams, {
     fields: [invitations.teamId],

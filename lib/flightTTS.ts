@@ -1,5 +1,6 @@
 'use client';
 
+
 interface Flight {
   ident: string;
   status: string;
