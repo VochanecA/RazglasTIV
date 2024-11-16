@@ -174,11 +174,12 @@ class FlightTTSEngine {
     this.synth.speak(utterance);
   }
 
-  public queueAnnouncement(flight: Flight, type: 'checkin' | 'boarding' | 'final' | 'arrived') {
+  public queueAnnouncement(flight: Flight, type: 'checkin' | 'boarding' | 'final' | 'arrived' | 'close') {
     console.log('FlightTTSEngine queueAnnouncement called');
     const text = this.createAnnouncementText(flight, type);
     const priority = type === 'arrived' ? 4 : 
                     type === 'final' ? 1 : 
+                    type === 'close' ? 1 : 
                     type === 'boarding' ? 2 : 3;
     
     this.addToQueue(text, priority, flight.scheduled_out || '');
