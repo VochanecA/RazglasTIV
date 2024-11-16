@@ -70,7 +70,7 @@ class FlightTTSEngine {
     this.selectedVoice = voice;
   }
 
-  private createAnnouncementText(flight: Flight, type: 'checkin' | 'boarding' | 'final' | 'arrived'): string {
+  private createAnnouncementText(flight: Flight, type: 'checkin' | 'boarding' | 'final' | 'arrived' | 'close'): string {
     console.log('FlightTTSEngine createAnnouncementText called');
     switch (type) {
       case 'checkin':
@@ -81,10 +81,13 @@ class FlightTTSEngine {
         return `Final call. This is the final call for ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.destination.code}. Please proceed immediately to gate ${flight.gate}`;
       case 'arrived':
         return `Dear passengers, ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} has arrived from ${flight.grad}`;
+      case 'close':
+        return `Attention please. The boarding for ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.destination.code} has now closed. We thank you for your cooperation.`;
       default:
         return '';
     }
-  }
+}
+
 
   private getTimeDifferenceInMinutes(scheduledTime: string): number {
     console.log('FlightTTSEngine getTimeDifferenceInMinutes called');
@@ -102,14 +105,16 @@ class FlightTTSEngine {
     const timeDiff = this.getTimeDifferenceInMinutes(flight.scheduled_out);
     
     switch (status) {
-      case 'Check In':
+      case 'Processing':
         return timeDiff <= 60 && timeDiff >= 55;
       case 'Processing':
         return timeDiff <= 40 && timeDiff >= 35;
       case 'Boarding':
-        return timeDiff <= 30 && timeDiff >= 25;
+        return timeDiff <= 25 && timeDiff >= 20;
       case 'Final Call':
         return timeDiff <= 15 && timeDiff >= 10;
+        case 'Close':
+          return timeDiff <= 10 && timeDiff >= 5;
       default:
         return false;
     }

@@ -172,6 +172,9 @@ const Departures = () => {
             } else if (flight.status === 'Final Call' && ttsEngine.shouldAnnounce(flight, 'Final Call')) {
               ttsEngine.queueAnnouncement(flight, 'final');
               processedFlights.add(flightKey);
+            } else if (flight.status === 'Close' && ttsEngine.shouldAnnounce(flight, 'Close')) {
+              ttsEngine.queueAnnouncement(flight, 'close');
+              processedFlights.add(flightKey);
             }
           }
         });

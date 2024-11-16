@@ -28,6 +28,7 @@ const mapStatus = (statusEN: string, status: string): string => {
   if (status === 'C03LST') return 'Final Call';
   if (status === 'A09DEP') return 'Departed';
   if (status === 'A06ARR') return 'Arrived';
+  if (status === 'G02GCL') return 'Close';
   return statusEN || 'Scheduled';
 };
 
