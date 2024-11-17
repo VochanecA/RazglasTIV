@@ -226,16 +226,29 @@ const Departures = () => {
   };
 
   useEffect(() => {
+    // Initialize TTS engine
+    const ttsEngine = getFlightTTSEngine();
+    if (ttsEngine) {
+      ttsEngine.setAnnouncementInterval(30);
+      ttsEngine.startScheduledAnnouncements();
+    }
+
+    // Initial fetch and setup interval for flight data
     fetchFlightData();
-    const interval = setInterval(fetchFlightData, 90000);
+    const fetchInterval = setInterval(fetchFlightData, 90000);
+
+    // Cleanup function
     return () => {
-      clearInterval(interval);
-      const ttsEngine = getFlightTTSEngine();
-      if (ttsEngine) {
-        ttsEngine.stop();
+      // Clear the fetch interval
+      clearInterval(fetchInterval);
+      
+      // Stop the TTS engine
+      const engine = getFlightTTSEngine();
+      if (engine) {
+        engine.stop();
       }
     };
-  }, []);
+  }, []); // Empty dependency array means this runs once on mount
 
   const departures = data?.departures || [];
   const arrivals = data?.arrivals || [];
