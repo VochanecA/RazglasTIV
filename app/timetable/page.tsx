@@ -68,18 +68,20 @@ const FlightCard = ({ flight, type }: { flight: Flight; type: 'departure' | 'arr
             </span>
           </div>
           <span
-            className={`px-2 py-1 text-sm font-semibold rounded-full ${
-              flight.status === (type === 'departure' ? 'Departed' : 'Arrived')
-                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100'
-                : flight.status === 'Delayed'
-                ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100'
-                : flight.status === 'Processing'
-                ? 'bg-yellow-400 text-black font-bold blink'
-                : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100 font-bold'
-            }`}
-          >
-            {flight.status === 'Processing' ? 'Check In Open' : flight.status}
-          </span>
+  className={`px-2 py-1 text-sm font-semibold rounded-full ${
+    flight.status === (type === 'departure' ? 'Departed' : 'Arrived')
+      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100'
+      : flight.status === 'Delayed'
+      ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100'
+      : flight.status === 'Processing'
+      ? 'bg-yellow-400 text-black font-bold blink'
+      : flight.status === 'Boarding'  // Add this condition
+      ? 'bg-red-600 text-white font-bold blink-red'  // Add this styling
+      : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100 font-bold'
+  }`}
+>
+  {flight.status === 'Processing' ? 'Check In Open' : flight.status}
+</span>
         </div>
 
         <div className="grid grid-cols-2 gap-4 text-sm">

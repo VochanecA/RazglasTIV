@@ -47,7 +47,7 @@ function Navbar() {
   if (!hasMounted) return null;
 
   return (
-    <header className="border-b border-gray-200 bg-white dark:bg-gray-800 shadow-sm">
+    <header className=" border-gray-200 bg-white dark:bg-gray-800 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
         <Link href="/" className="flex items-center">
           <CircleIcon className="h-6 w-6 text-orange-500" />
