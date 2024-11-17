@@ -250,6 +250,14 @@ const Departures = () => {
     };
   }, []); // Empty dependency array means this runs once on mount
 
+  // Add this function to periodically clean up old entries
+  function cleanupProcessedFlights() {
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+      processedFlights.clear(); // Or implement more sophisticated cleanup logic
+  }
+  
+  // Call it periodically or after certain conditions
+  setInterval(cleanupProcessedFlights, 60 * 60 * 1000); // Clean up every hour
   const departures = data?.departures || [];
   const arrivals = data?.arrivals || [];
 
