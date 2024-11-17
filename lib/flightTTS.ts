@@ -6,6 +6,7 @@ interface Flight {
   scheduled_out: string;
   estimated_out: string;
   actual_out: string | null;
+  actual_in: string | null;
   origin: { code: string };
   grad: string;
   destination: { code: string };
@@ -14,6 +15,7 @@ interface Flight {
   KompanijaNaziv: string;
   checkIn: string;
   gate: string;
+  isArrival?: boolean;
 }
 
 interface TTSQueueItem {
@@ -29,6 +31,11 @@ interface ScheduledAnnouncementConfig {
   interval: number; // in minutes
 }
 
+interface AnnouncementRecord {
+  lastAnnounced: number; // timestamp
+  count: number;
+}
+
 class FlightTTSEngine {
   private queue: TTSQueueItem[] = [];
   private isPlaying: boolean = false;
@@ -37,6 +44,13 @@ class FlightTTSEngine {
   private onInitCallbacks: (() => void)[] = [];
   private selectedVoice: SpeechSynthesisVoice | null = null;
   private scheduledAnnouncementTimer: NodeJS.Timeout | null = null;
+  private cleanupTimer: NodeJS.Timeout | null = null;
+  private announcedFlights: Map<string, AnnouncementRecord> = new Map();
+
+  private readonly MINIMUM_ANNOUNCEMENT_INTERVAL = 1000 * 60 * 30; // 30 minutes
+  private readonly CLEANUP_INTERVAL = 1000 * 60 * 60; // 1 hour
+  private readonly RECORD_EXPIRY = 1000 * 60 * 60 * 24; // 24 hours
+
   private announcementConfig: ScheduledAnnouncementConfig = {
     startHour: 7,
     endHourWinter: 16.5, // 16:30
@@ -55,12 +69,10 @@ class FlightTTSEngine {
       return;
     }
 
-    // Handle the case where speech synthesis is already in use
     if (this.synth.speaking) {
       this.synth.cancel();
     }
 
-    // Load voices when they're available
     if (this.synth.getVoices().length > 0) {
       this.setupVoice();
     } else {
@@ -68,11 +80,12 @@ class FlightTTSEngine {
         this.setupVoice();
       };
     }
+
+    this.startCleanupTimer();
   }
 
   private setupVoice() {
     const voices = this.synth.getVoices();
-    // Try to find an English voice, preferably British English
     this.selectedVoice = voices.find(voice => 
       voice.lang === 'en-GB' && !voice.localService
     ) || voices.find(voice => 
@@ -102,6 +115,92 @@ class FlightTTSEngine {
 
   public setVoice(voice: SpeechSynthesisVoice) {
     this.selectedVoice = voice;
+  }
+
+  private startCleanupTimer() {
+    this.cleanupTimer = setInterval(() => {
+      this.cleanupAnnouncementRecords();
+    }, this.CLEANUP_INTERVAL);
+  }
+
+  private cleanupAnnouncementRecords() {
+    const now = Date.now();
+    // Convert entries to array before iteration
+    Array.from(this.announcedFlights.entries()).forEach(([flightId, record]) => {
+      if (now - record.lastAnnounced > this.RECORD_EXPIRY) {
+        this.announcedFlights.delete(flightId);
+      }
+    });
+  }
+
+
+  public shouldAnnounceArrival(flight: Flight): boolean {
+    // First check if basic conditions are met
+    if (!flight.isArrival || flight.status !== 'arrived' || !flight.actual_in) {
+      return false;
+    }
+
+    try {
+      // Parse the arrival time
+      const actualInTime = new Date(flight.actual_in);
+      const now = new Date();
+
+      // Validate that the arrival time is a valid date
+      if (isNaN(actualInTime.getTime())) {
+        console.warn(`Invalid arrival time for flight ${flight.ident}`);
+        return false;
+      }
+
+      // Calculate minutes since arrival
+      const minutesSinceArrival = (now.getTime() - actualInTime.getTime()) / (1000 * 60);
+
+      // Debug log to help track timing issues
+      console.log(`Flight ${flight.ident} arrived ${minutesSinceArrival.toFixed(1)} minutes ago`);
+
+      // Strict check: Only announce if arrived less than 10 minutes ago
+      if (minutesSinceArrival > 10) {
+        console.log(`Skipping announcement for flight ${flight.ident} - arrived ${minutesSinceArrival.toFixed(1)} minutes ago`);
+        return false;
+      }
+
+      // Check if we've already announced this flight recently
+      const record = this.announcedFlights.get(flight.ident);
+      if (record) {
+        const timeSinceLastAnnouncement = (now.getTime() - record.lastAnnounced) / 1000;
+        if (timeSinceLastAnnouncement < this.MINIMUM_ANNOUNCEMENT_INTERVAL) {
+          return false;
+        }
+      }
+
+      // If we get here, the flight arrived within the last 10 minutes and hasn't been announced recently
+      return true;
+
+    } catch (error) {
+      console.error(`Error processing arrival time for flight ${flight.ident}:`, error);
+      return false;
+    }
+  }
+
+  private parseFlightDate(dateString: string): Date | null {
+    try {
+      const parsed = new Date(dateString);
+      if (isNaN(parsed.getTime())) {
+        return null;
+      }
+      return parsed;
+    } catch {
+      return null;
+    }
+  }
+
+  private recordAnnouncement(flight: Flight) {
+    const now = Date.now();
+    const record = this.announcedFlights.get(flight.ident) || { lastAnnounced: 0, count: 0 };
+    
+    this.announcedFlights.set(flight.ident, {
+      lastAnnounced: now,
+      count: record.count + 1
+    });
   }
 
   private createAnnouncementText(flight: Flight, type: 'checkin' | 'boarding' | 'final' | 'arrived' | 'close'): string {
@@ -236,15 +335,23 @@ class FlightTTSEngine {
   
     this.synth.speak(utterance);
   }
-
   public queueAnnouncement(flight: Flight, type: 'checkin' | 'boarding' | 'final' | 'arrived' | 'close') {
+    // For arrivals, do one final time check before queuing
+    if (type === 'arrived') {
+      if (!this.shouldAnnounceArrival(flight)) {
+        console.log(`Skipping announcement queue for flight ${flight.ident} - failed final time check`);
+        return;
+      }
+    }
+
     const text = this.createAnnouncementText(flight, type);
     const priority = type === 'arrived' ? 4 : 
                     type === 'final' ? 1 : 
                     type === 'close' ? 1 : 
                     type === 'boarding' ? 2 : 3;
-    
-    this.addToQueue(text, priority, flight.scheduled_out || '');
+
+    this.recordAnnouncement(flight);
+    this.addToQueue(text, priority, flight.scheduled_out || flight.actual_in || '');
   }
 
   public setAnnouncementInterval(minutes: number) {
@@ -270,10 +377,8 @@ class FlightTTSEngine {
       }
     };
 
-    // Initial check
     playIfInHours();
 
-    // Schedule regular checks
     this.scheduledAnnouncementTimer = setInterval(() => {
       playIfInHours();
     }, this.announcementConfig.interval * 60 * 1000);
@@ -288,11 +393,18 @@ class FlightTTSEngine {
 
   public stop() {
     this.stopScheduledAnnouncements();
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = null;
+    }
     this.synth.cancel();
     this.queue = [];
     this.isPlaying = false;
+    this.announcedFlights.clear();
   }
 }
+
+
 
 let ttsEngine: FlightTTSEngine | null = null;
 
