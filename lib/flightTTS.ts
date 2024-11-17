@@ -281,7 +281,7 @@ class FlightTTSEngine {
 
   private createSecurityAnnouncement(): string {
     const currentTime = this.formatTime(new Date());
-    return `Dear passengers, may I have your attention please. Do not leave baggage unattended. ` +
+    return `Dear passengers, may I have your attention please. Do not leave your baggage unattended at any time you are at the airport. ` +
            `Unattended baggage may be confiscated for security reason and may be destroyed. ` +
            `The local time is ${currentTime}. Thank you.`;
   }
