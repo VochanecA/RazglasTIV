@@ -341,7 +341,7 @@ const Departures = () => {
 
       <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
         Last fetched at: <span>{lastUpdated}</span>
-        Build time: {buildTime} | Commit SHA: {commitSHA}
+        * Build time: {buildTime} | Commit SHA: {commitSHA}
       </div>
        
       
