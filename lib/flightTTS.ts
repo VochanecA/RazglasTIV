@@ -43,8 +43,8 @@ class FlightTTSEngine {
   private isInitialized: boolean = false;
   private onInitCallbacks: (() => void)[] = [];
   private selectedVoice: SpeechSynthesisVoice | null = null;
-  private scheduledAnnouncementTimer: number | null = null;
-  private cleanupTimer: number | null = null;
+  private scheduledAnnouncementTimer: NodeJS.Timeout | null = null;
+  private cleanupTimer: NodeJS.Timeout | null = null;
   private announcedFlights: Map<string, AnnouncementRecord> = new Map();
   private voicesLoadedPromise: Promise<void>;
   private maxInitializationAttempts = 10;
@@ -146,7 +146,7 @@ class FlightTTSEngine {
   }
 
   private startCleanupTimer() {
-    this.cleanupTimer = window.setInterval(() => {
+    this.cleanupTimer = setInterval(() => {
       this.cleanupAnnouncementRecords();
     }, this.CLEANUP_INTERVAL);
   }
@@ -380,6 +380,7 @@ class FlightTTSEngine {
     }
   }
 
+
   public startScheduledAnnouncements() {
     if (this.scheduledAnnouncementTimer) {
       return;
@@ -394,14 +395,14 @@ class FlightTTSEngine {
 
     playIfInHours();
 
-    this.scheduledAnnouncementTimer = window.setInterval(() => {
+    this.scheduledAnnouncementTimer = setInterval(() => {
       playIfInHours();
     }, this.announcementConfig.interval * 60 * 1000);
   }
 
   public stopScheduledAnnouncements() {
     if (this.scheduledAnnouncementTimer) {
-      window.clearInterval(this.scheduledAnnouncementTimer);
+      clearInterval(this.scheduledAnnouncementTimer);
       this.scheduledAnnouncementTimer = null;
     }
   }
@@ -409,7 +410,7 @@ class FlightTTSEngine {
   public stop() {
     this.stopScheduledAnnouncements();
     if (this.cleanupTimer) {
-      window.clearInterval(this.cleanupTimer);
+      clearInterval(this.cleanupTimer);
       this.cleanupTimer = null;
     }
     this.synth.cancel();
@@ -418,6 +419,8 @@ class FlightTTSEngine {
     this.announcedFlights.clear();
   }
 }
+
+
 
 let ttsEngine: FlightTTSEngine | null = null;
 
