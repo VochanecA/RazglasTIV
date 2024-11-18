@@ -9,6 +9,10 @@ const nextConfig: NextConfig = {
     unoptimized: true,
   },
   reactStrictMode: true,
+  env: {
+    NEXT_PUBLIC_VERCEL_BUILD_TIME: process.env.VERCEL_BUILD_TIME,
+    NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA: process.env.VERCEL_GIT_COMMIT_SHA,
+  },
 };
 
 export default nextConfig;

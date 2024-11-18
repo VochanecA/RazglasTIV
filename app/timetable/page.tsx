@@ -145,6 +145,8 @@ const Departures = () => {
   const { showNotification } = useNotification();
   const [notifiedFlights] = useState(new Set<string>());
   const [processedFlights] = useState(new Set<string>());
+  const [buildTime] = useState<string>(process.env.NEXT_PUBLIC_VERCEL_BUILD_TIME || 'Unknown');
+  const [commitSHA] = useState<string>(process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA || 'Unknown');
   
 
   const fetchFlightData = async () => {
@@ -340,6 +342,12 @@ const Departures = () => {
       <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
         Last fetched at: <span>{lastUpdated}</span>
       </div>
+      <p className="text-center text-gray-600 dark:text-gray-400">
+          Last updated: {lastUpdated || 'Loading...'}
+        </p>
+        <p className="text-center text-sm text-gray-500 dark:text-gray-300">
+          Build time: {buildTime} | Commit SHA: {commitSHA}
+        </p>
     </div>
   );
 };
