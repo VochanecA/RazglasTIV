@@ -1,0 +1,8 @@
+{
+    "build": {
+      "env": {
+        "VERCEL_BUILD_TIME": "@vercel/build-time"
+      }
+    }
+  }
+  
