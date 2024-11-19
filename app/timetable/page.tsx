@@ -340,8 +340,8 @@ const Departures = () => {
       )}
 
       <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-        1.Last fetched at: <span>{lastUpdated}</span>
-        2.Build time: {buildTime} | Commit SHA: {commitSHA}
+        1-Last fetched at: <span>{lastUpdated}</span>
+        2-Build time: {buildTime} | Commit SHA: {commitSHA}
       </div>
        
       
