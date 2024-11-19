@@ -129,6 +129,18 @@ export type TeamDataWithMembers = Team & {
   })[];
 };
 
+// MP3 Plays table definition
+export const mp3Plays = pgTable('mp3_plays', {
+  id: serial('id').primaryKey(),
+  flightIcaoCode: varchar('flight_icao_code', { length: 4 }).notNull(),
+  flightNumber: varchar('flight_number', { length: 10 }).notNull(),
+  destinationCode: varchar('destination_code', { length: 3 }).notNull(),
+  callType: varchar('call_type', { length: 50 }).notNull(),
+  gate: varchar('gate', { length: 20 }),
+  filename: varchar('filename', { length: 255 }).notNull(),
+  playedAt: timestamp('played_at').notNull().defaultNow(),
+})
+
 export enum ActivityType {
   SIGN_UP = 'SIGN_UP',
   SIGN_IN = 'SIGN_IN',

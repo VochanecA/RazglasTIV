@@ -1,5 +1,12 @@
 'use client';
-
+interface TTSPlayRecord {
+  flightIcaoCode: string;
+  flightNumber: string;
+  destinationCode: string;
+  callType: 'checkin' | 'boarding' | 'final' | 'arrived' | 'close';
+  gate?: string;
+  filename: string;
+}
 interface Flight {
   ident: string;
   status: string;
@@ -36,6 +43,7 @@ interface AnnouncementRecord {
   count: number;
 }
 
+
 class FlightTTSEngine {
   private queue: TTSQueueItem[] = [];
   private isPlaying: boolean = false;
@@ -51,6 +59,7 @@ class FlightTTSEngine {
   private readonly CLEANUP_INTERVAL = 1000 * 60 * 60; // 1 hour
   private readonly RECORD_EXPIRY = 1000 * 60 * 60 * 24; // 24 hours
 
+  
   private announcementConfig: ScheduledAnnouncementConfig = {
     startHour: 7,
     endHourWinter: 16.5, // 16:30
@@ -92,7 +101,8 @@ class FlightTTSEngine {
       voice.lang.startsWith('en-') && !voice.localService
     ) || voices[0];
   }
-
+  
+  
   public initialize() {
     console.log('FlightTTSEngine initialize called');
     if (this.isInitialized) return;
@@ -117,6 +127,7 @@ class FlightTTSEngine {
     this.selectedVoice = voice;
   }
 
+  
   private startCleanupTimer() {
     this.cleanupTimer = setInterval(() => {
       this.cleanupAnnouncementRecords();
@@ -193,6 +204,7 @@ class FlightTTSEngine {
     }
   }
 
+  
   private recordAnnouncement(flight: Flight) {
     const now = Date.now();
     const record = this.announcedFlights.get(flight.ident) || { lastAnnounced: 0, count: 0 };
@@ -202,17 +214,38 @@ class FlightTTSEngine {
       count: record.count + 1
     });
   }
-  private createAnnouncementText(flight: Flight, type: 'checkin' | 'boarding' | 'final' | 'arrived' | 'close'): string {
-    // Function to remove leading zeros from check-in numbers
-    const formatCheckIn = (checkIn: string) => checkIn.replace(/^0+/, '');
+  private createAnnouncementText(flight: Flight, type: 'checkin' | 'boarding' | 'processing' | 'final' | 'arrived' | 'close'): string {
+    // Function to remove leading zeros from check-in numbers or gate numbers
+    const formatCheckInOrGate = (checkInOrGate: string) => {
+      return checkInOrGate ? checkInOrGate.replace(/^0+/, '') : checkInOrGate;
+    };
+  
+    // Function to convert numbers to words for numbers 1-9
+    const numberToWords = (num: number) => {
+      const words: { [key: number]: string } = {
+        1: 'one', 2: 'two', 3: 'three', 4: 'four', 5: 'five', 6: 'six', 7: 'seven', 8: 'eight', 9: 'nine'
+      };
+      return words[num] || num.toString(); // For numbers > 9, just return the number as a string
+    };
+  
+    // Function to process the check-in counters or gate numbers to remove leading zeros and convert to words for numbers 1-9
+    const processCheckInOrGate = (checkInOrGate: string) => {
+      const checkInOrGateParts = checkInOrGate.split(',').map(part => formatCheckInOrGate(part.trim())); // Remove leading zeros and trim spaces
+      return checkInOrGateParts.map((part, index) => {
+        const num = parseInt(part, 10);
+        // Convert only numbers less than 10 to words, keep others numeric
+        return num < 10 ? numberToWords(num) : num.toString(); 
+      }).join(' '); // Join with space instead of commas to avoid TTS issues
+    };
   
     switch (type) {
       case 'checkin':
-        return `Attention please. ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} is now open for check-in at counter ${formatCheckIn(flight.checkIn)}`;
+      case 'processing':
+        return `Attention please. ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} is open for check-in at counter ${processCheckInOrGate(flight.checkIn)}`;
       case 'boarding':
-        return `Attention please. ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} is now boarding at gate ${flight.gate}`;
+        return `Attention please. ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} is now boarding at gate ${processCheckInOrGate(flight.gate)}`;
       case 'final':
-        return `Final call. This is the final call for ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad}. Please proceed immediately to gate ${flight.gate}`;
+        return `Final call. This is the final call for ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad}. Please proceed immediately to gate ${processCheckInOrGate(flight.gate)}`;
       case 'arrived':
         return `Dear passengers, ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} has arrived from ${flight.grad}`;
       case 'close':
@@ -221,13 +254,14 @@ class FlightTTSEngine {
         return '';
     }
   }
+  
   private getTimeDifferenceInMinutes(scheduledTime: string): number {
     const now = new Date();
-    const scheduled = new Date();
     const [hours, minutes] = scheduledTime.split(':').map(Number);
-    scheduled.setHours(hours, minutes, 0, 0);
+    const scheduled = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
     return Math.floor((scheduled.getTime() - now.getTime()) / (1000 * 60));
   }
+  
 
   private isSummerTime(): boolean {
     const date = new Date();
@@ -257,21 +291,20 @@ class FlightTTSEngine {
     const timeDiff = this.getTimeDifferenceInMinutes(flight.scheduled_out);
     
     switch (status) {
-      case 'Check In':
+      case 'Processing': 
         return timeDiff <= 60 && timeDiff >= 55;
-      case 'Processing':
-        return timeDiff <= 40 && timeDiff >= 35;
       case 'Boarding':
-        return timeDiff <= 25 && timeDiff >= 20;
+        return timeDiff <= 40 && timeDiff >= 35;
       case 'Final Call':
-        return timeDiff <= 15 && timeDiff >= 10;
+        return timeDiff <= 25 && timeDiff >= 20;
       case 'Close':
-        return timeDiff <= 10 && timeDiff >= 5;
+        return timeDiff <= 15 && timeDiff >= 10;
       default:
         return false;
     }
   }
-
+  
+  
   private formatTime(date: Date): string {
     return date.toLocaleTimeString('en-US', {
       hour: '2-digit',
