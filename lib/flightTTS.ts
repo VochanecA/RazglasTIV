@@ -202,11 +202,13 @@ class FlightTTSEngine {
       count: record.count + 1
     });
   }
-
   private createAnnouncementText(flight: Flight, type: 'checkin' | 'boarding' | 'final' | 'arrived' | 'close'): string {
+    // Function to remove leading zeros from check-in numbers
+    const formatCheckIn = (checkIn: string) => checkIn.replace(/^0+/, '');
+  
     switch (type) {
       case 'checkin':
-        return `Attention please. ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} is now open for check-in at counter ${flight.checkIn}`;
+        return `Attention please. ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} is now open for check-in at counter ${formatCheckIn(flight.checkIn)}`;
       case 'boarding':
         return `Attention please. ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} is now boarding at gate ${flight.gate}`;
       case 'final':
@@ -214,12 +216,11 @@ class FlightTTSEngine {
       case 'arrived':
         return `Dear passengers, ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} has arrived from ${flight.grad}`;
       case 'close':
-        return `Attention please. The boarding for ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} has now closed. We thank you for your cooperation.`;
+        return `Attention please. The boarding for ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} has now closed. We thank you for your cooperation. We wish you a pleasant flight and see you soon.`;
       default:
         return '';
     }
   }
-
   private getTimeDifferenceInMinutes(scheduledTime: string): number {
     const now = new Date();
     const scheduled = new Date();
@@ -281,9 +282,9 @@ class FlightTTSEngine {
 
   private createSecurityAnnouncement(): string {
     const currentTime = this.formatTime(new Date());
-    return `Dear passengers, may I have your attention please. Do not leave your baggage unattended at any time you are at the airport. ` +
-           `Unattended baggage may be confiscated for security reason and may be destroyed. ` +
-           `The local time is ${currentTime}. Thank you.`;
+    return `Dear passengers, may I have your attention please. Do not leave your baggage unattended at any time you are at the airport, ` +
+           `as it will be removed for security reason and may be destroyed. Thank you. ` +
+           `The local time is ${currentTime}.`;
   }
 
   public addToQueue(text: string, priority: number, scheduledTime: string) {
