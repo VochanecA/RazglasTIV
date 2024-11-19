@@ -147,10 +147,10 @@ class FlightTTSEngine {
 
   public shouldAnnounceArrival(flight: Flight): boolean {
     // First check if basic conditions are met
-    if (!flight.isArrival || flight.status !== 'arrived' || !flight.actual_in) {
+    if (!flight.isArrival || flight.status !== 'Arrived' || !flight.actual_in) {
+      console.warn(`Flight ${flight.ident} - isArrival: ${flight.isArrival}, status: ${flight.status}, actual_in: ${flight.actual_in}`);
       return false;
-    }
-
+  }
     try {
       // Parse the arrival time
       const actualInTime = new Date(flight.actual_in);
