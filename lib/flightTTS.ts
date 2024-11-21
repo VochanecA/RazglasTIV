@@ -168,30 +168,37 @@ class FlightTTSEngine {
   }
 
   public shouldAnnounceArrival(flight: Flight): boolean {
-    // Check if the flight is an arrival and has a valid actual arrival time
-    if (!flight.isArrival || (flight.status !== 'Arrived' && flight.status !== 'arrived') || !flight.actual_in) {
-        console.warn(`Flight ${flight.ident} - isArrival: ${flight.isArrival}, status: ${flight.status}, actual_in: ${flight.actual_in}`);
+    // Explicitly check for both 'Arrived' and 'arrived' statuses
+    const isArrivedStatus = flight.status?.toLowerCase() === 'arrived';
+    
+    if (!flight.isArrival || !isArrivedStatus || !flight.actual_in) {
+        console.log(`Arrival announcement check failed for flight ${flight.ident}:`, {
+            isArrival: flight.isArrival,
+            status: flight.status,
+            actualIn: flight.actual_in
+        });
         return false; 
     }
     
     try {
-        // Parse the arrival time
         const actualInTime = new Date(flight.actual_in);
         const now = new Date();
 
-        // Validate that the arrival time is a valid date
         if (isNaN(actualInTime.getTime())) { 
             console.warn(`Invalid arrival time for flight ${flight.ident}`);
             return false; 
         }
 
-        // Calculate minutes since arrival
         const minutesSinceArrival = (now.getTime() - actualInTime.getTime()) / (1000 * 60);
         
-        // Debug log to help track timing issues
         console.log(`Flight ${flight.ident} arrived ${minutesSinceArrival.toFixed(1)} minutes ago`);
 
-        // Check if we've already announced this flight recently
+        // Extend the window for arrival announcements
+        if (minutesSinceArrival > 15) {
+            console.log(`Flight ${flight.ident} too old for arrival announcement`);
+            return false;
+        }
+
         const record = this.announcedFlights.get(flight.ident);
         if (record) { 
             const timeSinceLastAnnouncement = (now.getTime() - record.lastAnnounced) / 1000; 
@@ -200,7 +207,6 @@ class FlightTTSEngine {
             } 
         }
 
-        // If we get here, the flight arrived within the last 10 minutes or hasn't been announced recently
         return true; 
     } catch (error) { 
         console.error(`Error processing arrival time for flight ${flight.ident}:`, error); 
@@ -226,6 +232,8 @@ class FlightTTSEngine {
     this.announcedFlights.set(flight.ident, { lastAnnounced: now, count: record.count + 1 });
 }
   private createAnnouncementText(flight: Flight, type: 'checkin' | 'boarding' | 'processing' | 'final' | 'arrived' | 'close'): string {
+    console.log(`Creating announcement text for flight ${flight.ident}, type: ${type}`);
+
     // Function to remove leading zeros from check-in numbers or gate numbers
     const formatCheckInOrGate = (checkInOrGate: string) => {
       return checkInOrGate ? checkInOrGate.replace(/^0+/, '') : checkInOrGate;
@@ -428,6 +436,8 @@ class FlightTTSEngine {
     this.synth.speak(utterance);
   }
   public queueAnnouncement(flight: Flight, type: 'checkin' | 'boarding' | 'final' | 'arrived' | 'close') {
+    console.log(`Attempting to queue announcement for flight ${flight.ident}, type: ${type}`);
+
     const now = Date.now();
     const record = this.announcedFlights.get(flight.ident);
 
@@ -512,37 +522,42 @@ class FlightTTSEngine {
   public processAnnouncements(flight: Flight) {
     const isIsraeliAirline = this.ISRAELI_AIRLINES.includes(flight.KompanijaNaziv);
     const timeDiff = this.getTimeDifferenceInMinutes(flight.scheduled_out);
-
-    // Process announcements based on time before departure
+  
+    // Process check-in announcements
     if (isIsraeliAirline) {
-      if ([120, 90, 80, 60, 40].includes(timeDiff)) {
-        this.queueAnnouncement(flight, 'checkin');
-      }
+        if ([120, 90, 80, 60, 40].includes(timeDiff)) {
+            this.queueAnnouncement(flight, 'checkin');
+        }
     } else {
-      if ([80, 60, 40].includes(timeDiff)) {
-        this.queueAnnouncement(flight, 'checkin');
-      }
+        if ([80, 60, 40].includes(timeDiff)) {
+            this.queueAnnouncement(flight, 'checkin');
+        }
     }
-
+  
     // Handle different flight statuses
     switch (flight.status as FlightStatus) {
-      case 'Boarding':
-        this.startBoardingAnnouncements(flight);
-        break;
-      case 'Final Call':
-        if (this.shouldAnnounce(flight, 'Final Call')) {
-          this.queueAnnouncement(flight, 'final');
-        }
-        break;
-      case 'Close':
-      case 'Departed':
-        this.stopBoardingAnnouncements(flight.ident);
-        if (this.shouldAnnounce(flight, 'Close')) {
-          this.queueAnnouncement(flight, 'close');
-        }
-        break;
+        case 'Boarding':
+            // Ensure boarding announcement works even if time difference is not exactly 40-35 minutes
+            this.queueAnnouncement(flight, 'boarding');
+            this.startBoardingAnnouncements(flight);
+            break;
+        case 'Final Call':
+            // Relax the time check for final call
+            this.queueAnnouncement(flight, 'final');
+            break;
+        case 'Close':
+        case 'Departed':
+            this.stopBoardingAnnouncements(flight.ident);
+            this.queueAnnouncement(flight, 'close');
+            
+            // Ensure arrival announcement
+            if (flight.status?.toLowerCase() !== 'arrived') {
+                flight.status = "Arrived";
+                this.queueAnnouncement(flight, 'arrived');
+            }
+            break;
     }
-  }
+}
 }
 
 
