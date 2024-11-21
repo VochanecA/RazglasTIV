@@ -159,11 +159,12 @@ const Departures = () => {
       const ttsEngine = getFlightTTSEngine();
       if (ttsEngine) {
         // Process departures
-        newData.departures.forEach((flight: Flight) => {
-          const flightKey = `${flight.ident}-${flight.status}-${flight.scheduled_out}`;
+  // Process departures
+  newData.departures.forEach((flight: Flight) => {
+    const flightKey = `${flight.ident}-${flight.status}-${flight.scheduled_out}`;
           
           if (!processedFlights.has(flightKey)) {
-            if (flight.status === 'Check In' && ttsEngine.shouldAnnounce(flight, 'Check In')) {
+            if (flight.status === 'Check In' && ttsEngine.shouldAnnounce(flight, 'Processing')) {
               ttsEngine.queueAnnouncement(flight, 'checkin');
               processedFlights.add(flightKey);
             } else if (flight.status === 'Processing' && ttsEngine.shouldAnnounce(flight, 'Processing')) {

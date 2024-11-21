@@ -25,11 +25,7 @@ export async function getUser() {
   }
 
   const sessionData = await verifyToken(sessionCookie.value);
-  if (
-    !sessionData ||
-    !sessionData.user ||
-    typeof sessionData.user.id !== 'number'
-  ) {
+  if (!sessionData || !sessionData.user || typeof sessionData.user.id !== 'number') {
     return null;
   }
 
@@ -145,7 +141,6 @@ export async function getTeamForUser(userId: number) {
 
 // CRUD operations for mp3Plays
 
-
 // Create a new mp3 play entry
 export async function createMp3Play(playData: {
   flightIcaoCode: string;
@@ -154,11 +149,10 @@ export async function createMp3Play(playData: {
   callType: string;
   gate?: string;
   filename: string;
-  playedAt?: Date;
 }) {
   return await db.insert(mp3Plays).values({
     ...playData,
-    playedAt: playData.playedAt || new Date(),
+    playedAt: new Date(), // Default to current date if not provided
   });
 }
 
@@ -186,24 +180,25 @@ export async function getMp3PlayById(id: number) {
 export async function updateMp3Play(
   id: number,
   updatedData: Partial<{
-    flightIcaoCode: string;
-    flightNumber: string;
-    destinationCode: string;
-    callType: string;
+    flightIcaoCode?: string;
+    flightNumber?: string;
+    destinationCode?: string;
+    callType?: string;
     gate?: string;
-    filename: string;
-    playedAt: Date;
+    filename?: string;
+    playedAt?: Date; // Optional for updates
   }>
 ) {
   return await db
     .update(mp3Plays)
-    .set(updatedData)
-    .where(eq(mp3Plays.id, id));
+    .set({
+      ...updatedData,
+      playedAt: updatedData.playedAt || undefined // Keep playedAt unchanged if not provided
+   })
+   .where(eq(mp3Plays.id, id));
 }
 
 // Delete an mp3 play entry
 export async function deleteMp3Play(id: number) {
-  return await db
-    .delete(mp3Plays)
-    .where(eq(mp3Plays.id, id));
+   return await db.delete(mp3Plays).where(eq(mp3Plays.id, id));
 }

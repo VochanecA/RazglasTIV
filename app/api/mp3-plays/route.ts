@@ -1,4 +1,3 @@
-// app/api/mp3-plays/route.ts
 import { NextResponse } from 'next/server';
 import { createMp3Play } from '@/lib/db/queries';
 
@@ -25,7 +24,7 @@ export async function POST(request: Request) {
       callType,
       gate,
       filename,
-      playedAt: new Date() // Use the current time for playedAt
+      // Note: 'playedAt' is used in queries.ts, not 'played_at'
     });
 
     // Return the newly created MP3 play record
