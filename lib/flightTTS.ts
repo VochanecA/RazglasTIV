@@ -339,7 +339,6 @@ private createAnnouncementText(flight: Flight, type: 'checkin' | 'boarding' | 'p
 
     return currentHour >= this.announcementConfig.startHour && currentHour <= endHour;
   }
-
   public shouldAnnounce(flight: Flight, status: FlightStatus): boolean {
     if (!flight.scheduled_out) return false;
     
@@ -356,9 +355,16 @@ private createAnnouncementText(flight: Flight, type: 'checkin' | 'boarding' | 'p
         return [80, 60, 40].includes(timeDiff);
         
         case 'Boarding':
-          // Start boarding announcements 25 minutes before departure
-          return timeDiff <= 25 && timeDiff > 15;
-          // return timeDiff <= 25 && timeDiff > 15 && timeDiff % 5 === 0;
+          // When in final call time window (T-15 to T-10), use Final Call status instead
+          if (timeDiff <= 15 && timeDiff > 10) {
+            return this.shouldAnnounce(flight, 'Final Call');
+          }
+          // Regular boarding announcements every 5 minutes from T-25 to T-15
+          const isBoardingTime = timeDiff <= 25 && timeDiff > 15 && timeDiff % 5 === 0;
+          // Close announcements between T-10 and T-0
+          const isCloseTime = timeDiff <= 10 && timeDiff >= 0;
+          
+          return isBoardingTime || isCloseTime;
           
         case 'Final Call':
           // Final call at 15 minutes before departure
@@ -370,7 +376,7 @@ private createAnnouncementText(flight: Flight, type: 'checkin' | 'boarding' | 'p
           
         default:
           return false;
-    }
+      }
   }
 
   private startBoardingAnnouncements(flight: Flight) {
