@@ -145,8 +145,25 @@ const Departures = () => {
   const { showNotification } = useNotification();
   const [notifiedFlights] = useState(new Set<string>());
   const [processedFlights] = useState(new Set<string>());
+  const [lastAnnouncementTimes] = useState(new Map<string, number>());
 
-  
+  const shouldAnnounceDelay = (flight: Flight, currentTime: Date) => {
+    const flightKey = `${flight.ident}-delay`;
+    const lastAnnouncement = lastAnnouncementTimes.get(flightKey) || 0;
+    
+    // Get the scheduled time
+    const scheduledTime = flight.scheduled_out || flight.scheduled_in;
+    if (!scheduledTime) return false;
+    
+    // Parse scheduled time
+    const [hours] = scheduledTime.split(':').map(Number);
+    
+    // Check if it's time for the next announcement (at full hour)
+    const isFullHour = currentTime.getMinutes() === 0;
+    const timeSinceLastAnnouncement = currentTime.getTime() - lastAnnouncement;
+    
+    return timeSinceLastAnnouncement >= 60 * 60 * 1000 && isFullHour;
+  };
 
   const fetchFlightData = async () => {
     try {
@@ -155,13 +172,12 @@ const Departures = () => {
       if (!res.ok) throw new Error('Failed to fetch flights data');
       const newData = await res.json();
       
-      // Process TTS announcements
+      const currentTime = new Date();
       const ttsEngine = getFlightTTSEngine();
       if (ttsEngine) {
         // Process departures
-  // Process departures
-  newData.departures.forEach((flight: Flight) => {
-    const flightKey = `${flight.ident}-${flight.status}-${flight.scheduled_out}`;
+        newData.departures.forEach((flight: Flight) => {
+          const flightKey = `${flight.ident}-${flight.status}-${flight.scheduled_out}`;
           
           if (!processedFlights.has(flightKey)) {
             if (flight.status === 'Check In' && ttsEngine.shouldAnnounce(flight, 'Processing')) {
@@ -179,18 +195,39 @@ const Departures = () => {
             } else if (flight.status === 'Close' && ttsEngine.shouldAnnounce(flight, 'Close')) {
               ttsEngine.queueAnnouncement(flight, 'close');
               processedFlights.add(flightKey);
+            } else if (flight.status === 'Delayed' && shouldAnnounceDelay(flight, currentTime)) {
+              const delayMessage = flight.estimated_out
+                ? `Dear passengers, ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} is delayed. Departure is expected at ${flight.estimated_out}.`
+                : `Dear passengers, ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} is delayed. Next update will be provided at the next full hour.`;
+              
+              ttsEngine.queueCustomAnnouncement(delayMessage);
+              lastAnnouncementTimes.set(`${flight.ident}-delay`, currentTime.getTime());
+              processedFlights.add(flightKey);
             }
           }
         });
 
         // Process arrivals
         newData.arrivals.forEach((flight: Flight) => {
-          const flightKey = `${flight.ident}-arrived`;
-          if (flight.status === 'Arrived' && !processedFlights.has(flightKey)) {
-            ttsEngine.queueAnnouncement(flight, 'arrived');
-            processedFlights.add(flightKey);
+          const flightKey = `${flight.ident}-${flight.status}`;
+          
+          if (!processedFlights.has(flightKey)) {
+            if (flight.status === 'Arrived' && !processedFlights.has(`${flight.ident}-arrived`)) {
+              console.log("Arrivals: ", newData.arrivals);
+              ttsEngine.queueAnnouncement(flight, 'arrived');  // Ensure TTS is triggered for arrivals
+              processedFlights.add(`${flight.ident}-arrived`);
+            } else if (flight.status === 'Delayed' && shouldAnnounceDelay(flight, currentTime)) {
+              const delayMessage = flight.estimated_in
+                ? `Dear passengers, ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} from ${flight.grad} is delayed. Arrival is expected at ${flight.estimated_in}.`
+                : `Dear passengers, ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} from ${flight.grad} is delayed. Next update will be provided at the next full hour.`;
+              
+              ttsEngine.queueCustomAnnouncement(delayMessage);
+              lastAnnouncementTimes.set(`${flight.ident}-delay`, currentTime.getTime());
+              processedFlights.add(flightKey);
+            }
           }
         });
+        
       }
 
       // Keep existing notification logic
@@ -243,31 +280,32 @@ const Departures = () => {
 
     // Cleanup function
     return () => {
-      // Clear the fetch interval
       clearInterval(fetchInterval);
-      
-      // Stop the TTS engine
       const engine = getFlightTTSEngine();
       if (engine) {
         engine.stop();
       }
     };
-  }, []); // Empty dependency array means this runs once on mount
+  }, []);
 
-  // Add this function to periodically clean up old entries
   function cleanupProcessedFlights() {
-      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-      processedFlights.clear(); // Or implement more sophisticated cleanup logic
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    processedFlights.clear();
+    lastAnnouncementTimes.clear(); // Also clear announcement times
   }
   
-  // Call it periodically or after certain conditions
-  setInterval(cleanupProcessedFlights, 60 * 60 * 1000); // Clean up every hour
+  // Call it periodically
+  useEffect(() => {
+    const cleanupInterval = setInterval(cleanupProcessedFlights, 60 * 60 * 1000);
+    return () => clearInterval(cleanupInterval);
+  }, []);
+
   const departures = data?.departures || [];
   const arrivals = data?.arrivals || [];
 
   return (
     <div className="min-h-screen p-4">
-            <TTSInitializer />
+      <TTSInitializer />
       <div className="flex mb-4">
         <button
           className={`w-1/2 px-4 py-2 rounded-l-lg text-lg font-semibold flex items-center justify-center space-x-2 transition-colors duration-200 ${
@@ -341,15 +379,11 @@ const Departures = () => {
 
       <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
         Last fetched at: <span>{lastUpdated}</span>
-
       </div>
-       
-      
-    
     </div>
   );
 };
 
-
-
 export default Departures;
+
+

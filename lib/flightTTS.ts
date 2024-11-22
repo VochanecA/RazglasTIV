@@ -1,7 +1,6 @@
 'use client';
 
 
-
 // Add new type for flight status
 type FlightStatus = 'Processing' | 'Boarding' | 'Final Call' | 'Close' | 'Departed';
 interface TTSPlayRecord {
@@ -105,11 +104,13 @@ class FlightTTSEngine {
 
   private setupVoice() {
     const voices = this.synth.getVoices();
-    this.selectedVoice = voices.find(voice => 
-      voice.lang === 'en-GB' && !voice.localService
-    ) || voices.find(voice => 
-      voice.lang.startsWith('en-') && !voice.localService
-    ) || voices[0];
+    this.selectedVoice = 
+      voices.find(voice => voice.lang === 'en-GB' && !voice.localService) ||
+      voices.find(voice => voice.lang.startsWith('en-')) ||
+      voices[0]; // Default to the first available voice
+    if (!this.selectedVoice) {
+      console.warn('No suitable TTS voice found.');
+    }
   }
   
   
@@ -146,13 +147,17 @@ class FlightTTSEngine {
 
   private cleanupAnnouncementRecords() {
     const now = Date.now();
-    // Convert entries to array before iteration
     Array.from(this.announcedFlights.entries()).forEach(([flightId, record]) => {
-      if (now - record.lastAnnounced > this.RECORD_EXPIRY) {
-        this.announcedFlights.delete(flightId);
-      }
+        // Keep arrival records for 2 hours to prevent duplicate announcements
+        const expiryTime = flightId.includes('_arrived') ? 
+            2 * 60 * 60 * 1000 : // 2 hours for arrival records
+            this.RECORD_EXPIRY;   // Regular expiry for other announcements
+        
+        if (now - record.lastAnnounced > expiryTime) {
+            this.announcedFlights.delete(flightId);
+        }
     });
-  }
+}
   public queueCustomAnnouncement(message: string) {
     if (!this.isInitialized) {
       this.onInit(() => this.queueCustomAnnouncement(message));
@@ -167,52 +172,38 @@ class FlightTTSEngine {
     this.addToQueue(message, 3, currentTime);
   }
 
-  public shouldAnnounceArrival(flight: Flight): boolean {
-    // Explicitly check for both 'Arrived' and 'arrived' statuses
-    const isArrivedStatus = flight.status?.toLowerCase() === 'arrived';
-    
-    if (!flight.isArrival || !isArrivedStatus || !flight.actual_in) {
-        console.log(`Arrival announcement check failed for flight ${flight.ident}:`, {
-            isArrival: flight.isArrival,
-            status: flight.status,
-            actualIn: flight.actual_in
-        });
-        return false; 
-    }
-    
-    try {
-        const actualInTime = new Date(flight.actual_in);
-        const now = new Date();
+// Update shouldAnnounceArrival method to be more precise
+public shouldAnnounceArrival(flight: Flight): boolean {
+  if (!flight.actual_in) {
+      return false;
+  }
 
-        if (isNaN(actualInTime.getTime())) { 
-            console.warn(`Invalid arrival time for flight ${flight.ident}`);
-            return false; 
-        }
+  try {
+      const actualInTime = new Date(flight.actual_in);
+      const now = new Date();
+      
+      if (isNaN(actualInTime.getTime())) {
+          console.warn(`Invalid arrival time for flight ${flight.ident}`);
+          return false;
+      }
 
-        const minutesSinceArrival = (now.getTime() - actualInTime.getTime()) / (1000 * 60);
-        
-        console.log(`Flight ${flight.ident} arrived ${minutesSinceArrival.toFixed(1)} minutes ago`);
+      const minutesSinceArrival = (now.getTime() - actualInTime.getTime()) / (1000 * 60);
 
-        // Extend the window for arrival announcements
-        if (minutesSinceArrival > 15) {
-            console.log(`Flight ${flight.ident} too old for arrival announcement`);
-            return false;
-        }
+      // Check if this arrival was already announced
+      const arrivalKey = `${flight.ident}_arrived`;
+      const previousAnnouncement = this.announcedFlights.get(arrivalKey);
+      
+      // Only announce if:
+      // 1. Arrival was within last 15 minutes
+      // 2. Haven't announced this arrival before
+      return minutesSinceArrival <= 15 && !previousAnnouncement;
 
-        const record = this.announcedFlights.get(flight.ident);
-        if (record) { 
-            const timeSinceLastAnnouncement = (now.getTime() - record.lastAnnounced) / 1000; 
-            if (timeSinceLastAnnouncement < this.MINIMUM_ANNOUNCEMENT_INTERVAL) { 
-                return false; 
-            } 
-        }
-
-        return true; 
-    } catch (error) { 
-        console.error(`Error processing arrival time for flight ${flight.ident}:`, error); 
-        return false; 
-    }
+  } catch (error) {
+      console.error(`Error processing arrival time for flight ${flight.ident}:`, error);
+      return false;
+  }
 }
+  
   private parseFlightDate(dateString: string): Date | null {
     try {
       const parsed = new Date(dateString);
@@ -231,48 +222,93 @@ class FlightTTSEngine {
     const record = this.announcedFlights.get(flight.ident) || { lastAnnounced: 0, count: 0 };
     this.announcedFlights.set(flight.ident, { lastAnnounced: now, count: record.count + 1 });
 }
-  private createAnnouncementText(flight: Flight, type: 'checkin' | 'boarding' | 'processing' | 'final' | 'arrived' | 'close'): string {
-    console.log(`Creating announcement text for flight ${flight.ident}, type: ${type}`);
-
-    // Function to remove leading zeros from check-in numbers or gate numbers
-    const formatCheckInOrGate = (checkInOrGate: string) => {
-      return checkInOrGate ? checkInOrGate.replace(/^0+/, '') : checkInOrGate;
-    };
-  
-    // Function to convert numbers to words for numbers 1-9
-    const numberToWords = (num: number) => {
-      const words: { [key: number]: string } = {
-        1: 'one', 2: 'two', 3: 'three', 4: 'four', 5: 'five', 6: 'six', 7: 'seven', 8: 'eight', 9: 'nine'
-      };
-      return words[num] || num.toString(); // For numbers > 9, just return the number as a string
-    };
-  
-    // Function to process the check-in counters or gate numbers to remove leading zeros and convert to words for numbers 1-9
-    const processCheckInOrGate = (checkInOrGate: string) => {
-      const checkInOrGateParts = checkInOrGate.split(',').map(part => formatCheckInOrGate(part.trim())); // Remove leading zeros and trim spaces
-      return checkInOrGateParts.map((part, index) => {
-        const num = parseInt(part, 10);
-        // Convert only numbers less than 10 to words, keep others numeric
-        return num < 10 ? numberToWords(num) : num.toString(); 
-      }).join(' '); // Join with space instead of commas to avoid TTS issues
-    };
-  
-    switch (type) {
-      case 'checkin':
-      case 'processing':
-        return `Attention please. ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} is open for check-in at counter ${processCheckInOrGate(flight.checkIn)}`;
-      case 'boarding':
-        return `Attention please. ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} is now boarding at gate ${processCheckInOrGate(flight.gate)}`;
-      case 'final':
-        return `Final call. This is the final call for ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad}. Please proceed immediately to gate ${processCheckInOrGate(flight.gate)}`;
-      case 'arrived':
-        return `Dear passengers, ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} has arrived from ${flight.grad}`;
-      case 'close':
-        return `Attention please. The boarding for ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} has now closed. We thank you for your cooperation. We wish you a pleasant flight and see you soon.`;
-      default:
-        return '';
-    }
+public onFlightStatusChange(flight: Flight): void {
+  if (flight.status === 'Processing') {
+    this.scheduleCheckinAnnouncements(flight);
   }
+  if (flight.status === 'Boarding') {
+    this.scheduleBoardingAnnouncements(flight);
+  }
+  if (flight.status === 'Close') {
+    this.scheduleCloseAnnouncements(flight);
+  }
+  if (flight.status === 'Arrived' || flight.status === 'arrived' ||  flight.status === 'Landed') {
+    this.scheduleArrivedAnnouncements(flight);  // Handle the "Arrived" or "Landed" status
+  }
+}
+
+private scheduleCheckinAnnouncements(flight: Flight): void {
+  const announcementText = this.createAnnouncementText(flight, 'checkin');
+  this.scheduleAnnouncement(announcementText);
+}
+
+private scheduleBoardingAnnouncements(flight: Flight): void {
+  const announcementText = this.createAnnouncementText(flight, 'boarding');
+  this.scheduleAnnouncement(announcementText);
+}
+
+private scheduleCloseAnnouncements(flight: Flight): void {
+  const announcementText = this.createAnnouncementText(flight, 'close');
+  this.scheduleAnnouncement(announcementText);
+}
+
+private scheduleArrivedAnnouncements(flight: Flight): void {
+  const announcementText = this.createAnnouncementText(flight, 'arrived');  // Announcement for arrival/landing
+  this.scheduleAnnouncement(announcementText);
+}
+
+// Example for scheduling logic - you can replace this with your own scheduling method
+private scheduleAnnouncement(announcementText: string): void {
+  // Schedule the announcement, e.g., by sending it to a public address system, 
+  // or log it for further processing.
+  console.log(`Scheduled Announcement: ${announcementText}`);
+}
+
+// Your existing createAnnouncementText remains unchanged
+private createAnnouncementText(flight: Flight, type: 'checkin' | 'boarding' | 'processing' | 'final' | 'arrived' | 'close'): string {
+  console.log(`Creating announcement text for flight ${flight.ident}, type: ${type}`);
+
+  // Function to remove leading zeros from check-in numbers or gate numbers
+  const formatCheckInOrGate = (checkInOrGate: string) => {
+    return checkInOrGate ? checkInOrGate.replace(/^0+/, '') : checkInOrGate;
+  };
+
+  // Function to convert numbers to words for numbers 1-9
+  const numberToWords = (num: number) => {
+    const words: { [key: number]: string } = {
+      1: 'one', 2: 'two', 3: 'three', 4: 'four', 5: 'five', 6: 'six', 7: 'seven', 8: 'eight', 9: 'nine'
+    };
+    return words[num] || num.toString(); // For numbers > 9, just return the number as a string
+  };
+
+  // Function to process the check-in counters or gate numbers to remove leading zeros and convert to words for numbers 1-9
+  const processCheckInOrGate = (checkInOrGate: string) => {
+    const checkInOrGateParts = checkInOrGate.split(',').map(part => formatCheckInOrGate(part.trim())); // Remove leading zeros and trim spaces
+    return checkInOrGateParts.map((part, index) => {
+      const num = parseInt(part, 10);
+      // Convert only numbers less than 10 to words, keep others numeric
+      return num < 10 ? numberToWords(num) : num.toString(); 
+    }).join(' '); // Join with space instead of commas to avoid TTS issues
+  };
+
+  switch (type) {
+    case 'checkin':
+    case 'processing':
+      return `Attention please. ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} is open for check-in at counter ${processCheckInOrGate(flight.checkIn)}`;
+    case 'boarding':
+      return `Attention please. ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} is now boarding at gate ${processCheckInOrGate(flight.gate)}`;
+    case 'final':
+      return `Final call. This is the final call for ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad}. Please proceed immediately to gate ${processCheckInOrGate(flight.gate)}`;
+    case 'arrived':
+      return `Dear passengers, ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} has arrived from ${flight.grad}. Please proceed to baggage claim.`;
+    case 'close':
+      return `Attention please. The boarding for ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} has now closed. We thank you for your cooperation. We wish you a pleasant flight and see you soon.`;
+    default:
+      return '';
+  }
+}
+
+  
   
   private getTimeDifferenceInMinutes(scheduledTime: string): number {
     const now = new Date();
@@ -319,18 +355,21 @@ class FlightTTSEngine {
         // Standard timing: 80, 60, 40 minutes
         return [80, 60, 40].includes(timeDiff);
         
-      case 'Boarding':
-        // Handle boarding in startBoardingAnnouncements
-        return timeDiff <= 40 && timeDiff >= 35;
-        
-      case 'Final Call':
-        return timeDiff <= 25 && timeDiff >= 20;
-        
-      case 'Close':
-        return timeDiff <= 15 && timeDiff >= 10;
-        
-      default:
-        return false;
+        case 'Boarding':
+          // Start boarding announcements 25 minutes before departure
+          return timeDiff <= 25 && timeDiff > 15;
+          // return timeDiff <= 25 && timeDiff > 15 && timeDiff % 5 === 0;
+          
+        case 'Final Call':
+          // Final call at 15 minutes before departure
+          return timeDiff <= 15 && timeDiff > 10;
+          
+        case 'Close':
+          // Close announcement at 10 minutes before departure
+          return timeDiff <= 10 && timeDiff >= 0;
+          
+        default:
+          return false;
     }
   }
 
@@ -341,25 +380,25 @@ class FlightTTSEngine {
     }
 
     const announceBoarding = () => {
-      // Check if flight status is still valid for boarding announcements
-      if (flight.status === 'Close' || flight.status === 'Departed' || 
-          flight.actual_out !== null) {
+      const timeDiff = this.getTimeDifferenceInMinutes(flight.scheduled_out);
+      
+      // Stop if we're past the boarding window
+      if (timeDiff <= 15 || timeDiff > 25) {
         this.stopBoardingAnnouncements(flight.ident);
         return;
       }
 
-      if (flight.status === 'Boarding') {
-        this.queueAnnouncement(flight, 'boarding');
-      }
+      this.queueAnnouncement(flight, 'boarding');
     };
 
     // Make initial announcement
     announceBoarding();
 
-    // Set up repeated announcements
-    const timer = setInterval(announceBoarding, this.BOARDING_REPEAT_INTERVAL);
+    // Set up repeated announcements every 5 minutes
+    const timer = setInterval(announceBoarding, 5 * 60 * 1000);
     this.boardingAnnouncementTimers.set(flight.ident, timer);
   }
+
 
   private stopBoardingAnnouncements(flightIdent: string) {
     const timer = this.boardingAnnouncementTimers.get(flightIdent);
@@ -381,29 +420,36 @@ class FlightTTSEngine {
 
   private createSecurityAnnouncement(): string {
     const currentTime = this.formatTime(new Date());
-    return `Dear passengers, may I have your attention please. Do not leave your baggage unattended at any time you are at the airport, ` +
+    return `Attention please. Dear passengers, may I have your attention please. Do not leave your baggage unattended at any time you are at the airport, ` +
            `as it will be removed for security reason and may be destroyed. Thank you. ` +
            `The local time is ${currentTime}.`;
   }
 
-  public addToQueue(text: string, priority: number, scheduledTime: string) {
-    if (!this.isInitialized) {
-      this.onInit(() => this.addToQueue(text, priority, scheduledTime));
-      return;
-    }
-
-    this.queue.push({ text, priority, scheduledTime });
-    this.queue.sort((a, b) => {
-      if (a.priority !== b.priority) {
-        return a.priority - b.priority;
-      }
-      return a.scheduledTime.localeCompare(b.scheduledTime);
-    });
-    
-    if (!this.isPlaying) {
-      this.playNext();
-    }
+/*   private isValidFlight(flight: Flight): boolean {
+    return !!(flight.ident && flight.status && flight.grad && flight.KompanijaNaziv);
   }
+ */
+  
+
+public addToQueue(text: string, priority: number, scheduledTime: string) {
+  if (!this.isInitialized) {
+    this.onInit(() => this.addToQueue(text, priority, scheduledTime));
+    return;
+  }
+
+  this._addToQueue(text, priority, scheduledTime); // Call the private method here.
+
+  if (!this.isPlaying) {
+    this.playNext();
+  }
+}
+
+// Private method for queue addition and sorting
+private _addToQueue(text: string, priority: number, scheduledTime: string) {
+  this.queue.push({ text, priority, scheduledTime });
+  this.queue.sort((a, b) => b.priority - a.priority || a.scheduledTime.localeCompare(b.scheduledTime));
+}
+
 
   private playNext() {
     if (!this.isInitialized || this.queue.length === 0) {
@@ -523,7 +569,7 @@ class FlightTTSEngine {
     const isIsraeliAirline = this.ISRAELI_AIRLINES.includes(flight.KompanijaNaziv);
     const timeDiff = this.getTimeDifferenceInMinutes(flight.scheduled_out);
   
-    // Process check-in announcements
+    // Process check-in announcements (keep existing logic)
     if (isIsraeliAirline) {
         if ([120, 90, 80, 60, 40].includes(timeDiff)) {
             this.queueAnnouncement(flight, 'checkin');
@@ -533,29 +579,53 @@ class FlightTTSEngine {
             this.queueAnnouncement(flight, 'checkin');
         }
     }
+
+     // Handle arrival announcements for arrived flights
+     if (flight.actual_in && !this.announcedFlights.has(`${flight.ident}_arrived`)) {
+      const arrivalTime = new Date(flight.actual_in);
+      const now = new Date();
+      const minutesSinceArrival = Math.floor((now.getTime() - arrivalTime.getTime()) / (1000 * 60));
+      
+      // Only announce if arrival was within last 15 minutes
+      if (minutesSinceArrival <= 15) {
+          this.queueAnnouncement(flight, 'arrived');
+          // Mark this arrival as announced to prevent duplicates
+          this.announcedFlights.set(`${flight.ident}_arrived`, {
+              lastAnnounced: now.getTime(),
+              count: 1
+          });
+      }
+  }
   
-    // Handle different flight statuses
-    switch (flight.status as FlightStatus) {
-        case 'Boarding':
-            // Ensure boarding announcement works even if time difference is not exactly 40-35 minutes
+    // New timing-based announcement logic
+    if (timeDiff <= 25 && timeDiff > 15) {
+        // Start boarding announcements at T-25 minutes
+        if (!this.boardingAnnouncementTimers.has(flight.ident)) {
             this.queueAnnouncement(flight, 'boarding');
             this.startBoardingAnnouncements(flight);
-            break;
-        case 'Final Call':
-            // Relax the time check for final call
-            this.queueAnnouncement(flight, 'final');
-            break;
-        case 'Close':
-        case 'Departed':
-            this.stopBoardingAnnouncements(flight.ident);
-            this.queueAnnouncement(flight, 'close');
-            
-            // Ensure arrival announcement
-            if (flight.status?.toLowerCase() !== 'arrived') {
-                flight.status = "Arrived";
-                this.queueAnnouncement(flight, 'arrived');
-            }
-            break;
+        }
+    }
+    
+    // Final call at T-15 minutes
+    if (timeDiff <= 15 && timeDiff > 10) {
+        this.queueAnnouncement(flight, 'final');
+    }
+    
+    // Close announcement at T-10 minutes
+    if (timeDiff <= 10 && timeDiff > 0) {
+        this.stopBoardingAnnouncements(flight.ident);
+        this.queueAnnouncement(flight, 'close');
+    }
+
+    // Handle departure and arrival
+    if (flight.actual_out || flight.status === 'Departed') {
+        this.stopBoardingAnnouncements(flight.ident);
+        
+        // Queue arrival announcement if not already arrived
+        if (flight.status?.toLowerCase() !== 'arrived') {
+            flight.status = "Arrived";
+            this.queueAnnouncement(flight, 'arrived');
+        }
     }
 }
 }
