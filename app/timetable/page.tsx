@@ -101,7 +101,7 @@ const FlightCard = ({ flight, type }: { flight: Flight; type: 'departure' | 'arr
           </div>
           <div>
             <div className="text-gray-500 dark:text-gray-400">IATA code:</div>
-            <div className="font-medium text-yellow-500 dark:text-yellow-400">{flight.origin.code}</div>
+            <div className="font-medium text-yellow-500 dark:text-yellow-400">{flight.destination.code}</div>
           </div>
           <div>
             <div className="text-gray-500 dark:text-gray-400">Destination</div>
