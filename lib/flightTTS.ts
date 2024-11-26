@@ -3,6 +3,8 @@
 
 // Add new type for flight status
 type FlightStatus = 'Processing' | 'Boarding' | 'Final Call' | 'Close' | 'Departed';
+
+
 interface TTSPlayRecord {
   flightIcaoCode: string;
   flightNumber: string;
@@ -174,35 +176,57 @@ class FlightTTSEngine {
 
 // Update shouldAnnounceArrival method to be more precise
 public shouldAnnounceArrival(flight: Flight): boolean {
-  if (!flight.actual_in) {
-      return false;
+  // First, check if the flight has actually arrived
+  if (!flight.actual_out) {
+    console.warn(`Invalid or missing actual_out for flight ${flight.ident}`);
+    return false;
   }
 
   try {
-      const actualInTime = new Date(flight.actual_in);
-      const now = new Date();
-      
-      if (isNaN(actualInTime.getTime())) {
-          console.warn(`Invalid arrival time for flight ${flight.ident}`);
-          return false;
-      }
+    // Get current date in YYYY-MM-DD format
+    const currentDate = new Date().toISOString().split('T')[0]; // Extracts the date part (e.g., "2024-11-26")
 
-      const minutesSinceArrival = (now.getTime() - actualInTime.getTime()) / (1000 * 60);
+    // Combine current date with the actual_out time to form a full date-time string
+    const dateTimeString = `${currentDate}T${flight.actual_out}:00`; // Format as "2024-11-26T11:02:00"
 
-      // Check if this arrival was already announced
-      const arrivalKey = `${flight.ident}_arrived`;
-      const previousAnnouncement = this.announcedFlights.get(arrivalKey);
-      
-      // Only announce if:
-      // 1. Arrival was within last 15 minutes
-      // 2. Haven't announced this arrival before
-      return minutesSinceArrival <= 15 && !previousAnnouncement;
+    const actualInTime = new Date(dateTimeString);
+    const now = new Date();
+    
+    // Validate the actual arrival time
+    if (isNaN(actualInTime.getTime())) {
+      console.warn(`Invalid arrival time for flight ${flight.ident}: ${dateTimeString}`);
+      return false;
+    }
+
+    // Calculate minutes since arrival
+    const minutesSinceArrival = (now.getTime() - actualInTime.getTime()) / (1000 * 60);
+
+    // Additional validation checks
+    if (minutesSinceArrival < 0) {
+      console.warn(`Future arrival time detected for flight ${flight.ident}`);
+      return false;
+    }
+
+    // Check if this arrival was already announced
+    const arrivalKey = `${flight.ident}_arrived`;
+    const previousAnnouncement = this.announcedFlights.get(arrivalKey);
+    
+    // Precise announcement criteria:
+    // 1. Arrival was within last 15 minutes
+    // 2. Haven't announced this arrival before
+    // 3. Actual arrival time is valid
+    const shouldAnnounce = minutesSinceArrival <= 15 && 
+                           !previousAnnouncement && 
+                           !isNaN(actualInTime.getTime());
+
+    return shouldAnnounce;
 
   } catch (error) {
-      console.error(`Error processing arrival time for flight ${flight.ident}:`, error);
-      return false;
+    console.error(`Error processing arrival time for flight ${flight.ident}:`, error);
+    return false;
   }
 }
+
   
   private parseFlightDate(dateString: string): Date | null {
     try {
@@ -354,29 +378,29 @@ private createAnnouncementText(flight: Flight, type: 'checkin' | 'boarding' | 'p
         // Standard timing: 80, 60, 40 minutes
         return [80, 60, 40].includes(timeDiff);
         
-        case 'Boarding':
-          // When in final call time window (T-15 to T-10), use Final Call status instead
-          if (timeDiff <= 15 && timeDiff > 10) {
-            return this.shouldAnnounce(flight, 'Final Call');
-          }
-          // Regular boarding announcements every 5 minutes from T-25 to T-15
-          const isBoardingTime = timeDiff <= 25 && timeDiff > 15 && timeDiff % 5 === 0;
-          // Close announcements between T-10 and T-0
-          const isCloseTime = timeDiff <= 10 && timeDiff >= 0;
-          
-          return isBoardingTime || isCloseTime;
-          
-        case 'Final Call':
-          // Final call at 15 minutes before departure
-          return timeDiff <= 15 && timeDiff > 10;
-          
-        case 'Close':
-          // Close announcement at 10 minutes before departure
-          return timeDiff <= 10 && timeDiff >= 0;
-          
-        default:
-          return false;
+  case 'Boarding':
+      // When in final call time window (T-15 to T-10), use Final Call status instead
+      if (timeDiff <= 15 && timeDiff > 10) {
+        return this.shouldAnnounce(flight, 'Final Call');
       }
+      // Regular boarding announcements every 5 minutes from T-25 to T-15
+      const isBoardingTime = timeDiff <= 25 && timeDiff > 15 && timeDiff % 5 === 0;
+      // Close announcements between T-10 and T-0
+      const isCloseTime = timeDiff <= 10 && timeDiff >= 0;
+      
+      return isBoardingTime || isCloseTime;
+      
+    case 'Final Call':
+      // Final call at 15 minutes before departure
+      return timeDiff <= 15 && timeDiff > 10;
+      
+    case 'Close':
+      // Close announcement at 10 minutes before departure
+      return timeDiff <= 10 && timeDiff >= 0;
+      
+    default:
+      return false;
+  }
   }
 
   private startBoardingAnnouncements(flight: Flight) {
@@ -487,7 +511,7 @@ private _addToQueue(text: string, priority: number, scheduledTime: string) {
   
     this.synth.speak(utterance);
   }
-  public queueAnnouncement(flight: Flight, type: 'checkin' | 'boarding' | 'final' | 'arrived' | 'close') {
+  public queueAnnouncement(flight: Flight, type: 'checkin' | 'boarding' | 'final' | 'arrived' | 'close' | 'earlier') {
     console.log(`Attempting to queue announcement for flight ${flight.ident}, type: ${type}`);
 
     const now = Date.now();
@@ -508,6 +532,14 @@ private _addToQueue(text: string, priority: number, scheduledTime: string) {
             console.log(`Skipping announcement queue for flight ${flight.ident} - failed final time check`);
             return;
         }
+    }
+
+    // Handle earlier arrival announcements
+    if (type === 'earlier') {
+        const earlyAnnouncementText = `Attention passengers, ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} from ${flight.origin.code} is arriving earlier than scheduled. Landing is expected at ${flight.actual_in}.`;
+        this.addToQueue(earlyAnnouncementText, 5, flight.scheduled_out || flight.actual_in || '');
+        console.log(`Queued earlier arrival announcement for flight ${flight.ident}`);
+        return; // Exit after queuing the earlier announcement
     }
 
     const text = this.createAnnouncementText(flight, type);

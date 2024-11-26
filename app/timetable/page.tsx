@@ -7,6 +7,7 @@ import { useNotification } from '@/components/ui/NotificationCenter';
 import { getFlightTTSEngine } from '@/lib/flightTTS';
 import type { Flight, FlightData } from '@/types/flight';
 import { TTSInitializer } from '@/components/ui/TTSInitializer';
+const ARRIVAL_STATUSES = ['arrived', 'Arrived', 'aarived', 'Landed', 'landed'];
 
 // Custom Skeleton Component
 const Skeleton = ({ className = '' }: { className?: string }) => {
@@ -165,106 +166,113 @@ const Departures = () => {
     return timeSinceLastAnnouncement >= 60 * 60 * 1000 && isFullHour;
   };
 
-  const fetchFlightData = async () => {
-    try {
-      setIsLoading(true);
-      const res = await fetch('/api/fetchFlights');
-      if (!res.ok) throw new Error('Failed to fetch flights data');
-      const newData = await res.json();
-      
-      const currentTime = new Date();
-      const ttsEngine = getFlightTTSEngine();
-      if (ttsEngine) {
-        // Process departures
-        newData.departures.forEach((flight: Flight) => {
-          const flightKey = `${flight.ident}-${flight.status}-${flight.scheduled_out}`;
-          
-          if (!processedFlights.has(flightKey)) {
-            if (flight.status === 'Check In' && ttsEngine.shouldAnnounce(flight, 'Processing')) {
-              ttsEngine.queueAnnouncement(flight, 'checkin');
-              processedFlights.add(flightKey);
-            } else if (flight.status === 'Processing' && ttsEngine.shouldAnnounce(flight, 'Processing')) {
-              ttsEngine.queueAnnouncement(flight, 'checkin');
-              processedFlights.add(flightKey);
-            } else if (flight.status === 'Boarding' && ttsEngine.shouldAnnounce(flight, 'Boarding')) {
-              ttsEngine.queueAnnouncement(flight, 'boarding');
-              processedFlights.add(flightKey);
-            } else if (flight.status === 'Final Call' && ttsEngine.shouldAnnounce(flight, 'Final Call')) {
-              ttsEngine.queueAnnouncement(flight, 'final');
-              processedFlights.add(flightKey);
-            } else if (flight.status === 'Close' && ttsEngine.shouldAnnounce(flight, 'Close')) {
-              ttsEngine.queueAnnouncement(flight, 'close');
-              processedFlights.add(flightKey);
-            } else if (flight.status === 'Delayed' && shouldAnnounceDelay(flight, currentTime)) {
-              const delayMessage = flight.estimated_out
-                ? `Dear passengers, ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} is delayed. Departure is expected at ${flight.estimated_out}.`
-                : `Dear passengers, ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} is delayed. Next update will be provided at the next full hour.`;
-              
-              ttsEngine.queueCustomAnnouncement(delayMessage);
-              lastAnnouncementTimes.set(`${flight.ident}-delay`, currentTime.getTime());
-              processedFlights.add(flightKey);
-            }
-          }
-        });
-
-        // Process arrivals
-        newData.arrivals.forEach((flight: Flight) => {
-          const flightKey = `${flight.ident}-${flight.status}`;
-          
-          if (!processedFlights.has(flightKey)) {
-            if (flight.status === 'Arrived' && !processedFlights.has(`${flight.ident}-arrived`)) {
-              console.log("Arrivals: ", newData.arrivals);
-              ttsEngine.queueAnnouncement(flight, 'arrived');  // Ensure TTS is triggered for arrivals
-              processedFlights.add(`${flight.ident}-arrived`);
-            } else if (flight.status === 'Delayed' && shouldAnnounceDelay(flight, currentTime)) {
-              const delayMessage = flight.estimated_in
-                ? `Dear passengers, ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} from ${flight.grad} is delayed. Arrival is expected at ${flight.estimated_in}.`
-                : `Dear passengers, ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} from ${flight.grad} is delayed. Next update will be provided at the next full hour.`;
-              
-              ttsEngine.queueCustomAnnouncement(delayMessage);
-              lastAnnouncementTimes.set(`${flight.ident}-delay`, currentTime.getTime());
-              processedFlights.add(flightKey);
-            }
-          }
-        });
+const fetchFlightData = async () => {
+  try {
+    setIsLoading(true);
+    const res = await fetch('/api/fetchFlights');
+    if (!res.ok) throw new Error('Failed to fetch flights data');
+    const newData = await res.json();
+    
+    const currentTime = new Date();
+    const ttsEngine = getFlightTTSEngine();
+    
+    if (ttsEngine) {
+      // Process departures
+      newData.departures.forEach((flight: Flight) => {
+        const flightKey = `${flight.ident}-${flight.status}-${flight.scheduled_out}`;
         
-      }
-
-      // Keep existing notification logic
-      newData.arrivals.forEach((flight: Flight) => {
-        if (flight.status === 'Delay' && !notifiedFlights.has(flight.ident)) {
-          showNotification(
-            'Delayed Arrival',
-            `Flight ${flight.Kompanija} ${flight.ident} from ${flight.origin.code} / ${flight.grad} is delayed in arrival compared to the scheduled time.`,
-            'info'
-          );
-          notifiedFlights.add(flight.ident);
-        }
-        if (flight.status === 'Earlier' && !notifiedFlights.has(flight.ident)) {
-          showNotification(
-            'Earlier Arrival',
-            `Flight ${flight.Kompanija} ${flight.ident} from ${flight.origin.code} / ${flight.grad} is arriving earlier than scheduled.`,
-            'info'
-          );
-          notifiedFlights.add(flight.ident);
+        if (!processedFlights.has(flightKey)) {
+          if (flight.status === 'Check In' && ttsEngine.shouldAnnounce(flight, 'Processing')) {
+            ttsEngine.queueAnnouncement(flight, 'checkin');
+            processedFlights.add(flightKey);
+          } else if (flight.status === 'Processing' && ttsEngine.shouldAnnounce(flight, 'Processing')) {
+            ttsEngine.queueAnnouncement(flight, 'checkin');
+            processedFlights.add(flightKey);
+          } else if (flight.status === 'Boarding' && ttsEngine.shouldAnnounce(flight, 'Boarding')) {
+            ttsEngine.queueAnnouncement(flight, 'boarding');
+            processedFlights.add(flightKey);
+          } else if (flight.status === 'Final Call' && ttsEngine.shouldAnnounce(flight, 'Final Call')) {
+            ttsEngine.queueAnnouncement(flight, 'final');
+            processedFlights.add(flightKey);
+          } else if (flight.status === 'Close' && ttsEngine.shouldAnnounce(flight, 'Close')) {
+            ttsEngine.queueAnnouncement(flight, 'close');
+            processedFlights.add(flightKey);
+          } else if (flight.status === 'Delayed' && shouldAnnounceDelay(flight, currentTime)) {
+            const delayMessage = flight.estimated_out
+              ? `Dear passengers, ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} is delayed. Departure is expected at ${flight.estimated_out}.`
+              : `Dear passengers, ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} is delayed. Next update will be provided at the next full hour.`;
+            
+            ttsEngine.queueCustomAnnouncement(delayMessage);
+            lastAnnouncementTimes.set(`${flight.ident}-delay`, currentTime.getTime());
+            processedFlights.add(flightKey);
+          }
         }
       });
 
-      setData(newData);
-      setError(null);
-      const now = new Date();
-      setLastUpdated(now.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: true
-      }));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch flights data');
-    } finally {
-      setIsLoading(false);
+      // Process arrivals
+      newData.arrivals.forEach((flight: Flight) => {
+        const flightKey = `${flight.ident}-${flight.status.toLowerCase()}`;
+        
+        if (!processedFlights.has(flightKey)) {
+          // Ensure TTS announcement for "Arrived" flights (case-insensitive)
+          if (flight.status.toLowerCase() === 'arrived' && !processedFlights.has(`${flight.ident}-arrived`)) {
+            console.log("Arrivals TTS Triggered: ", flight); // Debug log
+            ttsEngine.queueAnnouncement(flight, 'arrived');  // Trigger TTS for arrived flights
+            
+            // Add both lowercase and original case to processed flights to ensure comprehensive tracking
+            processedFlights.add(`${flight.ident}-arrived`);
+            processedFlights.add(`${flight.ident}-${flight.status}`);
+          } 
+          // Handle delays for arrivals
+          else if (flight.status.toLowerCase() === 'delayed' && shouldAnnounceDelay(flight, currentTime)) {
+            const delayMessage = flight.estimated_in
+              ? `Dear passengers, ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} from ${flight.grad} is delayed. Arrival is expected at ${flight.estimated_in}.`
+              : `Dear passengers, ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} from ${flight.grad} is delayed. Next update will be provided at the next full hour.`;
+            
+            ttsEngine.queueCustomAnnouncement(delayMessage);  // Trigger custom TTS message for delayed arrivals
+            lastAnnouncementTimes.set(`${flight.ident}-delay`, currentTime.getTime());
+            processedFlights.add(flightKey);
+          }
+        }
+      });
     }
-  };
+
+    // Notification logic for arrivals
+    newData.arrivals.forEach((flight: Flight) => {
+      if (flight.status === 'Delay' && !notifiedFlights.has(flight.ident)) {
+        showNotification(
+          'Delayed Arrival',
+          `Flight ${flight.Kompanija} ${flight.ident} from ${flight.origin.code} / ${flight.grad} is delayed in arrival compared to the scheduled time.`,
+          'info'
+        );
+        notifiedFlights.add(flight.ident);
+      }
+      if (flight.status === 'Earlier' && !notifiedFlights.has(flight.ident)) {
+        showNotification(
+          'Earlier Arrival',
+          `Flight ${flight.Kompanija} ${flight.ident} from ${flight.origin.code} / ${flight.grad} is arriving earlier than scheduled.`,
+          'info'
+        );
+        notifiedFlights.add(flight.ident);
+      }
+    });
+
+    // Update state and last updated time
+    setData(newData);
+    setError(null);
+    const now = new Date();
+    setLastUpdated(now.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    }));
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Failed to fetch flights data');
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   useEffect(() => {
     // Initialize TTS engine
