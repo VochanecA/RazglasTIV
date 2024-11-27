@@ -172,10 +172,14 @@ const fetchFlightData = async () => {
     const res = await fetch('/api/fetchFlights');
     if (!res.ok) throw new Error('Failed to fetch flights data');
     const newData = await res.json();
-    
+        // Clear processed flights for new data
+        processedFlights.clear();
+        notifiedFlights.clear();
     const currentTime = new Date();
     const ttsEngine = getFlightTTSEngine();
-    
+    setData(newData); // Ensure `newData` has the correct structure
+
+    setError(null);
     if (ttsEngine) {
       // Process departures
       newData.departures.forEach((flight: Flight) => {

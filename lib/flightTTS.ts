@@ -160,6 +160,7 @@ class FlightTTSEngine {
         }
     });
 }
+
   public queueCustomAnnouncement(message: string) {
     if (!this.isInitialized) {
       this.onInit(() => this.queueCustomAnnouncement(message));
@@ -174,6 +175,7 @@ class FlightTTSEngine {
     this.addToQueue(message, 3, currentTime);
   }
 
+  
 // Update shouldAnnounceArrival method to be more precise
 public shouldAnnounceArrival(flight: Flight): boolean {
   // First, check if the flight has actually arrived
