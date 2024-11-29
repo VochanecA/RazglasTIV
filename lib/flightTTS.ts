@@ -559,7 +559,7 @@ private playNext(): void {
       // Play the hardcoded MP3 only if there's TTS text (indicating an announcement)
       if (hasTtsText) {
           console.log("Playing Hardcoded MP3");
-          const audio = new Audio('/mp3/gong_pojacan.mp3');
+          const audio = new Audio('/mp3/Gong_pojacan.mp3');
 
           audio.onended = () => {
               console.log("Hardcoded MP3 playback finished. Checking for item MP3...");
