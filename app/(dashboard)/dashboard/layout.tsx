@@ -14,6 +14,9 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  // Determine the current theme
+  const currentTheme = localStorage.getItem('theme') || 'light';
+
   const navItems = [
     { href: '/dashboard', icon: Users, label: 'Team' },
     { href: '/dashboard/general', icon: Settings, label: 'General' },
@@ -41,11 +44,11 @@ export default function DashboardLayout({
       <div className="flex flex-1 overflow-hidden h-full">
         {/* Sidebar */}
         <aside
-          className={`w-64 bg-white lg:bg-gray-50 border-r border-gray-200 lg:block ${
+          className={`w-64 border-r border-gray-200 lg:block transition-transform duration-300 ease-in-out ${
             isSidebarOpen ? 'block' : 'hidden'
-          } lg:relative absolute inset-y-0 left-0 z-40 transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+          } lg:relative absolute inset-y-0 left-0 z-40 lg:translate-x-0 ${
             isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-          }`}
+          } ${currentTheme === 'dark' ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}`}
         >
           <nav className="h-full overflow-y-auto p-4">
             {navItems.map((item) => (
@@ -53,7 +56,7 @@ export default function DashboardLayout({
                 <Button
                   variant={pathname === item.href ? 'secondary' : 'ghost'}
                   className={`my-1 w-full justify-start ${
-                    pathname === item.href ? 'bg-gray-100' : ''
+                    pathname === item.href ? (currentTheme === 'dark' ? 'bg-gray-700' : 'bg-gray-100') : ''
                   }`}
                   onClick={() => setIsSidebarOpen(false)}
                 >

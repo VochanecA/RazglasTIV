@@ -1,4 +1,4 @@
-// app/pricing/layout.tsx
+
 'use client';
 
 import Navbar from '@/components/ui/navbar';

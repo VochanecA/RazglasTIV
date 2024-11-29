@@ -21,7 +21,7 @@ import { menuData } from '@/components/ui/menuData';
 
 function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { user, setUser } = useUser();
+  const { user } = useUser();
   const router = useRouter();
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [hasMounted, setHasMounted] = useState(false);
@@ -47,13 +47,21 @@ function Navbar() {
   if (!hasMounted) return null;
 
   return (
-    <header className=" border-gray-200 bg-white dark:bg-gray-800 shadow-sm">
+    <header className="border-gray-200 bg-white dark:bg-gray-800 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
         <Link href="/" className="flex items-center">
           <CircleIcon className="h-6 w-6 text-orange-500" />
           <span className="ml-2 text-xl font-semibold text-gray-900 dark:text-gray-100">TIV AeroVoice by Alen</span>
         </Link>
         <div className="flex items-center space-x-4">
+          {/* Welcome Message */}
+          {user && (
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              Welcome, {user.name || user.email.split('@')[0]}!
+            </span>
+          )}
+
+          {/* User Profile Dropdown */}
           <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
             <DropdownMenuTrigger asChild>
               <Button className="bg-grey hover:bg-gray-100 text-gray-900 dark:text-gray-100 dark:hover:text-gray-200 border border-gray-200 rounded-full text-sm px-4 py-2 inline-flex items-center">
@@ -62,6 +70,17 @@ function Navbar() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg">
+              {/* Add Dashboard link */}
+              {user && (
+                <DropdownMenuItem className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
+                  <Link href="/dashboard" className="flex items-center">
+                    <Home className="mr-2 h-4 w-4" />
+                    <span>Dashboard</span>
+                  </Link>
+                </DropdownMenuItem>
+              )}
+
+              {/* Render other menu items */}
               {menuData.map((menuItem) => {
                 const IconComponent = menuItem.icon; // Get the icon component from menuData
                 return (
@@ -74,53 +93,40 @@ function Navbar() {
                   </DropdownMenuItem>
                 );
               })}
-              <DropdownMenuItem className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
-                <form action={signOut} className="w-full">
-                  <button type="submit" className="flex w-full items-center">
+
+              {/* Sign Out Button */}
+              {user && (
+                <DropdownMenuItem className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
+                  <form action={signOut} className="w-full">
+                    <button type="submit" className="flex w-full items-center">
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>Sign out</span>
+                    </button>
+                  </form>
+                </DropdownMenuItem>
+              )}
+
+              {/* Sign In Link - only show if user is not logged in */}
+              {!user && (
+                <DropdownMenuItem className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
+                  <Link href="/sign-in" className="flex items-center">
                     <LogOut className="mr-2 h-4 w-4" />
-                    <span>Sign out</span>
-                  </button>
-                </form>
-              </DropdownMenuItem>
+                    <span>Sign In</span>
+                  </Link>
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
 
+          {/* Theme Toggle Button */}
           <button
             onClick={toggleTheme}
             className="text-sm font-medium text-gray-700 dark:text-gray-100 hover:text-gray-900 flex items-center"
           >
-            {isDarkMode ? <Sun className="h-5 w-5 mr-1" /> : <Moon className="h-5 w-5 mr-1" />}
+            {isDarkMode ? <Sun className="h5 w5 mr1" /> : <Moon className="h5 w5 mr1" />}
             {isDarkMode ? 'Light Mode' : 'Dark Mode'}
           </button>
 
-          {user && (
-            <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
-              <DropdownMenuTrigger asChild>
-                <Avatar className="cursor-pointer size-9">
-                  <AvatarImage alt={user.name || ''} />
-                  <AvatarFallback>
-                    {user.email.split(' ').map((n) => n[0]).join('')}
-                  </AvatarFallback>
-                </Avatar>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="flex flex-col gap-1">
-                <DropdownMenuItem className="cursor-pointer">
-                  <Link href="/dashboard" className="flex w-full items-center">
-                    <Home className="mr-2 h-4 w-4" />
-                    <span>Dashboard</span>
-                  </Link>
-                </DropdownMenuItem>
-                <form action={signOut} className="w-full">
-                  <button type="submit" className="flex w-full">
-                    <DropdownMenuItem className="w-full flex-1 cursor-pointer">
-                      <LogOut className="mr-2 h-4 w-4" />
-                      <span>Sign out</span>
-                    </DropdownMenuItem>
-                  </button>
-                </form>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
         </div>
       </div>
     </header>

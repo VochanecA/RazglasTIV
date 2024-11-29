@@ -44,4 +44,11 @@ export const menuData: MenuItem[] = [
     newTab: false,
     icon: UserIcon, // Just reference the icon component
   },
+  {
+    id: 6,
+    title: "Sign In",
+    path: "/sign-in",
+    newTab: false,
+    icon: UserIcon, // Just reference the icon component
+  },
 ];

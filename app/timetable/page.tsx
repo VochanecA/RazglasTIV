@@ -1,7 +1,7 @@
 'use client';
 
 import { PlaneTakeoff, PlaneLanding } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect,useRef, useState } from 'react';
 import Image from 'next/image';
 import { useNotification } from '@/components/ui/NotificationCenter';
 import { getFlightTTSEngine } from '@/lib/flightTTS';
@@ -92,11 +92,11 @@ const FlightCard = ({ flight, type }: { flight: Flight; type: 'departure' | 'arr
           </div>
           <div>
             <div className="text-gray-500 dark:text-gray-400">Estimated</div>
-            <div className="font-xl font-bold dark:text-gray-200">{formatTime(flight.estimated_out)}</div>
+            <div className="text-xl font-medium dark:text-gray-200">{formatTime(flight.estimated_out)}</div>
           </div>
           <div>
             <div className="text-gray-500 dark:text-gray-400">Actual</div>
-            <div className="font-medium dark:text-gray-200">
+            <div className="text-xl font-medium dark:text-gray-200">
               {flight.actual_out ? formatTime(flight.actual_out) : '-'}
             </div>
           </div>
@@ -148,6 +148,11 @@ const Departures = () => {
   const [processedFlights] = useState(new Set<string>());
   const [lastAnnouncementTimes] = useState(new Map<string, number>());
 
+   // Add ref for audio player
+ // Audio ref for the notification sound
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+
   const shouldAnnounceDelay = (flight: Flight, currentTime: Date) => {
     const flightKey = `${flight.ident}-delay`;
     const lastAnnouncement = lastAnnouncementTimes.get(flightKey) || 0;
@@ -180,10 +185,18 @@ const fetchFlightData = async () => {
     setData(newData); // Ensure `newData` has the correct structure
 
     setError(null);
+    
     if (ttsEngine) {
+      // <audio ref={audioRef} src="/mp3/airport_bell.mp3" preload="auto" className="hidden" />
+      <audio ref={audioRef} src="/mp3/airport_bell.mp3" preload="auto" className="hidden" />
+
+
       // Process departures
       newData.departures.forEach((flight: Flight) => {
-        const flightKey = `${flight.ident}-${flight.status}-${flight.scheduled_out}`;
+        // const flightKey = `${flight.ident}-${flight.status}-${flight.scheduled_out}`;
+        const flightKey = `${flight.ident || 'unknown'}-${flight.status || 'unknown'}-${flight.scheduled_out || Date.now()}`;
+
+
         
         if (!processedFlights.has(flightKey)) {
           if (flight.status === 'Check In' && ttsEngine.shouldAnnounce(flight, 'Processing')) {
@@ -215,7 +228,9 @@ const fetchFlightData = async () => {
 
       // Process arrivals
       newData.arrivals.forEach((flight: Flight) => {
-        const flightKey = `${flight.ident}-${flight.status.toLowerCase()}`;
+        // const flightKey = `${flight.ident}-${flight.status.toLowerCase()}`;
+        const flightKey = `${flight.ident}-${flight.status.toLowerCase()}-${flight.scheduled_in || Date.now()}`;
+
         
         if (!processedFlights.has(flightKey)) {
           // Ensure TTS announcement for "Arrived" flights (case-insensitive)
@@ -240,6 +255,7 @@ const fetchFlightData = async () => {
         }
       });
     }
+    
 
     // Notification logic for arrivals
     newData.arrivals.forEach((flight: Flight) => {
@@ -317,6 +333,7 @@ const fetchFlightData = async () => {
 
   return (
     <div className="min-h-screen p-4">
+
       <TTSInitializer />
       <div className="flex mb-4">
         <button
@@ -388,10 +405,30 @@ const fetchFlightData = async () => {
           </div>
         </>
       )}
+<div className="mt-4 text-sm text-gray-500 dark:text-gray-400 text-center">
+    Last fetched at: <span>{lastUpdated}</span>
+</div>
 
-      <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-        Last fetched at: <span>{lastUpdated}</span>
-      </div>
+<div className="mt-4 text-sm text-gray-500 dark:text-gray-400 text-center">
+    We recommend using <strong>Chrome</strong> or <strong>Firefox</strong> for better audio experience.
+</div>
+
+<div className="flex justify-center mt-2">
+    <img 
+        src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/Google_Chrome_icon_%28February_2022%29.svg/48px-Google_Chrome_icon_%28February_2022%29.svg.png" 
+        alt="Chrome Logo" 
+        className="h-8 mx-2" 
+    />
+    <img 
+        src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Firefox_logo%2C_2019.svg/1024px-Firefox_logo%2C_2019.svg.png" 
+        alt="Firefox Logo" 
+        className="h-8 mx-2" 
+    />
+</div>
+
+<div className="mt-4 text-sm text-gray-500 dark:text-gray-400 text-center">
+    Courtesy of Smooth Jazz Radio
+</div>
     </div>
   );
 };

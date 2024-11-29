@@ -35,6 +35,7 @@ interface TTSQueueItem {
   text: string;
   priority: number;
   scheduledTime: string;
+  mp3?: string; // Optional MP3 URL
 }
 
 interface ScheduledAnnouncementConfig {
@@ -50,6 +51,7 @@ interface AnnouncementRecord {
 }
 
 
+
 class FlightTTSEngine {
   private queue: TTSQueueItem[] = [];
   private isPlaying: boolean = false;
@@ -60,48 +62,60 @@ class FlightTTSEngine {
   private scheduledAnnouncementTimer: NodeJS.Timeout | null = null;
   private cleanupTimer: NodeJS.Timeout | null = null;
   private announcedFlights: Map<string, AnnouncementRecord> = new Map();
-
+  
   private readonly MINIMUM_ANNOUNCEMENT_INTERVAL = 1000 * 60 * 30; // 30 minutes
   private readonly CLEANUP_INTERVAL = 1000 * 60 * 60; // 1 hour
   private readonly RECORD_EXPIRY = 1000 * 60 * 60 * 24; // 24 hours
-
   private boardingAnnouncementTimers: Map<string, NodeJS.Timeout> = new Map();
+  
   private readonly BOARDING_REPEAT_INTERVAL = 5 * 60 * 1000; // 5 minutes in milliseconds
   private readonly ISRAELI_AIRLINES = ['ISRAIR', 'EL AL'];
-
   
   private announcementConfig: ScheduledAnnouncementConfig = {
-    startHour: 7,
-    endHourWinter: 16.5, // 16:30
-    endHourSummer: 19.5, // 19:30
-    interval: 30 // default interval
+      startHour: 7,
+      endHourWinter: 16.5, // 16:30
+      endHourSummer: 19.5, // 19:30
+      interval: 30 // default interval
   };
-  
+
+  private backgroundMusic!: HTMLAudioElement; // Declare background music property
 
   constructor() {
-    if (typeof window === 'undefined') {
-      throw new Error('FlightTTSEngine must be initialized in browser environment');
-    }
+      if (typeof window === 'undefined') {
+          throw new Error('FlightTTSEngine must be initialized in browser environment');
+      }
 
-    this.synth = window.speechSynthesis;
-    if (!this.synth) {
-      console.error('Web Speech API is not supported in this browser.');
-      return;
-    }
+      this.synth = window.speechSynthesis;
 
-    if (this.synth.speaking) {
-      this.synth.cancel();
-    }
+      if (!this.synth) {
+          console.error('Web Speech API is not supported in this browser.');
+          return;
+      }
 
-    if (this.synth.getVoices().length > 0) {
-      this.setupVoice();
-    } else {
-      window.speechSynthesis.onvoiceschanged = () => {
-        this.setupVoice();
-      };
-    }
+      if (this.synth.speaking) {
+          this.synth.cancel();
+      }
 
-    this.startCleanupTimer();
+      if (this.synth.getVoices().length > 0) {
+          this.setupVoice();
+      } else {
+          window.speechSynthesis.onvoiceschanged = () => {
+              this.setupVoice();
+          };
+      }
+console.log(process.env.REACT_APP_STREAM_URL )
+      // Initialize background music
+  const streamUrl = process.env.REACT_APP_STREAM_URL || 'https://smoothjazz.cdnstream1.com/2586_128.mp3'; // Fallback in case variable is not set
+       this.backgroundMusic = new Audio(streamUrl);
+       this.backgroundMusic.volume = 0.3; // Set initial volume
+       this.backgroundMusic.loop = true; // Loop the music
+       this.backgroundMusic.play(); // Start playing background music
+      //  http://fr1.lounge-radio.com/lounge128.mp3
+
+      //  jazz: https://443-1.autopo.st/171/stream/3/
+      //  smooth jazz: https://smoothjazz.cdnstream1.com/2586_128.mp3
+      this.startCleanupTimer();
+      this.scheduleDisabledPassengerAssistanceAnnouncement(); // Schedule announcements
   }
 
   private setupVoice() {
@@ -145,6 +159,7 @@ class FlightTTSEngine {
     this.cleanupTimer = setInterval(() => {
       this.cleanupAnnouncementRecords();
     }, this.CLEANUP_INTERVAL);
+    this.scheduleDisabledPassengerAssistanceAnnouncement(); 
   }
 
   private cleanupAnnouncementRecords() {
@@ -160,6 +175,7 @@ class FlightTTSEngine {
         }
     });
 }
+
 
   public queueCustomAnnouncement(message: string) {
     if (!this.isInitialized) {
@@ -326,7 +342,7 @@ private createAnnouncementText(flight: Flight, type: 'checkin' | 'boarding' | 'p
     case 'final':
       return `Final call. This is the final call for ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad}. Please proceed immediately to gate ${processCheckInOrGate(flight.gate)}`;
     case 'arrived':
-      return `Dear passengers, ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} has arrived from ${flight.grad}. Please proceed to baggage claim.`;
+      return `Dear passengers, ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} has arrived from ${flight.grad}. Please proceed to passport control an then to baggage claim. Thank you and Welcome to Montenegro.`;
     case 'close':
       return `Attention please. The boarding for ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} has now closed. We thank you for your cooperation. We wish you a pleasant flight and see you soon.`;
     default:
@@ -457,6 +473,16 @@ private createAnnouncementText(flight: Flight, type: 'checkin' | 'boarding' | 'p
            `The local time is ${currentTime}.`;
   }
 
+
+private scheduleDisabledPassengerAssistanceAnnouncement() {
+  // Schedule the announcement every 5 minutes (300000 milliseconds)
+  this.scheduledAnnouncementTimer = setInterval(() => {
+      if (this.isWithinOperatingHours()) {
+          const announcementText = "We are committed to providing assistance for all passengers. If you require special assistance, please notify our staff or use the designated help points throughout the terminal.";
+          this.queueCustomAnnouncement(announcementText);
+      }
+  }, 2700000); // 5 minutes in milliseconds
+}
 /*   private isValidFlight(flight: Flight): boolean {
     return !!(flight.ident && flight.status && flight.grad && flight.KompanijaNaziv);
   }
@@ -482,37 +508,158 @@ private _addToQueue(text: string, priority: number, scheduledTime: string) {
   this.queue.sort((a, b) => b.priority - a.priority || a.scheduledTime.localeCompare(b.scheduledTime));
 }
 
-
-  private playNext() {
-    if (!this.isInitialized || this.queue.length === 0) {
-      this.isPlaying = false;
-      return;
-    }
-  
-    this.isPlaying = true;
-    const item = this.queue.shift();
-    if (!item) return;
-  
-    const utterance = new SpeechSynthesisUtterance(item.text);
-    utterance.rate = 0.75;
-    utterance.pitch = 0.9;
-    utterance.volume = 1;
-  
-    if (this.selectedVoice) {
-      utterance.voice = this.selectedVoice;
-    }
-  
-    utterance.onend = () => {
-      setTimeout(() => this.playNext(), 1000);
-    };
-
-    utterance.onerror = (event) => {
-      console.error('TTS Error:', event);
-      this.playNext();
-    };
-  
-    this.synth.speak(utterance);
+private playNext(): void {
+  if (!this.isInitialized || this.queue.length === 0) {
+      this.isPlaying = false; 
+      return; 
   }
+
+  const item = this.queue.shift(); 
+
+  if (!item || !item.text.trim()) { 
+      this.isPlaying = false; 
+      return; 
+  }
+
+  console.log("Playing Announcement:", item.text); 
+
+  const utterance = new SpeechSynthesisUtterance(item.text);
+  
+  if (this.selectedVoice) { 
+      utterance.voice = this.selectedVoice; 
+  }
+  
+  // Fade out background music before TTS announcement
+  this.fadeOutVolume(0, 100).then(() => { 
+      this.backgroundMusic.volume = 0; // Ensure volume is set to 0 before speaking
+
+      utterance.onend = () => { 
+          console.log("Announcement finished.");
+          
+          // Gradually restore volume after announcement
+          this.fadeInVolume(0.5);
+          
+          // Call playNext to handle the next item in the queue
+          this.playNext(); 
+      };
+
+      utterance.onerror = (event) => { 
+          console.error(`Speech synthesis error: ${event.error}`);
+          this.isPlaying = false; 
+
+          // Restore volume on error
+          this.fadeInVolume(0.5);
+
+          // Call playNext to handle the next item in the queue
+          this.playNext(); 
+      };
+
+      const hasTtsText = item.text && item.text.trim() !== '';
+
+      // Play the hardcoded MP3 only if there's TTS text (indicating an announcement)
+      if (hasTtsText) {
+          console.log("Playing Hardcoded MP3");
+          const audio = new Audio('/mp3/gong_pojacan.mp3');
+
+          audio.onended = () => {
+              console.log("Hardcoded MP3 playback finished. Checking for item MP3...");
+
+              // Check if item includes its own MP3
+              if (item.mp3) {
+                  console.log("Playing Item MP3:", item.mp3);
+                  const itemAudio = new Audio(item.mp3);
+
+                  itemAudio.onended = () => {
+                      console.log("Item MP3 playback finished. Starting TTS...");
+                      window.speechSynthesis.speak(utterance); // Play TTS after item MP3
+                  };
+
+                  itemAudio.onerror = (error) => {
+                      console.error("Item MP3 playback error:", error);
+                      window.speechSynthesis.speak(utterance); // Proceed with TTS on error
+                  };
+
+                  itemAudio.play();
+              } else {
+                  // No item MP3, directly play TTS
+                  window.speechSynthesis.speak(utterance);
+              }
+          };
+
+          audio.onerror = (error) => {
+              console.error("Hardcoded MP3 playback error:", error);
+              window.speechSynthesis.speak(utterance); // Proceed with TTS if hardcoded MP3 fails
+          };
+
+          audio.play(); // Start hardcoded MP3 playback
+      } else {
+          console.log("No TTS text, skipping airport bell...");
+          this.playNext();
+      }
+  });
+}
+private fadeOutVolume(targetVolume: number, duration: number): Promise<void> { 
+  return new Promise((resolve) => { 
+      const stepTime = 100; 
+      const steps = duration / stepTime; 
+      const currentVolume = this.backgroundMusic.volume;
+
+      let stepIncrement = (targetVolume - currentVolume) / steps;
+
+      const fadeInterval = setInterval(() => { 
+          if ((stepIncrement < 0 && this.backgroundMusic.volume > targetVolume) || 
+              (stepIncrement > 0 && this.backgroundMusic.volume < targetVolume)) { 
+              this.backgroundMusic.volume += stepIncrement; 
+          } else { 
+              clearInterval(fadeInterval); 
+              resolve(); // Resolve the promise when fade out is complete
+          } 
+      }, stepTime); 
+  }); 
+}
+private fadeInVolume(targetVolume: number, duration: number = 2000): void {
+  const stepTime = 100; 
+  const steps = duration / stepTime; 
+  const currentVolume = this.backgroundMusic.volume;
+
+  let stepIncrement = (targetVolume - currentVolume) / steps;
+
+  const fadeInterval = setInterval(() => {
+      if ((stepIncrement > 0 && this.backgroundMusic.volume < targetVolume) ||
+          (stepIncrement < 0 && this.backgroundMusic.volume > targetVolume)) {
+          this.backgroundMusic.volume += stepIncrement;
+      } else {
+          clearInterval(fadeInterval);
+          this.backgroundMusic.volume = targetVolume; 
+      }
+  }, stepTime);
+}
+
+
+// Helper method for TTS playback
+private playTTS(text: string): void {
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.rate = 0.85;
+  utterance.pitch = 0.9;
+  utterance.volume = 1;
+
+  if (this.selectedVoice) {
+    utterance.voice = this.selectedVoice;
+  }
+
+  utterance.onend = () => {
+    setTimeout(() => this.playNext(), 1000); // Proceed to the next item
+  };
+
+  utterance.onerror = (event) => {
+    console.error('TTS Error:', event.error);
+    this.playNext(); // Continue with the next item in the queue
+  };
+
+  this.synth.speak(utterance);
+}
+
+
   public queueAnnouncement(flight: Flight, type: 'checkin' | 'boarding' | 'final' | 'arrived' | 'close' | 'earlier') {
     console.log(`Attempting to queue announcement for flight ${flight.ident}, type: ${type}`);
 
