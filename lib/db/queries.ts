@@ -141,7 +141,6 @@ export async function getTeamForUser(userId: number) {
 
 // CRUD operations for mp3Plays
 
-// Create a new mp3 play entry
 export async function createMp3Play(playData: {
   flightIcaoCode: string;
   flightNumber: string;
@@ -149,10 +148,11 @@ export async function createMp3Play(playData: {
   callType: string;
   gate?: string;
   filename: string;
+  playedAt?: Date;  // Add this optional field
 }) {
   return await db.insert(mp3Plays).values({
     ...playData,
-    playedAt: new Date(), // Default to current date if not provided
+    playedAt: playData.playedAt || new Date(), // Default to current date if not provided
   });
 }
 

@@ -1,6 +1,7 @@
 'use client';
 
 
+
 // Add new type for flight status
 type FlightStatus = 'Processing' | 'Boarding' | 'Final Call' | 'Close' | 'Departed';
 
@@ -278,25 +279,24 @@ public onFlightStatusChange(flight: Flight): void {
     this.scheduleArrivedAnnouncements(flight);  // Handle the "Arrived" or "Landed" status
   }
 }
-
 private scheduleCheckinAnnouncements(flight: Flight): void {
-  const announcementText = this.createAnnouncementText(flight, 'checkin');
-  this.scheduleAnnouncement(announcementText);
+  const { generatedAnnouncement } = this.createAnnouncementText(flight, 'checkin');
+  this.scheduleAnnouncement(generatedAnnouncement); // Pass only the announcement text
 }
 
 private scheduleBoardingAnnouncements(flight: Flight): void {
-  const announcementText = this.createAnnouncementText(flight, 'boarding');
-  this.scheduleAnnouncement(announcementText);
+  const { generatedAnnouncement } = this.createAnnouncementText(flight, 'boarding');
+  this.scheduleAnnouncement(generatedAnnouncement); // Pass only the announcement text
 }
 
 private scheduleCloseAnnouncements(flight: Flight): void {
-  const announcementText = this.createAnnouncementText(flight, 'close');
-  this.scheduleAnnouncement(announcementText);
+  const { generatedAnnouncement } = this.createAnnouncementText(flight, 'close');
+  this.scheduleAnnouncement(generatedAnnouncement); // Pass only the announcement text
 }
 
 private scheduleArrivedAnnouncements(flight: Flight): void {
-  const announcementText = this.createAnnouncementText(flight, 'arrived');  // Announcement for arrival/landing
-  this.scheduleAnnouncement(announcementText);
+  const { generatedAnnouncement } = this.createAnnouncementText(flight, 'arrived');  // Announcement for arrival/landing
+  this.scheduleAnnouncement(generatedAnnouncement); // Pass only the announcement text
 }
 
 // Example for scheduling logic - you can replace this with your own scheduling method
@@ -307,47 +307,69 @@ private scheduleAnnouncement(announcementText: string): void {
 }
 
 // Your existing createAnnouncementText remains unchanged
-private createAnnouncementText(flight: Flight, type: 'checkin' | 'boarding' | 'processing' | 'final' | 'arrived' | 'close'): string {
+private createAnnouncementText(flight: Flight, type: 'checkin' | 'boarding' | 'processing' | 'final' | 'arrived' | 'close'): { generatedAnnouncement: string; flightData: any } {
   console.log(`Creating announcement text for flight ${flight.ident}, type: ${type}`);
 
   // Function to remove leading zeros from check-in numbers or gate numbers
   const formatCheckInOrGate = (checkInOrGate: string) => {
-    return checkInOrGate ? checkInOrGate.replace(/^0+/, '') : checkInOrGate;
+      return checkInOrGate ? checkInOrGate.replace(/^0+/, '') : checkInOrGate;
   };
 
   // Function to convert numbers to words for numbers 1-9
   const numberToWords = (num: number) => {
-    const words: { [key: number]: string } = {
-      1: 'one', 2: 'two', 3: 'three', 4: 'four', 5: 'five', 6: 'six', 7: 'seven', 8: 'eight', 9: 'nine'
-    };
-    return words[num] || num.toString(); // For numbers > 9, just return the number as a string
+      const words: { [key: number]: string } = {
+          1: 'one', 2: 'two', 3: 'three', 4: 'four', 5: 'five', 6: 'six', 7: 'seven', 8: 'eight', 9: 'nine'
+      };
+      return words[num] || num.toString(); // For numbers > 9, just return the number as a string
   };
 
-  // Function to process the check-in counters or gate numbers to remove leading zeros and convert to words for numbers 1-9
+  // Function to process the check-in counters or gate numbers
   const processCheckInOrGate = (checkInOrGate: string) => {
-    const checkInOrGateParts = checkInOrGate.split(',').map(part => formatCheckInOrGate(part.trim())); // Remove leading zeros and trim spaces
-    return checkInOrGateParts.map((part, index) => {
-      const num = parseInt(part, 10);
-      // Convert only numbers less than 10 to words, keep others numeric
-      return num < 10 ? numberToWords(num) : num.toString(); 
-    }).join(' '); // Join with space instead of commas to avoid TTS issues
+      const checkInOrGateParts = checkInOrGate.split(',').map(part => formatCheckInOrGate(part.trim())); // Remove leading zeros and trim spaces
+      return checkInOrGateParts.map((part) => {
+          const num = parseInt(part, 10);
+          return num < 10 ? numberToWords(num) : num.toString(); 
+      }).join(' '); // Join with space instead of commas to avoid TTS issues
   };
+
+  let generatedAnnouncement = ''; // Variable for the announcement text
+  let flightIcaoCode = flight.ident; // Assuming flight.ident is used as flightIcaoCode
+  let flightNumber = flight.ident.split('').join(' '); // Flight number with spaces
+  let destinationCode = flight.grad; // Destination city
 
   switch (type) {
-    case 'checkin':
-    case 'processing':
-      return `Attention please. ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} is open for check-in at counter ${processCheckInOrGate(flight.checkIn)}`;
-    case 'boarding':
-      return `Attention please. ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} is now boarding at gate ${processCheckInOrGate(flight.gate)}`;
-    case 'final':
-      return `Final call. This is the final call for ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad}. Please proceed immediately to gate ${processCheckInOrGate(flight.gate)}`;
-    case 'arrived':
-      return `Dear passengers, ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} has arrived from ${flight.grad}. Please proceed to passport control an then to baggage claim. Thank you and Welcome to Montenegro.`;
-    case 'close':
-      return `Attention please. The boarding for ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} has now closed. We thank you for your cooperation. We wish you a pleasant flight and see you soon.`;
-    default:
-      return '';
+      case 'checkin':
+      case 'processing':
+          generatedAnnouncement = `Attention please. ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} is open for check-in at counter ${processCheckInOrGate(flight.checkIn)}`;
+          break;
+      case 'boarding':
+          generatedAnnouncement = `Attention please. ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} is now boarding at gate ${processCheckInOrGate(flight.gate)}`;
+          break;
+      case 'final':
+          generatedAnnouncement = `Final call. This is the final call for ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad}. Please proceed immediately to gate ${processCheckInOrGate(flight.gate)}`;
+          break;
+      case 'arrived':
+          generatedAnnouncement = `Dear passengers, ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} has arrived from ${flight.grad}. Please proceed to passport control and then to baggage claim. Thank you and welcome to Montenegro.`;
+          break;
+      case 'close':
+          generatedAnnouncement = `Attention please. The boarding for ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} has now closed. We thank you for your cooperation. We wish you a pleasant flight and see you soon.`;
+          break;
+      default:
+          return { generatedAnnouncement: '', flightData: null };
   }
+
+  // Constructing flightData object
+  const flightData = {
+      flightIcaoCode,
+      flightNumber,
+      destinationCode,
+      callType: type,
+      gate: type === 'boarding' || type === 'final' ? flight.gate : undefined, // Only include gate if relevant
+      filename: `${type}_${flight.ident}_${Date.now()}.mp3`, // Create a unique filename
+      playedAt: new Date() // Current date and time
+  };
+
+  return { generatedAnnouncement, flightData }; // Return both values
 }
 
   
@@ -466,12 +488,86 @@ private createAnnouncementText(flight: Flight, type: 'checkin' | 'boarding' | 'p
     });
   }
 
-  private createSecurityAnnouncement(): string {
+  private async createSecurityAnnouncement(): Promise<string> {
     const currentTime = this.formatTime(new Date());
+
+    // Log separately using the API
+    await this.logSecurityAnnouncement();
+
     return `Attention please. Dear passengers, may I have your attention please. Do not leave your baggage unattended at any time you are at the airport, ` +
-           `as it will be removed for security reason and may be destroyed. Thank you. ` +
+           `as it will be removed for security reasons and may be destroyed. Thank you. ` +
            `The local time is ${currentTime}.`;
+        
+}
+
+private async logAnnouncement(flight: Flight, type: 'checkin' | 'boarding' | 'processing' | 'final' | 'arrived' | 'close') {
+  // Generate the announcement text using the existing createAnnouncementText method
+  const announcementText = this.createAnnouncementText(flight, type);
+
+  // Log the request body to the console
+  console.log('Logging announcement with body:', {
+      flight,
+      type,
+      announcementText,
+  });
+
+  const requestBody = {
+      flight: flight,
+      type: type,
+      filename: `${type}_${flight.ident}_${Date.now()}.mp3`, // Create a unique filename
+      announcementText: announcementText,
+  };
+
+  try {
+      const response = await fetch('/api/logMp3Play', {
+          method: 'POST',
+          headers: {
+              'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+          const errorDetails = await response.text(); // Get detailed error message
+          console.error('Failed to log announcement:', response.statusText, errorDetails);
+      } else {
+          console.log('Successfully logged announcement:', announcementText); // Log success
+      }
+  } catch (error) {
+      console.error('Error logging announcement:', error);
   }
+}
+private async logSecurityAnnouncement() {
+  const requestBody = {
+      flight: null,
+      type: 'Security',
+      filename: 'Security ANnouncement.',
+  };
+
+  // Log the request body to the console
+  console.log('Logging security announcement with body:', requestBody);
+
+  try {
+      const response = await fetch('/api/logMp3Play', {
+          method: 'POST',
+          headers: {
+              'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+      });
+
+      console.log('Response status:', response.status); // Log response status
+
+      if (!response.ok) {
+          const errorDetails = await response.text(); // Get detailed error message
+          console.error('Failed to log security announcement:', response.statusText, errorDetails);
+      } else {
+          console.log('Successfully logged security announcement'); // Log success
+      }
+  } catch (error) {
+      console.error('Error logging security announcement:', error);
+  }
+}
 
 
 private scheduleDisabledPassengerAssistanceAnnouncement() {
@@ -516,7 +612,8 @@ private playNext(): void {
 
   const item = this.queue.shift(); 
 
-  if (!item || !item.text.trim()) { 
+  // Check if item exists and item.text is a string
+  if (!item || typeof item.text !== 'string' || !item.text.trim()) { 
       this.isPlaying = false; 
       return; 
   }
@@ -713,13 +810,16 @@ private playTTS(text: string): void {
     if (this.scheduledAnnouncementTimer) {
       return;
     }
-
-    const playIfInHours = () => {
+    const playIfInHours = async () => {
       if (this.isWithinOperatingHours()) {
-        const announcement = this.createSecurityAnnouncement();
-        this.addToQueue(announcement, 5, this.formatTime(new Date()));
+          try {
+              const announcement = await this.createSecurityAnnouncement();
+              this.addToQueue(announcement, 5, this.formatTime(new Date()));
+          } catch (error) {
+              console.error('Failed to create security announcement:', error);
+          }
       }
-    };
+  };
 
     playIfInHours();
 
@@ -815,6 +915,8 @@ private playTTS(text: string): void {
         }
     }
 }
+
+
 }
 
 
