@@ -1,4 +1,4 @@
-import { HomeIcon, InfoIcon, CalendarIcon, UserIcon, PackageIcon } from 'lucide-react'; // Import icons from lucide-react
+import { HomeIcon, InfoIcon, CalendarIcon, UserIcon, PackageIcon, AirplayIcon } from 'lucide-react'; // Import icons from lucide-react
 
 export type MenuItem = {
   id: number;
@@ -42,7 +42,7 @@ export const menuData: MenuItem[] = [
     title: "AeroVoice",
     path: "/flights",
     newTab: false,
-    icon: UserIcon, // Just reference the icon component
+    icon: AirplayIcon, // Just reference the icon component
   },
 
 ];
