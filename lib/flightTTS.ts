@@ -757,43 +757,48 @@ private playTTS(text: string): void {
 }
 
 
-  public queueAnnouncement(flight: Flight, type: 'checkin' | 'boarding' | 'final' | 'arrived' | 'close' | 'earlier') {
-    console.log(`Attempting to queue announcement for flight ${flight.ident}, type: ${type}`);
+public queueAnnouncement(flight: Flight, type: 'checkin' | 'boarding' | 'final' | 'arrived' | 'close' | 'earlier') {
+  console.log(`Attempting to queue announcement for flight ${flight.ident}, type: ${type}`);
 
-    const now = Date.now();
-    const record = this.announcedFlights.get(flight.ident);
+  const now = Date.now();
+  const record = this.announcedFlights.get(flight.ident);
 
-    // For check-in announcements
-    if (type === 'checkin') {
-        // Check if the announcement was made recently (within MINIMUM_ANNOUNCEMENT_INTERVAL)
-        if (record && (now - record.lastAnnounced < this.MINIMUM_ANNOUNCEMENT_INTERVAL)) {
-            console.log(`Skipping check-in announcement for flight ${flight.ident} - already announced recently.`);
-            return; // Skip queuing if it was announced recently
-        }
-    }
+  // For check-in announcements
+  if (type === 'checkin') {
+      // Check if the announcement was made recently (within MINIMUM_ANNOUNCEMENT_INTERVAL)
+      if (record && (now - record.lastAnnounced < this.MINIMUM_ANNOUNCEMENT_INTERVAL)) {
+          console.log(`Skipping check-in announcement for flight ${flight.ident} - already announced recently.`);
+          return; // Skip queuing if it was announced recently
+      }
+  }
 
-    // For arrivals, do one final time check before queuing
-    if (type === 'arrived') {
-        if (!this.shouldAnnounceArrival(flight)) {
-            console.log(`Skipping announcement queue for flight ${flight.ident} - failed final time check`);
-            return;
-        }
-    }
+  // For arrivals, do one final time check before queuing
+  if (type === 'arrived') {
+      if (!this.shouldAnnounceArrival(flight)) {
+          console.log(`Skipping announcement queue for flight ${flight.ident} - failed final time check`);
+          return;
+      }
+  }
 
-    // Handle earlier arrival announcements
-    if (type === 'earlier') {
-        const earlyAnnouncementText = `Attention passengers, ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} from ${flight.origin.code} is arriving earlier than scheduled. Landing is expected at ${flight.actual_in}.`;
-        this.addToQueue(earlyAnnouncementText, 5, flight.scheduled_out || flight.actual_in || '');
-        console.log(`Queued earlier arrival announcement for flight ${flight.ident}`);
-        return; // Exit after queuing the earlier announcement
-    }
+  // Handle earlier arrival announcements
+  if (type === 'earlier') {
+      const earlyAnnouncementText = `Attention passengers, ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} from ${flight.origin.code} is arriving earlier than scheduled. Landing is expected at ${flight.actual_in}.`;
+      this.addToQueue(earlyAnnouncementText, 5, flight.scheduled_out || flight.actual_in || '');
+      console.log(`Queued earlier arrival announcement for flight ${flight.ident}`);
+      return; // Exit after queuing the earlier announcement
+  }
 
-    const text = this.createAnnouncementText(flight, type);
-    const priority = type === 'arrived' ? 4 : type === 'final' ? 1 : type === 'close' ? 1 : type === 'boarding' ? 2 : 3;
+  // Get the announcement text and flight data
+  const { generatedAnnouncement } = this.createAnnouncementText(flight, type);
 
-    this.recordAnnouncement(flight, type); // Record the announcement
-    this.addToQueue(text, priority, flight.scheduled_out || flight.actual_in || '');
+  // Determine priority based on type
+  const priority = type === 'arrived' ? 4 : type === 'final' ? 1 : type === 'close' ? 1 : type === 'boarding' ? 2 : 3;
+
+  this.recordAnnouncement(flight, type); // Record the announcement
+  this.addToQueue(generatedAnnouncement, priority, flight.scheduled_out || flight.actual_in || '');
 }
+
+
   public setAnnouncementInterval(minutes: number) {
     if (minutes !== 15 && minutes !== 30) {
       console.error('Interval must be either 15 or 30 minutes');
