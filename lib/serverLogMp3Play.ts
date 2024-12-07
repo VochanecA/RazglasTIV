@@ -34,7 +34,7 @@ export async function serverLogMp3Play({
             flightNumber: callType === 'security' ? 'SEC' : flightNumber || 'SEC',
             destinationCode: callType === 'security' ? 'SEC' : destinationCode || 'SEC',
             callType: callType,
-            gate: callType === 'security' ? 'SEC' : gate || null, // 'null' if gate is not provided
+            gate: callType === 'security' ? 'SEC' : gate || undefined, // Use 'undefined' instead of 'null'
             filename: finalFilename,
             playedAt: playTime,
         });
