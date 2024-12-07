@@ -6,17 +6,17 @@ export async function POST(req: NextRequest) {
         const body = await req.json();
 
         // Destructure the required fields from the request body
-        const { flight, type, filename } = body;
+        const { flightIcaoCode, flightNumber, destinationCode, callType, gate, filename, playedAt } = body;
 
         // Prepare the data for database insertion
         const playData = {
-            flightIcaoCode: type === 'security' ? 'SEC' : flight?.KompanijaICAO || 'SEC',
-            flightNumber: type === 'security' ? 'SEC' : flight?.ident || 'SEC',
-            destinationCode: type === 'security' ? 'SEC' : flight?.destination.code || 'SEC',
-            callType: type,
-            gate: type === 'security' ? 'SEC' : flight?.gate || undefined,
-            filename: filename || `${flight?.ident}_${type}_${Date.now()}.mp3`, // Default filename if not provided
-            playedAt: new Date() // Set current date and time
+            flightIcaoCode: callType === 'security' ? 'SEC' : flightIcaoCode || 'SEC',
+            flightNumber: callType === 'security' ? 'SEC' : flightNumber || 'SEC',
+            destinationCode: callType === 'security' ? 'SEC' : destinationCode || 'SEC',
+            callType: callType,
+            gate: callType === 'security' ? 'SEC' : gate || undefined,
+            filename: filename || `${flightNumber}_${callType}_${Date.now()}.mp3`, // Default filename if not provided
+            playedAt: new Date(playedAt) // Ensure playedAt is a Date object
         };
 
         // Call the createMp3Play function to insert data into the database

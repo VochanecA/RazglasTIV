@@ -38,6 +38,12 @@ const usePASystem = () => {
     }
 
     audioElement.current.src = item.audioPath;
+    audioElement.current.onerror = () => {
+      console.error('Failed to load audio file:', item.audioPath);
+      (audioElement.current as HTMLAudioElement).src = '/mp3/airport_bell.mp3';
+
+
+    };
     audioElement.current.play()
       .then(() => {
         audioElement.current!.onended = () => {

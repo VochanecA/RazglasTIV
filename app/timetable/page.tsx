@@ -427,7 +427,7 @@ const fetchFlightData = async () => {
 </div>
 
 <div className="mt-4 text-sm text-gray-500 dark:text-gray-400 text-center">
-    Courtesy of Smooth Jazz Radio
+    Courtesy of Smooth Lounge Radio - California Chill
 </div>
     </div>
   );

@@ -279,25 +279,26 @@ public onFlightStatusChange(flight: Flight): void {
     this.scheduleArrivedAnnouncements(flight);  // Handle the "Arrived" or "Landed" status
   }
 }
-private scheduleCheckinAnnouncements(flight: Flight): void {
-  const { generatedAnnouncement } = this.createAnnouncementText(flight, 'checkin');
+private async scheduleCheckinAnnouncements(flight: Flight): Promise<void> {
+  const { generatedAnnouncement } = await this.createAnnouncementText(flight, 'checkin');
   this.scheduleAnnouncement(generatedAnnouncement); // Pass only the announcement text
 }
 
-private scheduleBoardingAnnouncements(flight: Flight): void {
-  const { generatedAnnouncement } = this.createAnnouncementText(flight, 'boarding');
+private async scheduleBoardingAnnouncements(flight: Flight): Promise<void> {
+  const { generatedAnnouncement } = await this.createAnnouncementText(flight, 'boarding');
   this.scheduleAnnouncement(generatedAnnouncement); // Pass only the announcement text
 }
 
-private scheduleCloseAnnouncements(flight: Flight): void {
-  const { generatedAnnouncement } = this.createAnnouncementText(flight, 'close');
+private async scheduleCloseAnnouncements(flight: Flight): Promise<void> {
+  const { generatedAnnouncement } = await this.createAnnouncementText(flight, 'close');
   this.scheduleAnnouncement(generatedAnnouncement); // Pass only the announcement text
 }
 
-private scheduleArrivedAnnouncements(flight: Flight): void {
-  const { generatedAnnouncement } = this.createAnnouncementText(flight, 'arrived');  // Announcement for arrival/landing
+private async scheduleArrivedAnnouncements(flight: Flight): Promise<void> {
+  const { generatedAnnouncement } = await this.createAnnouncementText(flight, 'arrived');
   this.scheduleAnnouncement(generatedAnnouncement); // Pass only the announcement text
 }
+
 
 // Example for scheduling logic - you can replace this with your own scheduling method
 private scheduleAnnouncement(announcementText: string): void {
@@ -307,70 +308,80 @@ private scheduleAnnouncement(announcementText: string): void {
 }
 
 // Your existing createAnnouncementText remains unchanged
-private createAnnouncementText(flight: Flight, type: 'checkin' | 'boarding' | 'processing' | 'final' | 'arrived' | 'close'): { generatedAnnouncement: string; flightData: any } {
+private async createAnnouncementText(
+  flight: Flight,
+  type: 'checkin' | 'boarding' | 'processing' | 'final' | 'arrived' | 'close'
+): Promise<{ generatedAnnouncement: string; flightData: any }> {
   console.log(`Creating announcement text for flight ${flight.ident}, type: ${type}`);
 
-  // Function to remove leading zeros from check-in numbers or gate numbers
-  const formatCheckInOrGate = (checkInOrGate: string) => {
-      return checkInOrGate ? checkInOrGate.replace(/^0+/, '') : checkInOrGate;
+  // Functions to format check-in or gate numbers
+  const formatCheckInOrGate = (checkInOrGate: string): string => {
+    return checkInOrGate ? checkInOrGate.replace(/^0+/, '') : checkInOrGate;
+  };
+
+  // Processing check-in or gate numbers
+  const processCheckInOrGate = (checkInOrGate: string): string => {
+    const checkInOrGateParts = checkInOrGate.split(',').map(part => formatCheckInOrGate(part.trim()));
+    return checkInOrGateParts.map((part) => {
+      const num = parseInt(part, 10);
+      return num < 10 ? numberToWords(num) : num.toString();
+    }).join(' ');
   };
 
   // Function to convert numbers to words for numbers 1-9
-  const numberToWords = (num: number) => {
-      const words: { [key: number]: string } = {
-          1: 'one', 2: 'two', 3: 'three', 4: 'four', 5: 'five', 6: 'six', 7: 'seven', 8: 'eight', 9: 'nine'
-      };
-      return words[num] || num.toString(); // For numbers > 9, just return the number as a string
+  const numberToWords = (num: number): string => {
+    const words: { [key: number]: string } = {
+      1: 'one', 2: 'two', 3: 'three', 4: 'four', 5: 'five', 6: 'six', 7: 'seven', 8: 'eight', 9: 'nine',
+    };
+    return words[num] || num.toString();
   };
 
-  // Function to process the check-in counters or gate numbers
-  const processCheckInOrGate = (checkInOrGate: string) => {
-      const checkInOrGateParts = checkInOrGate.split(',').map(part => formatCheckInOrGate(part.trim())); // Remove leading zeros and trim spaces
-      return checkInOrGateParts.map((part) => {
-          const num = parseInt(part, 10);
-          return num < 10 ? numberToWords(num) : num.toString(); 
-      }).join(' '); // Join with space instead of commas to avoid TTS issues
-  };
-
-  let generatedAnnouncement = ''; // Variable for the announcement text
-  let flightIcaoCode = flight.ident; // Assuming flight.ident is used as flightIcaoCode
-  let flightNumber = flight.ident.split('').join(' '); // Flight number with spaces
-  let destinationCode = flight.grad; // Destination city
+  let generatedAnnouncement = ''; 
+  let flightIcaoCode = flight.ident; 
+  let flightNumber = flight.ident.split('').join(' '); 
+  let destinationCode = flight.grad; 
 
   switch (type) {
-      case 'checkin':
-      case 'processing':
-          generatedAnnouncement = `Attention please. ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} is open for check-in at counter ${processCheckInOrGate(flight.checkIn)}`;
-          break;
-      case 'boarding':
-          generatedAnnouncement = `Attention please. ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} is now boarding at gate ${processCheckInOrGate(flight.gate)}`;
-          break;
-      case 'final':
-          generatedAnnouncement = `Final call. This is the final call for ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad}. Please proceed immediately to gate ${processCheckInOrGate(flight.gate)}`;
-          break;
-      case 'arrived':
-          generatedAnnouncement = `Dear passengers, ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} has arrived from ${flight.grad}. Please proceed to passport control and then to baggage claim. Thank you and welcome to Montenegro.`;
-          break;
-      case 'close':
-          generatedAnnouncement = `Attention please. The boarding for ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} has now closed. We thank you for your cooperation. We wish you a pleasant flight and see you soon.`;
-          break;
-      default:
-          return { generatedAnnouncement: '', flightData: null };
+    case 'checkin':
+    case 'processing':
+      generatedAnnouncement = `Attention please. ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} is open for check-in at counter ${processCheckInOrGate(flight.checkIn)}`;
+      break;
+    case 'boarding':
+      generatedAnnouncement = `Attention please. ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} is now boarding at gate ${processCheckInOrGate(flight.gate)}`;
+      break;
+    case 'final':
+      generatedAnnouncement = `Final call. This is the final call for ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad}. Please proceed immediately to gate ${processCheckInOrGate(flight.gate)}`;
+      break;
+    case 'arrived':
+      generatedAnnouncement = `Dear passengers, ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} has arrived from ${flight.grad}. Please proceed to passport control and then to baggage claim. Thank you and welcome to Montenegro.`;
+      break;
+    case 'close':
+      generatedAnnouncement = `Attention please. The boarding for ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} has now closed. We thank you for your cooperation. We wish you a pleasant flight and see you soon.`;
+      break;
+    default:
+      return { generatedAnnouncement: '', flightData: null };
   }
 
   // Constructing flightData object
   const flightData = {
-      flightIcaoCode,
-      flightNumber,
-      destinationCode,
-      callType: type,
-      gate: type === 'boarding' || type === 'final' ? flight.gate : undefined, // Only include gate if relevant
-      filename: `${type}_${flight.ident}_${Date.now()}.mp3`, // Create a unique filename
-      playedAt: new Date() // Current date and time
+    flightIcaoCode, 
+    flightNumber, 
+    destinationCode, 
+    callType: type, 
+    gate: type === 'boarding' || type === 'final' ? flight.gate : undefined, 
+    filename: `${type}_${flight.ident}_${Date.now()}.mp3`, 
+    playedAt: new Date(), 
   };
 
-  return { generatedAnnouncement, flightData }; // Return both values
+  // Return the generated text and flight data
+  return { generatedAnnouncement, flightData };
 }
+
+
+
+
+
+
 
   
   
@@ -499,75 +510,83 @@ private createAnnouncementText(flight: Flight, type: 'checkin' | 'boarding' | 'p
            `The local time is ${currentTime}.`;
         
 }
-
-private async logAnnouncement(flight: Flight, type: 'checkin' | 'boarding' | 'processing' | 'final' | 'arrived' | 'close') {
-  // Generate the announcement text using the existing createAnnouncementText method
-  const announcementText = this.createAnnouncementText(flight, type);
-
-  // Log the request body to the console
-  console.log('Logging announcement with body:', {
-      flight,
-      type,
-      announcementText,
-  });
-
+private async logAnnouncement(
+  flightData: any,
+  type: 'checkin' | 'boarding' | 'processing' | 'final' | 'arrived' | 'close' | 'security'
+): Promise<void> {
+  // Prepare the data to be sent in the POST request
   const requestBody = {
-      flight: flight,
-      type: type,
-      filename: `${type}_${flight.ident}_${Date.now()}.mp3`, // Create a unique filename
-      announcementText: announcementText,
+    flightIcaoCode: flightData.flightIcaoCode,  // 'AB123'
+    flightNumber: flightData.flightNumber,      // 'AB 123' (with spaces between digits)
+    destinationCode: flightData.destinationCode, // 'City'
+    callType: type,                             // Announcement type ('boarding', etc.)
+    gate: flightData.gate,                      // 'A1', only included if relevant
+    filename: flightData.filename,              // 'boarding_AB123_1634000000000.mp3'
+    playedAt: flightData.playedAt.toISOString(), // Format the date to ISO string: '2024-12-07T05:00:00Z'
   };
 
   try {
-      const response = await fetch('/api/logMp3Play', {
-          method: 'POST',
-          headers: {
-              'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
-      });
+    // Send the data as a POST request to the API endpoint
+    const response = await fetch('http://localhost:3000/api/logMp3Play', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody), // Send the request body in JSON format
+    });
 
-      if (!response.ok) {
-          const errorDetails = await response.text(); // Get detailed error message
-          console.error('Failed to log announcement:', response.statusText, errorDetails);
-      } else {
-          console.log('Successfully logged announcement:', announcementText); // Log success
-      }
+    if (!response.ok) {
+      const errorDetails = await response.text();
+      console.error('Failed to log announcement:', response.statusText, errorDetails);
+    } else {
+      console.log('Successfully logged announcement');
+    }
   } catch (error) {
-      console.error('Error logging announcement:', error);
+    console.error('Error logging announcement:', error);
   }
 }
+
+
+
 private async logSecurityAnnouncement() {
+  // Prepare the request body with necessary fields for security announcements
   const requestBody = {
-      flight: null,
-      type: 'Security',
-      filename: 'Security ANnouncement.',
+      flightIcaoCode: 'SEC', // For security announcements, using a placeholder like 'SEC'
+      flightNumber: 'SEC',   // Same here, 'SEC' as a placeholder
+      destinationCode: 'SEC', // Similarly, 'SEC' placeholder
+      callType: 'security',   // Specify the type as 'security'
+      gate: 'SEC',            // You can set this to 'SEC' for security announcements
+      filename: 'Security Announcement.mp3', // Set a default filename for security
+      playedAt: new Date().toISOString() // Current timestamp for when the announcement is played
   };
 
-  // Log the request body to the console
+  // Log the request body to the console for debugging
   console.log('Logging security announcement with body:', requestBody);
 
   try {
-      const response = await fetch('/api/logMp3Play', {
-          method: 'POST',
-          headers: {
-              'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
-      });
+    // Send the request to the API endpoint
+    const response = await fetch('/api/logMp3Play', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    });
 
-      console.log('Response status:', response.status); // Log response status
+    // Log response status for debugging
+    console.log('Response status:', response.status);
 
-      if (!response.ok) {
-          const errorDetails = await response.text(); // Get detailed error message
-          console.error('Failed to log security announcement:', response.statusText, errorDetails);
-      } else {
-          console.log('Successfully logged security announcement'); // Log success
-      }
+    if (!response.ok) {
+      const errorDetails = await response.text(); // Get detailed error message
+      console.error('Failed to log security announcement:', response.statusText, errorDetails);
+    } else {
+      console.log('Successfully logged security announcement'); // Log success message
+    }
   } catch (error) {
-      console.error('Error logging security announcement:', error);
+    console.error('Error logging security announcement:', error); // Handle fetch errors
   }
 }
+
 
 
 private scheduleDisabledPassengerAssistanceAnnouncement() {
@@ -577,7 +596,7 @@ private scheduleDisabledPassengerAssistanceAnnouncement() {
           const announcementText = "We are committed to providing assistance for all passengers. If you require special assistance, please notify our staff or use the designated help points throughout the terminal.";
           this.queueCustomAnnouncement(announcementText);
       }
-  }, 2700000); // 5 minutes in milliseconds
+  }, 2700000); // 45 minutes in milliseconds
 }
 /*   private isValidFlight(flight: Flight): boolean {
     return !!(flight.ident && flight.status && flight.grad && flight.KompanijaNaziv);
@@ -757,7 +776,7 @@ private playTTS(text: string): void {
 }
 
 
-public queueAnnouncement(flight: Flight, type: 'checkin' | 'boarding' | 'final' | 'arrived' | 'close' | 'earlier') {
+public async queueAnnouncement(flight: Flight, type: 'checkin' | 'boarding' | 'final' | 'arrived' | 'close' | 'earlier') {
   console.log(`Attempting to queue announcement for flight ${flight.ident}, type: ${type}`);
 
   const now = Date.now();
@@ -789,7 +808,7 @@ public queueAnnouncement(flight: Flight, type: 'checkin' | 'boarding' | 'final' 
   }
 
   // Get the announcement text and flight data
-  const { generatedAnnouncement } = this.createAnnouncementText(flight, type);
+  const { generatedAnnouncement } = await this.createAnnouncementText(flight, type);  // <-- Add await here
 
   // Determine priority based on type
   const priority = type === 'arrived' ? 4 : type === 'final' ? 1 : type === 'close' ? 1 : type === 'boarding' ? 2 : 3;
@@ -797,6 +816,7 @@ public queueAnnouncement(flight: Flight, type: 'checkin' | 'boarding' | 'final' 
   this.recordAnnouncement(flight, type); // Record the announcement
   this.addToQueue(generatedAnnouncement, priority, flight.scheduled_out || flight.actual_in || '');
 }
+
 
 
   public setAnnouncementInterval(minutes: number) {
