@@ -3,7 +3,7 @@
 
 
 // Add new type for flight status
-type FlightStatus = 'Processing' | 'Boarding' | 'Final Call' | 'Close' | 'Departed';
+type FlightStatus = 'Processing' |  'processing' |  'Check In Open' | 'Boarding' | 'Final Call' |   'Arrived' | 'Close' | 'Departed'  | 'Delayed'  | 'Delay'  ;
 
 
 interface TTSPlayRecord {
@@ -267,37 +267,58 @@ public shouldAnnounceArrival(flight: Flight): boolean {
 }
 public onFlightStatusChange(flight: Flight): void {
   if (flight.status === 'Processing') {
-    this.scheduleCheckinAnnouncements(flight);
-  }
-  if (flight.status === 'Boarding') {
-    this.scheduleBoardingAnnouncements(flight);
-  }
-  if (flight.status === 'Close') {
-    this.scheduleCloseAnnouncements(flight);
-  }
-  if (flight.status === 'Arrived' || flight.status === 'arrived' ||  flight.status === 'Landed') {
-    this.scheduleArrivedAnnouncements(flight);  // Handle the "Arrived" or "Landed" status
+      this.scheduleCheckinAnnouncements(flight);
+      this.logAnnouncement(flight, 'processing'); // Log the announcement
+  } else if (flight.status === 'Boarding') {
+      this.scheduleBoardingAnnouncements(flight);
+      this.logAnnouncement(flight, 'boarding'); // Log the announcement
+      
+  } else if (flight.status === 'Close') {
+      this.scheduleCloseAnnouncements(flight);
+  } else if (flight.status === 'Arrived' || flight.status === 'arrived' || flight.status === 'Landed') {
+      this.scheduleArrivedAnnouncements(flight); // Schedule the announcement
+      this.logAnnouncement(flight, 'arrived'); // Log the announcement
   }
 }
+
 private async scheduleCheckinAnnouncements(flight: Flight): Promise<void> {
   const { generatedAnnouncement } = await this.createAnnouncementText(flight, 'checkin');
-  this.scheduleAnnouncement(generatedAnnouncement); // Pass only the announcement text
+  this.scheduleAnnouncement(generatedAnnouncement);
+  this.schedulePreDepartureAnnouncements(flight);
 }
+
+private schedulePreDepartureAnnouncements(flight: Flight): void {
+  const announcementTimes = [90, 80, 60, 40]; // in minutes
+  announcementTimes.forEach(minutes => {
+      const scheduledTime = new Date(new Date(flight.scheduled_out).getTime() - minutes * 60000);
+      const now = new Date();
+      if (scheduledTime > now) {
+          setTimeout(() => {
+              this.queueCustomAnnouncement(`Attention please. ${flight.KompanijaNaziv} flight number ${flight.ident} will depart in ${minutes} minutes.`);
+          }, scheduledTime.getTime() - now.getTime());
+      }
+  });
+}
+
 
 private async scheduleBoardingAnnouncements(flight: Flight): Promise<void> {
   const { generatedAnnouncement } = await this.createAnnouncementText(flight, 'boarding');
   this.scheduleAnnouncement(generatedAnnouncement); // Pass only the announcement text
+  this.logAnnouncement(flight, 'boarding'); // Log the announcement
 }
 
 private async scheduleCloseAnnouncements(flight: Flight): Promise<void> {
   const { generatedAnnouncement } = await this.createAnnouncementText(flight, 'close');
   this.scheduleAnnouncement(generatedAnnouncement); // Pass only the announcement text
+  
 }
 
 private async scheduleArrivedAnnouncements(flight: Flight): Promise<void> {
-  const { generatedAnnouncement } = await this.createAnnouncementText(flight, 'arrived');
-  this.scheduleAnnouncement(generatedAnnouncement); // Pass only the announcement text
+  const { generatedAnnouncement, flightData } = await this.createAnnouncementText(flight, 'arrived');
+  this.scheduleAnnouncement(generatedAnnouncement); // Schedule the announcement
+  await this.logAnnouncement(flightData, 'arrived'); // Log the announcement using flightData
 }
+
 
 
 // Example for scheduling logic - you can replace this with your own scheduling method
@@ -310,7 +331,7 @@ private scheduleAnnouncement(announcementText: string): void {
 // Your existing createAnnouncementText remains unchanged
 private async createAnnouncementText(
   flight: Flight,
-  type: 'checkin' | 'boarding' | 'processing' | 'final' | 'arrived' | 'close'
+  type: 'checkin' | 'boarding' | 'processing' | 'final' | 'arrived' | 'close' | 'Boarding' | 'Processing' | 'Checkin' | 'Arrived' 
 ): Promise<{ generatedAnnouncement: string; flightData: any }> {
   console.log(`Creating announcement text for flight ${flight.ident}, type: ${type}`);
 
@@ -344,9 +365,11 @@ private async createAnnouncementText(
   switch (type) {
     case 'checkin':
     case 'processing':
+      case 'Processing':
       generatedAnnouncement = `Attention please. ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} is open for check-in at counter ${processCheckInOrGate(flight.checkIn)}`;
       break;
     case 'boarding':
+      case 'Boarding':
       generatedAnnouncement = `Attention please. ${flight.KompanijaNaziv} flight number ${flight.ident.split('').join(' ')} to ${flight.grad} is now boarding at gate ${processCheckInOrGate(flight.gate)}`;
       break;
     case 'final':
@@ -421,7 +444,9 @@ private async createAnnouncementText(
     const isIsraeliAirline = this.ISRAELI_AIRLINES.includes(flight.KompanijaNaziv);
     
     switch (status) {
-      case 'Processing': 
+      case 'Processing':
+        case 'processing': // Add this line to handle 'C01PRO' status
+        case 'Check In Open': // Add this line to handle 'C01PRO' status
         if (isIsraeliAirline) {
           // Special timing for Israeli airlines: 120, 90, 80, 60, 40 minutes
           return [120, 90, 80, 60, 40].includes(timeDiff);
@@ -514,25 +539,23 @@ private async logAnnouncement(
   flightData: any,
   type: 'checkin' | 'boarding' | 'processing' | 'final' | 'arrived' | 'close' | 'security'
 ): Promise<void> {
-  // Prepare the data to be sent in the POST request
   const requestBody = {
-    flightIcaoCode: flightData.flightIcaoCode,  // 'AB123'
-    flightNumber: flightData.flightNumber,      // 'AB 123' (with spaces between digits)
-    destinationCode: flightData.destinationCode, // 'City'
-    callType: type,                             // Announcement type ('boarding', etc.)
-    gate: flightData.gate,                      // 'A1', only included if relevant
-    filename: flightData.filename,              // 'boarding_AB123_1634000000000.mp3'
-    playedAt: flightData.playedAt.toISOString(), // Format the date to ISO string: '2024-12-07T05:00:00Z'
+    flightIcaoCode: flightData.flightIcaoCode,
+    flightNumber: flightData.flightNumber,
+    destinationCode: flightData.destinationCode,
+    callType: type,
+    gate: flightData.gate,
+    filename: flightData.filename,
+    playedAt: flightData.playedAt.toISOString(),
   };
 
   try {
-    // Send the data as a POST request to the API endpoint
     const response = await fetch('http://localhost:3000/api/logMp3Play', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(requestBody), // Send the request body in JSON format
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
@@ -545,6 +568,7 @@ private async logAnnouncement(
     console.error('Error logging announcement:', error);
   }
 }
+
 
 
 
@@ -590,14 +614,17 @@ private async logSecurityAnnouncement() {
 
 
 private scheduleDisabledPassengerAssistanceAnnouncement() {
-  // Schedule the announcement every 5 minutes (300000 milliseconds)
+  // Schedule the announcement every 45 minutes (2700000 milliseconds)
   this.scheduledAnnouncementTimer = setInterval(() => {
       if (this.isWithinOperatingHours()) {
-          const announcementText = "We are committed to providing assistance for all passengers. If you require special assistance, please notify our staff or use the designated help points throughout the terminal.";
+          const announcementText = "Dear passengers, We are committed to providing assistance for all passengers. If you require special assistance, please notify our staff or use the designated help points throughout the terminal.";
           this.queueCustomAnnouncement(announcementText);
+      } else {
+          console.log("Outside of operating hours; announcement not made.");
       }
   }, 2700000); // 45 minutes in milliseconds
 }
+
 /*   private isValidFlight(flight: Flight): boolean {
     return !!(flight.ident && flight.status && flight.grad && flight.KompanijaNaziv);
   }
