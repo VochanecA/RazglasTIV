@@ -536,36 +536,77 @@ private async createAnnouncementText(
         
 }
 private async logAnnouncement(
-  flightData: any,
+  flightData: any, 
   type: 'checkin' | 'boarding' | 'processing' | 'final' | 'arrived' | 'close' | 'security'
 ): Promise<void> {
+  // Ensure all required fields are present
+  if (!flightData || !flightData.flightIcaoCode || !flightData.flightNumber) {
+    console.error('Incomplete flight data for logging');
+    return;
+  }
+
   const requestBody = {
     flightIcaoCode: flightData.flightIcaoCode,
     flightNumber: flightData.flightNumber,
-    destinationCode: flightData.destinationCode,
+    destinationCode: flightData.destinationCode || '',
     callType: type,
-    gate: flightData.gate,
-    filename: flightData.filename,
-    playedAt: flightData.playedAt.toISOString(),
+    gate: flightData.gate || null,
+    filename: flightData.filename || `${type}_${flightData.flightNumber}_${Date.now()}.mp3`,
+    playedAt: (flightData.playedAt || new Date()).toISOString(),
   };
 
   try {
+    // Add a timeout to prevent hanging requests
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
     const response = await fetch('http://localhost:3000/api/logMp3Play', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json'
       },
       body: JSON.stringify(requestBody),
+      signal: controller.signal
     });
+
+    // Clear the timeout
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorDetails = await response.text();
-      console.error('Failed to log announcement:', response.statusText, errorDetails);
+      console.error(`Failed to log ${type} announcement:`, {
+        status: response.status,
+        statusText: response.statusText,
+        details: errorDetails
+      });
+
+      // Optional: Implement retry mechanism or local storage fallback
+      this.handleLoggingFailure(requestBody);
     } else {
-      console.log('Successfully logged announcement');
+      console.log(`Successfully logged ${type} announcement for flight ${flightData.flightNumber}`);
     }
   } catch (error) {
-    console.error('Error logging announcement:', error);
+    console.error(`Error logging ${type} announcement:`, error);
+    
+    // Handle network errors or aborted requests
+    this.handleLoggingFailure(requestBody);
+  }
+}
+
+// Optional: Add a method to handle logging failures
+private handleLoggingFailure(logData: any) {
+  // Implement fallback logging strategy
+  // For example, store in localStorage or retry later
+  try {
+    const failedLogs = JSON.parse(localStorage.getItem('failedAnnouncements') || '[]');
+    failedLogs.push({
+      ...logData,
+      failedAt: new Date().toISOString()
+    });
+    localStorage.setItem('failedAnnouncements', JSON.stringify(failedLogs));
+  } catch (storageError) {
+    console.error('Failed to store announcement in local storage:', storageError);
   }
 }
 
@@ -904,69 +945,73 @@ public async queueAnnouncement(flight: Flight, type: 'checkin' | 'boarding' | 'f
     this.isPlaying = false;
     this.announcedFlights.clear();
   }
-  public processAnnouncements(flight: Flight) {
-    const isIsraeliAirline = this.ISRAELI_AIRLINES.includes(flight.KompanijaNaziv);
-    const timeDiff = this.getTimeDifferenceInMinutes(flight.scheduled_out);
+  public processAnnouncements(flights: Flight[]): void {
+    // Definisanje intervala za najavu check-ina
+    const checkInIntervals = [90, 60, 50, 40];
+    
+    // Iteriranje kroz sve letove
+    flights.forEach((flight: Flight) => {
+      // Calculate time difference
+      const timeDiff = this.getTimeDifferenceInMinutes(flight.scheduled_out);
   
-    // Process check-in announcements (keep existing logic)
-    if (isIsraeliAirline) {
-        if ([120, 90, 80, 60, 40].includes(timeDiff)) {
-            this.queueAnnouncement(flight, 'checkin');
-        }
-    } else {
-        if ([80, 60, 40].includes(timeDiff)) {
-            this.queueAnnouncement(flight, 'checkin');
-        }
-    }
-
-     // Handle arrival announcements for arrived flights
-     if (flight.actual_in && !this.announcedFlights.has(`${flight.ident}_arrived`)) {
-      const arrivalTime = new Date(flight.actual_in);
-      const now = new Date();
-      const minutesSinceArrival = Math.floor((now.getTime() - arrivalTime.getTime()) / (1000 * 60));
-      
-      // Only announce if arrival was within last 15 minutes
-      if (minutesSinceArrival <= 15) {
-          this.queueAnnouncement(flight, 'arrived');
-          // Mark this arrival as announced to prevent duplicates
-          this.announcedFlights.set(`${flight.ident}_arrived`, {
-              lastAnnounced: now.getTime(),
-              count: 1
-          });
+      // Najave za check-in
+      if (checkInIntervals.includes(timeDiff)) {
+        this.logAnnouncement(flight, 'processing');
+        this.queueAnnouncement(flight, 'checkin');
       }
-  }
   
-    // New timing-based announcement logic
-    if (timeDiff <= 25 && timeDiff > 15) {
-        // Start boarding announcements at T-25 minutes
-        if (!this.boardingAnnouncementTimers.has(flight.ident)) {
-            this.queueAnnouncement(flight, 'boarding');
-            this.startBoardingAnnouncements(flight);
-        }
-    }
-    
-    // Final call at T-15 minutes
-    if (timeDiff <= 15 && timeDiff > 10) {
-        this.queueAnnouncement(flight, 'final');
-    }
-    
-    // Close announcement at T-10 minutes
-    if (timeDiff <= 10 && timeDiff > 0) {
-        this.stopBoardingAnnouncements(flight.ident);
-        this.queueAnnouncement(flight, 'close');
-    }
-
-    // Handle departure and arrival
-    if (flight.actual_out || flight.status === 'Departed') {
-        this.stopBoardingAnnouncements(flight.ident);
+      // Najave dolaska
+      if (flight.actual_in && !this.announcedFlights.has(`${flight.ident}_arrived`)) {
+        const arrivalTime = new Date(flight.actual_in);
+        const now = new Date();
+        const minutesSinceArrival = Math.floor((now.getTime() - arrivalTime.getTime()) / (1000 * 60));
         
-        // Queue arrival announcement if not already arrived
-        if (flight.status?.toLowerCase() !== 'arrived') {
-            flight.status = "Arrived";
-            this.queueAnnouncement(flight, 'arrived');
+        // Najava dolaska samo ako je u posljednjih 15 minuta
+        if (minutesSinceArrival <= 15) {
+          this.logAnnouncement(flight, 'processing');
+          this.queueAnnouncement(flight, 'arrived');
+          this.announcedFlights.set(`${flight.ident}_arrived`, {
+            lastAnnounced: now.getTime(),
+            count: 1,
+          });
         }
-    }
-}
+      }
+  
+      // Najave za ukrcavanje
+      if (timeDiff <= 25 && timeDiff > 15) {
+        if (!this.boardingAnnouncementTimers.has(flight.ident)) {
+          this.logAnnouncement(flight, 'processing');
+          this.queueAnnouncement(flight, 'boarding');
+          this.startBoardingAnnouncements(flight);
+        }
+      }
+  
+      // Final call najava
+      if (timeDiff <= 15 && timeDiff > 10) {
+        this.logAnnouncement(flight, 'processing');
+        this.queueAnnouncement(flight, 'final');
+      }
+  
+      // Najava zatvaranja
+      if (timeDiff <= 10 && timeDiff > 0) {
+        this.stopBoardingAnnouncements(flight.ident);
+        this.logAnnouncement(flight, 'processing');
+        this.queueAnnouncement(flight, 'close');
+      }
+  
+      // Obrada polazaka i dolazaka
+      if (flight.actual_out || flight.status === 'Departed') {
+        this.stopBoardingAnnouncements(flight.ident);
+        // Ako nije već označeno kao "Arrived"
+        if (flight.status?.toLowerCase() !== 'arrived') {
+          flight.status = 'Arrived';
+          this.logAnnouncement(flight, 'processing');
+          this.queueAnnouncement(flight, 'arrived');
+        }
+      }
+    });
+  }
+
 
 
 }

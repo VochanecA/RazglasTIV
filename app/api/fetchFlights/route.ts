@@ -40,7 +40,10 @@ const formatTime = (time: string): string => {
 export async function GET() {
   try {
     const response = await fetch('https://montenegroairports.com/aerodromixs/cache-flights.php?airport=tv', {
-      next: { revalidate: 60 } // Cache for 1 minute
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
+      },
+      next: { revalidate: 60 }, // Cache for 1 minute
     });
 
     if (!response.ok) {
@@ -54,8 +57,10 @@ export async function GET() {
         .filter(flight => flight.TipLeta === 'O')
         .map(flight => ({
           ident: `${flight.BrojLeta}`,
-          status: mapStatus(flight.StatusEN, flight.Status),
-          scheduled_out: formatTime(flight.Planirano),
+         status: mapStatus(flight.StatusEN, flight.Status),
+          scheduled_out: formatTime(flight.Planirano), 
+       /*   status: 'Processing', // Override status
+          scheduled_out: '16:00', // Override scheduled time  */
           estimated_out: formatTime(flight.Predvidjeno),
           actual_out: formatTime(flight.Aktuelno),
           origin: { code: 'TIV' },
