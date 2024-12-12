@@ -53,7 +53,7 @@ export const checkIsAnnouncementTime = () => {
   if (currentMonth >= 3 && currentMonth <= 9) {
     return currentHour >= 6 && currentHour < 20;
   } else {
-    return currentHour >= 6 && currentHour < 18;
+    return currentHour >= 6 && currentHour < 21;
   }
 };
 
