@@ -20,16 +20,23 @@ export const mp3Plays = pgTable('mp3_plays', {
 // User authentication and session handling
 export async function getUser() {
   const sessionCookie = (await cookies()).get('session');
+  console.log('Session Cookie:', sessionCookie);
+
   if (!sessionCookie || !sessionCookie.value) {
+    console.warn('Session cookie missing or invalid.');
     return null;
   }
 
   const sessionData = await verifyToken(sessionCookie.value);
+  console.log('Session Data:', sessionData);
+
   if (!sessionData || !sessionData.user || typeof sessionData.user.id !== 'number') {
+    console.warn('Invalid session data.');
     return null;
   }
 
   if (new Date(sessionData.expires) < new Date()) {
+    console.warn('Session expired.');
     return null;
   }
 
@@ -38,6 +45,7 @@ export async function getUser() {
     .from(users)
     .where(and(eq(users.id, sessionData.user.id), isNull(users.deletedAt)))
     .limit(1);
+  console.log('Database User:', user);
 
   return user.length > 0 ? user[0] : null;
 }
