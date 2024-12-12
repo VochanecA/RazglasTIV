@@ -57,15 +57,13 @@ export async function GET() {
         .filter(flight => flight.TipLeta === 'O')
         .map(flight => ({
           ident: `${flight.BrojLeta}`,
-         status: mapStatus(flight.StatusEN, flight.Status),
-          scheduled_out: formatTime(flight.Planirano), 
-       /*   status: 'Processing', // Override status
-          scheduled_out: '16:00', // Override scheduled time  */
+          status: mapStatus(flight.StatusEN, flight.Status),
+          scheduled_out: formatTime(flight.Planirano),
           estimated_out: formatTime(flight.Predvidjeno),
           actual_out: formatTime(flight.Aktuelno),
           origin: { code: 'TIV' },
           destination: { code: flight.IATA },
-          grad:  flight.Grad ,
+          grad: flight.Grad,
           Kompanija: flight.Kompanija,
           KompanijaICAO: flight.KompanijaICAO,
           KompanijaNaziv: flight.KompanijaNaziv,
@@ -81,7 +79,7 @@ export async function GET() {
           estimated_out: formatTime(flight.Predvidjeno),
           actual_out: formatTime(flight.Aktuelno),
           origin: { code: flight.IATA },
-          grad:  flight.Grad ,
+          grad: flight.Grad,
           destination: { code: 'TIV' },
           Kompanija: flight.Kompanija,
           KompanijaICAO: flight.KompanijaICAO,
