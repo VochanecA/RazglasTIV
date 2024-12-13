@@ -59,5 +59,6 @@ export async function setSession(user: NewUser) {
     httpOnly: true,
     secure: true,
     sameSite: 'lax',
+    domain: 'razglas-tiv.vercel.app',
   });
 }
