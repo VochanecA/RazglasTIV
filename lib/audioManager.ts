@@ -35,6 +35,41 @@ export const playAudioAd = async () => {
     });
   };
 
+  export const stopBackgroundMusic = () => {
+    if (backgroundAudio) {
+      // Completely stop the audio
+      backgroundAudio.pause();
+      backgroundAudio.currentTime = 0;
+      
+      // Remove any event listeners to prevent memory leaks
+      backgroundAudio.removeEventListener('ended', () => {});
+      
+      // Set the source to an empty string to fully release the resource
+      backgroundAudio.src = '';
+      
+      // Nullify the audio object
+      backgroundAudio = null;
+      window.location.href = '/'; 
+    }
+  };
+  export const cleanupAudioResources = () => {
+    // Stop background music
+    stopBackgroundMusic();
+  
+    // Stop any speech synthesis
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+  
+    // Reset gong audio if it exists
+    if (gongAudio) {
+      gongAudio.pause();
+      gongAudio.currentTime = 0;
+      gongAudio.src = '';
+      gongAudio = null;
+    }
+  };
+
 export const fadeInBackgroundMusic = () => {
   if (!backgroundAudio) return;
 
