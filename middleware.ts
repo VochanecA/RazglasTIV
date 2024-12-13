@@ -28,7 +28,7 @@ export async function middleware(request: NextRequest) {
         }),
         httpOnly: true,
         secure: true,
-        sameSite: 'none',
+        sameSite: 'lax',
         expires: expiresInOneDay,
       });
     } catch (error) {
