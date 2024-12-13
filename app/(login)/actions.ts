@@ -204,15 +204,8 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
 export async function signOut() {
   const user = (await getUser()) as User;
   const userWithTeam = await getUserWithTeam(user.id);
-
   await logActivity(userWithTeam?.teamId, user.id, ActivityType.SIGN_OUT);
-
-  // Delete session cookie
-  const cookieStore = cookies();
-  (await cookieStore).delete('session');
-
-  // Redirect to sign-in page
-  redirect('/sign-in');
+  (await cookies()).delete('session');
 }
 
 const updatePasswordSchema = z
