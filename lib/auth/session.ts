@@ -3,8 +3,15 @@ import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import { NewUser } from '@/lib/db/schema';
 
-const key = new TextEncoder().encode('920d03626cf3480fabbebf49d1bfd4cc');
+const key = new TextEncoder().encode(process.env.AUTH_SECRET)
+const authSecret = process.env.AUTH_SECRET;
+
+if (!authSecret) {
+  console.error('AUTH_SECRET environment variable is not set.');
+  const key = new TextEncoder().encode('920d03626cf3480fabbebf49d1bfd4cc');
+}
 const SALT_ROUNDS = 10;
+
 
 export async function hashPassword(password: string) {
   return hash(password, SALT_ROUNDS);
