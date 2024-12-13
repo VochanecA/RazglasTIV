@@ -181,10 +181,10 @@ console.log(`Flight ${flight.ident}: Time Difference = ${timeDiff} minutes`);
          text: generateSpecialAssistanceAnnouncement()
        });
      }
-    // Add periodic audio ads every 1 hour.
+    // Add periodic audio ads every half hour.
     setInterval(async () => {
-        await playAudioAd(); // Play ads.mp3 every 60 minutes.
-      }, 60 * 60 * 1000); // Every 60 minutes
+        await playAudioAd(); // Play ads.mp3 every thirty minutes.
+      }, 240 * 60 * 1000); // Every thirty minutes
      // Process announcements queue
      for (const announcement of announcements) {
        console.log("Playing announcement:", announcement.text); // Debugging line
