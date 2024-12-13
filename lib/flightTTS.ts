@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react';
 import { fetchFlightData } from './flightDataFetcher';
 import { processAnnouncements } from './announcementQueue';
-import { setupBackgroundMusic, fadeOutBackgroundMusic, fadeInBackgroundMusic, stopBackgroundMusic,cleanupAudioResources } from './audioManager';
-import { useUser } from '@/lib/auth'; // Import the useUser hook
+import { setupBackgroundMusic, fadeOutBackgroundMusic, fadeInBackgroundMusic } from './audioManager';
 
+// Flight and FlightData interfaces
 export interface Flight {
   ident: string;
   status: string;
@@ -27,6 +27,22 @@ export interface FlightData {
   arrivals: Flight[];
 }
 
+// Define a type for the TTS engine
+export interface TTSEngine {
+  initialize: () => void; // Define other methods as needed
+}
+
+// Function to get and initialize the TTS engine
+export const getFlightTTSEngine = (): TTSEngine => {
+    // Your TTS engine initialization logic here
+    console.log("TTS Engine initialized");
+    return {
+        initialize() {
+            // Initialization logic here
+        }
+    };
+};
+
 export const checkIsAnnouncementTime = () => {
   const currentHour = new Date().getHours();
   const currentMonth = new Date().getMonth();
@@ -37,55 +53,41 @@ export const checkIsAnnouncementTime = () => {
   if (currentMonth >= 3 && currentMonth <= 9) {
     return currentHour >= 6 && currentHour < 20;
   } else {
-    return currentHour >= 6 && currentHour < 16;
+    return currentHour >= 6 && currentHour < 21;
   }
 };
 
+// Hook for managing flight announcements
 export const useFlightAnnouncements = () => {
-  const { user } = useUser(); // Get user authentication status
-  const [flights, setFlights] = useState<FlightData | null>(null);
+    const [flights, setFlights] = useState<FlightData | null>(null);
 
-  useEffect(() => {
-    const fetchAndProcessFlights = async () => {
-      try {
-        // Only fetch and process if user is logged in
-        if (!user) {
-          // Stop background music if no user
-          stopBackgroundMusic();
-          cleanupAudioResources();
-          return;
-        }
+    useEffect(() => {
+        const setupAnnouncements = async () => {
+            if (!checkIsAnnouncementTime()) return;
 
-        const flightData = await fetchFlightData();
-        setFlights(flightData);
+            // Setup background music
+            setupBackgroundMusic();
 
-        // Only process announcements during specific hours
-        if (checkIsAnnouncementTime()) {
-          setupBackgroundMusic();
-          
-          if (flightData) {
-            await processAnnouncements(flightData);
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching or processing flight data:', error);
-      }
-    };
+            try {
+                const flightData = await fetchFlightData();
+                setFlights(flightData);
 
-    // Initial fetch
-    fetchAndProcessFlights();
+                if (flightData) {
+                    await processAnnouncements(flightData);
+                }
+            } catch (error) {
+                console.error('Error setting up flight announcements:', error);
+            }
+        };
 
-    // Set up interval to continuously fetch data
-    const intervalId = setInterval(fetchAndProcessFlights, 60000); // Every minute
+        setupAnnouncements();
+        const intervalId = setInterval(setupAnnouncements, 60000); // Check every minute
 
-    // Cleanup function
-    return () => {
-      clearInterval(intervalId);
-      
-      // Restore background music if it was modified
-      fadeInBackgroundMusic();
-    };
-  }, []);
+        return () => {
+            clearInterval(intervalId);
+            fadeInBackgroundMusic(); // Ensure background music is restored
+        };
+    }, []);
 
-  return flights;
+    return flights;
 };
