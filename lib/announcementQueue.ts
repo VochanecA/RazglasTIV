@@ -184,7 +184,7 @@ console.log(`Flight ${flight.ident}: Time Difference = ${timeDiff} minutes`);
     // Add periodic audio ads every half hour.
     setInterval(async () => {
         await playAudioAd(); // Play ads.mp3 every thirty minutes.
-      }, 10 * 60 * 1000); // Every thirty minutes
+      }, 60 * 60 * 1000); // Every thirty minutes
      // Process announcements queue
      for (const announcement of announcements) {
        console.log("Playing announcement:", announcement.text); // Debugging line
