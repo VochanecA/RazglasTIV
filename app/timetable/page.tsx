@@ -7,7 +7,6 @@ import FlightCard from '@/components/ui/FlightCard';
 import { FlightData } from '@/types/flight'; 
 import Skeleton from '@/components/ui/skeleton'; 
 import { PlaneTakeoff, PlaneLanding, Lock } from 'lucide-react'; 
-
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/lib/auth';
 
@@ -25,19 +24,21 @@ export default function Page() {
   const { user } = useUser();
   const router = useRouter();
   const [showLoginMessage, setShowLoginMessage] = useState(false);
-  const flights = useFlightAnnouncements() as FlightData;
   const [activeTab, setActiveTab] = useState<'departures' | 'arrivals'>('departures');
   const [lastFetchedTime, setLastFetchedTime] = useState<string | null>(null);
+
+  // Fetch flights only if the user is logged in
+  const flights = user ? (useFlightAnnouncements() as FlightData) : null;
 
   // Redirect to sign-in after showing message
   useEffect(() => {
     if (!user) {
       setShowLoginMessage(true);
-      
-      // Set a timeout to redirect after 3 seconds
+
+      // Set a timeout to redirect after 10 seconds
       const redirectTimer = setTimeout(() => {
         router.push('/sign-in');
-      }, 10000); // 3 seconds delay
+      }, 10000); // 10 seconds delay
 
       // Clear the timeout if the component unmounts
       return () => clearTimeout(redirectTimer);
@@ -77,17 +78,17 @@ export default function Page() {
     );
   }
 
-  // Render nothing if still loading
+  // Render nothing if still loading or no user
   if (!user) return null;
 
   return (
     <div className="container mx-auto p-4 bg-white dark:bg-gray-800">
       <FlightAnnouncementsProvider />
-      
+
       <h1 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">
         Flight Information
       </h1>
-      
+
       <div className="flex space-x-4 mb-4">
         <Tab 
           label="Departures" 
@@ -138,6 +139,7 @@ export default function Page() {
         </div>
       )}
 
+      {/* Additional Information */}
       <div className="mt-4 text-sm text-gray-500 dark:text-gray-400 text-center">
         We recommend using <strong>Chrome</strong> or <strong>Firefox</strong> for better audio experience.
       </div>
