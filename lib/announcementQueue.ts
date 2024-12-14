@@ -133,7 +133,7 @@ console.log(`Flight ${flight.ident}: Time Difference = ${timeDiff} minutes`);
           (timeDiff === 90 || timeDiff === 70 || timeDiff === 60 || timeDiff === 50 || timeDiff === 40)) {
         announcements.push({
           type: 'checkin',
-          text: `Check-in for flight ${flight.Kompanija} ${parseFlightNumber(flight.ident)} to ${flight.grad} is now open at counter ${parseCheckInOrGateNumbers(flight.checkIn).join(', ')}.`,
+          text: `Check-in for flight ${flight.KompanijaNaziv} ${parseFlightNumber(flight.ident)} to ${flight.grad} is now open at counter ${parseCheckInOrGateNumbers(flight.checkIn).join(', ')}.`,
           flight
         });
       }
@@ -142,7 +142,7 @@ console.log(`Flight ${flight.ident}: Time Difference = ${timeDiff} minutes`);
       if (flightStatus === 'boarding' && (timeDiff === 30 || timeDiff === 25 || timeDiff === 20 || timeDiff === 15)) {
         announcements.push({
           type: 'boarding',
-          text: `Boarding for flight ${flight.Kompanija} ${parseFlightNumber(flight.ident)} to ${flight.destination.code} is now beginning at gate ${parseCheckInOrGateNumbers(flight.gate).join(', ')}.`,
+          text: `Boarding for flight ${flight.KompanijaNaziv} ${parseFlightNumber(flight.ident)} to ${flight.destination.code} is now beginning at gate ${parseCheckInOrGateNumbers(flight.gate).join(', ')}.`,
           flight
         });
       }
@@ -151,7 +151,7 @@ console.log(`Flight ${flight.ident}: Time Difference = ${timeDiff} minutes`);
       if (flightStatus === 'close' && (timeDiff === 10 || timeDiff === 7 || timeDiff === 5)) {
         announcements.push({
           type: 'close',
-          text: `Attention. Flight ${flight.Kompanija} ${parseFlightNumber(flight.ident)} gate is now closed. Final call for boarding.`,
+          text: `Attention. Flight ${flight.KompanijaNaziv} ${parseFlightNumber(flight.ident)} gate is now closed. Final call for boarding.`,
           flight
         });
       }
@@ -160,7 +160,7 @@ console.log(`Flight ${flight.ident}: Time Difference = ${timeDiff} minutes`);
       if (flightStatus === 'arrived' && shouldPlayArrivalAnnouncement(flight)) {
         announcements.push({
           type: 'arrived',
-          text: `${flight.Kompanija} announces that the flight ${parseFlightNumber(flight.ident)} from ${flight.grad} has now arrived at Tivat Airport. Welcome to Montenegro.`,
+          text: `${flight.KompanijaNaziv} announces that the flight ${parseFlightNumber(flight.ident)} from ${flight.grad} has now arrived at Tivat Airport. Welcome to Montenegro.`,
           flight
         });
       }

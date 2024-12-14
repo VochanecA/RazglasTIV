@@ -59,49 +59,35 @@ export const checkIsAnnouncementTime = () => {
 
 // Hook for managing flight announcements
 export const useFlightAnnouncements = () => {
-  const [flights, setFlights] = useState<FlightData | null>(null);
+    const [flights, setFlights] = useState<FlightData | null>(null);
 
-  useEffect(() => {
-    // Function to fetch flight data continuously
-    const fetchData = async () => {
-      try {
-        const flightData = await fetchFlightData();
-        setFlights(flightData);
-      } catch (error) {
-        console.error('Error fetching flight data:', error);
-      }
-    };
+    useEffect(() => {
+        const setupAnnouncements = async () => {
+            if (!checkIsAnnouncementTime()) return;
 
-    // Function to handle announcements during allowed times
-    const setupAnnouncements = async () => {
-      if (!checkIsAnnouncementTime()) return;
+            // Setup background music
+            setupBackgroundMusic();
 
-      // Setup background music
-      setupBackgroundMusic();
+            try {
+                const flightData = await fetchFlightData();
+                setFlights(flightData);
 
-      try {
-        if (flights) {
-          await processAnnouncements(flights);
-        }
-      } catch (error) {
-        console.error('Error setting up flight announcements:', error);
-      }
-    };
+                if (flightData) {
+                    await processAnnouncements(flightData);
+                }
+            } catch (error) {
+                console.error('Error setting up flight announcements:', error);
+            }
+        };
 
-    // Fetch flight data continuously, 24/7
-    fetchData();
-    const fetchIntervalId = setInterval(fetchData, 60000); // Fetch every minute
+        setupAnnouncements();
+        const intervalId = setInterval(setupAnnouncements, 60000); // Check every minute
 
-    // Handle announcements only during specific times
-    setupAnnouncements();
-    const announcementIntervalId = setInterval(setupAnnouncements, 60000); // Check every minute
+        return () => {
+            clearInterval(intervalId);
+            fadeInBackgroundMusic(); // Ensure background music is restored
+        };
+    }, []);
 
-    return () => {
-      clearInterval(fetchIntervalId);
-      clearInterval(announcementIntervalId);
-      fadeInBackgroundMusic(); // Ensure background music is restored
-    };
-  }, [flights]);
-
-  return flights;
+    return flights;
 };
