@@ -1,40 +1,15 @@
-'use client';
-
 import { useEffect, useState } from 'react';
 import { fetchFlightData } from './flightDataFetcher';
 import { processAnnouncements } from './announcementQueue';
 import { setupBackgroundMusic, fadeOutBackgroundMusic, fadeInBackgroundMusic } from './audioManager';
 
-// Flight and FlightData interfaces
-export interface Flight {
-  ident: string;
-  status: string;
-  scheduled_out: string;
-  estimated_out: string;
-  actual_out: string;
-  origin: { code: string };
-  destination: { code: string };
-  grad: string;
-  Kompanija: string;
-  KompanijaICAO: string;
-  KompanijaNaziv: string;
-  checkIn: string;
-  gate: string;
-}
-
-export interface FlightData {
-  departures: Flight[];
-  arrivals: Flight[];
-}
-
 // Define a type for the TTS engine
 export interface TTSEngine {
-  initialize: () => void; // Define other methods as needed
+    initialize: () => void; // Define other methods as needed
 }
 
 // Function to get and initialize the TTS engine
 export const getFlightTTSEngine = (): TTSEngine => {
-    // Your TTS engine initialization logic here
     console.log("TTS Engine initialized");
     return {
         initialize() {
@@ -43,40 +18,61 @@ export const getFlightTTSEngine = (): TTSEngine => {
     };
 };
 
+// Announcement time logic
 export const checkIsAnnouncementTime = () => {
-  const currentHour = new Date().getHours();
-  const currentMonth = new Date().getMonth();
+    const currentHour = new Date().getHours();
+    const currentMonth = new Date().getMonth();
 
-  // Announcement times:
-  // April to October (months 3-9): 6am to 8pm
-  // November to March (months 10-2): 6am to 3pm
-  if (currentMonth >= 3 && currentMonth <= 9) {
-    return currentHour >= 6 && currentHour < 20;
-  } else {
-    return currentHour >= 6 && currentHour < 21;
-  }
+    // Announcement times:
+    // April to October (months 3-9): 6am to 8pm
+    // November to March (months 10-2): 6am to 3pm
+    if (currentMonth >= 3 && currentMonth <= 9) {
+        return currentHour >= 6 && currentHour < 20;
+    } else {
+        return currentHour >= 6 && currentHour < 21;
+    }
 };
 
-// Hook for managing flight announcements
-export const useFlightAnnouncements = () => {
+// Hook for fetching flight data 24/7
+export const useFlightData = () => {
     const [flights, setFlights] = useState<FlightData | null>(null);
 
     useEffect(() => {
-        const setupAnnouncements = async () => {
-            if (!checkIsAnnouncementTime()) return;
-
-            // Setup background music
-            setupBackgroundMusic();
-
+        const fetchData = async () => {
             try {
                 const flightData = await fetchFlightData();
                 setFlights(flightData);
+            } catch (error) {
+                console.error('Error fetching flight data:', error);
+            }
+        };
 
-                if (flightData) {
-                    await processAnnouncements(flightData);
+        fetchData();
+        const intervalId = setInterval(fetchData, 60000); // Fetch every minute
+
+        return () => clearInterval(intervalId);
+    }, []);
+
+    return flights;
+};
+
+// Hook for managing flight announcements during specified times
+export const useFlightAnnouncements = (flights: FlightData | null) => {
+    useEffect(() => {
+        if (!checkIsAnnouncementTime()) {
+            fadeOutBackgroundMusic();
+            return;
+        }
+
+        const setupAnnouncements = async () => {
+            setupBackgroundMusic();
+
+            try {
+                if (flights) {
+                    await processAnnouncements(flights);
                 }
             } catch (error) {
-                console.error('Error setting up flight announcements:', error);
+                console.error('Error processing announcements:', error);
             }
         };
 
@@ -87,7 +83,5 @@ export const useFlightAnnouncements = () => {
             clearInterval(intervalId);
             fadeInBackgroundMusic(); // Ensure background music is restored
         };
-    }, []);
-
-    return flights;
+    }, [flights]);
 };
