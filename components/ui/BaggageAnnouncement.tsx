@@ -33,7 +33,7 @@ const BaggageAnnouncement: React.FC<BaggageAnnouncementProps> = ({ isFlightPlayi
     console.log(`[Baggage] Current time: ${hours}:${minutes.toString().padStart(2, '0')}`);
 
     if (isWinterSeason()) {
-      const isWithinHours = currentTime >= 7 && currentTime <= 16.5;
+      const isWithinHours = currentTime >= 7 && currentTime <= 15.5;
       console.log(`[Baggage] Winter schedule - Within operating hours: ${isWithinHours}`);
       return isWithinHours;
     } else {

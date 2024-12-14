@@ -26,6 +26,7 @@ export default function Page() {
   const [showLoginMessage, setShowLoginMessage] = useState(false);
   const [activeTab, setActiveTab] = useState<'departures' | 'arrivals'>('departures');
   const [lastFetchedTime, setLastFetchedTime] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Fetch flights only if the user is logged in
   const flights = user ? (useFlightAnnouncements() as FlightData) : null;
@@ -81,6 +82,17 @@ export default function Page() {
   // Render nothing if still loading or no user
   if (!user) return null;
 
+  // Filter flights based on search query and active tab
+  const filteredFlights = (flights?.[activeTab] || []).filter(flight => {
+    const flightNumberMatch = flight.ident.toLowerCase().includes(searchQuery.toLowerCase());
+    const iataCodeMatch = flight.Kompanija?.toLowerCase().includes(searchQuery.toLowerCase()); // Assuming each flight has an iataCode property
+    const destinationMatch = flight.grad?.toLowerCase().includes(searchQuery.toLowerCase()); // Assuming each flight has a destination property
+    const destinationCodeMatch = flight.destination.code?.toLowerCase().includes(searchQuery.toLowerCase()); // Assuming each flight has a destination property
+
+
+    return flightNumberMatch || iataCodeMatch || destinationMatch || destinationCodeMatch ;
+  });
+
   return (
     <div className="container mx-auto p-4 bg-white dark:bg-gray-800">
       <FlightAnnouncementsProvider />
@@ -88,6 +100,16 @@ export default function Page() {
       <h1 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">
         Flight Information
       </h1>
+
+{/* Search Input Field with Rounded Pills */}
+<input
+  type="text"
+  placeholder="Search Flights, airlines, destination, IATA code of origin/destination..."
+  value={searchQuery}
+  onChange={(e) => setSearchQuery(e.target.value)}
+  className="mb-4 p-2 border rounded-full bg-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 border-gray-300 dark:border-gray-600 focus:outline-none focus:ring focus:ring-blue-300 w-full" // Set to full width
+/>
+
 
       <div className="flex space-x-4 mb-4">
         <Tab 
@@ -107,16 +129,12 @@ export default function Page() {
       {/* Show skeletons while loading flights */}
       {flights ? (
         <div className="flex flex-col gap-4">
-          {activeTab === 'departures' && flights.departures.length > 0 ? (
-            flights.departures.map((flight) => (
-              <FlightCard key={flight.ident} flight={flight} type="departure" />
-            ))
-          ) : activeTab === 'arrivals' && flights.arrivals.length > 0 ? (
-            flights.arrivals.map((flight) => (
-              <FlightCard key={flight.ident} flight={flight} type="arrival" />
+          {filteredFlights.length > 0 ? (
+            filteredFlights.map((flight) => (
+              <FlightCard key={flight.ident} flight={flight} type={activeTab === 'departures' ? 'departure' : 'arrival'} />
             ))
           ) : (
-            <p className="text-gray-500">No flights scheduled</p>
+            <p className="text-gray-500">No flights found</p>
           )}
         </div>
       ) : (

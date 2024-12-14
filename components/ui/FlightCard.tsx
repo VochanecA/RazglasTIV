@@ -150,46 +150,57 @@ const FlightCard = ({ flight, type }: { flight: Flight; type: 'departure' | 'arr
           </>
         )}
 
-        {/* Collapsible content */}
-        {isOpen && (
+{/* Collapsible content */}
+{isOpen && (
           <div className="mt=4 space-y=4">
-            <div className="grid grid-cols=2 gap=4 text-sm">
+            {/* Adjust grid layout here for 2 or 4 columns */}
+            <div className={`grid grid-cols-${isOpen ? 2 : 4} gap=4 text-sm`}>
+              {/* Scheduled, Estimated, and Actual Information in one row */}
               <div>
                 <div className="text-gray500 dark:text-gray400 text-lg font-semibold">Scheduled</div>
                 <div className="dark:text-gray200 text-lg font-bold">{flight.scheduled_out}</div>
               </div>
               <div>
                 <div className="text-gray500 dark:text-gray400 text-lg font-semibold">Estimated</div>
-                <div className="text-lg font-medium dark:text-gray200">{flight.estimated_out}</div>
+                <div className="dark:text-gray200 text-lg font-bold">{flight.estimated_out}</div>
               </div>
               <div>
                 <div className="text-gray500 dark:text-gray400 text-lg font-semibold">Actual</div>
-                <div className="text-lg font-medium dark:text-gray200">
-                  {flight.actual_out ? flight.actual_out : '-'}
-                </div>
+                <div className="dark:text-gray200 text-lg font-bold">{flight.actual_out}</div>
               </div>
-            </div>
 
-            {/* Additional flight information */}
-            <div>
-              <div className="text-gray500 dark:text-gray400">IATA code:</div>
-              <div className="font-medium text-yellow500 dark:text-yellow400">{flight.destination.code}</div>
-            </div>
-            <div>
-              <div className="text-gray500 dark:text-gray400">Destination</div>
-              <div className="text-light-blue500 dark:text-blue300 font-bold text-xl">{flight.grad}</div> {/* Updated styling */}
-            </div>
 
-            {/* Departure-specific info */}
-            {type === 'departure' && (
-              <>
-                {/* Additional departure-specific info can go here if needed */}
-              </>
-            )}
-          </div>
+
+              {type === 'arrival' && (
+                <>
+
+                </>
+              )}
+
+              {/* Destination Information in another row */}
+              <div>
+                <div className="text-gray500 dark:text-gray400">IATA code:</div>
+                <div className="font-bold text-light-blue-500 dark:text-orange-300">{flight.destination.code}</div>
+              </div>
+
+              {/* Destination Name */}
+              <div>
+                <div className="text-gray500 dark:text-gray400">Destination:</div>
+  {/* Ensure this is blue */}
+  <div className="text-light-blue-500 dark:text-blue-300 font-bold text-xl ml-2">{flight.grad}</div> 
+              </div>
+
+              {/* Departure-specific info */}
+              {type === 'departure' && (
+                <>
+                  {/* Additional departure-specific info can go here if needed */}
+                </>
+              )}
+            </div> 
+          </div> 
         )}
-      </div>
-    </div>
+      </div> 
+    </div> 
   );
 };
 

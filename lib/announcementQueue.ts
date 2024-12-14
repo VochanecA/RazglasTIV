@@ -1,13 +1,13 @@
 'use client';
 
 import { FlightData, Flight } from './flightTTS';
-import { playTTSAnnouncement, playGongSound,playAudioAd  } from './audioManager';
+import { playTTSAnnouncement, playGongSound, playAudioAd } from './audioManager';
 
 // Announcement log for arrivals
 const arrivalAnnouncementLog: Record<string, { count: number; lastAnnouncementTime: Date }> = {};
 
 interface Announcement {
-  type: 'security' | 'special-assistance' | 'flight'  | 'boarding'  | 'checkin'  | 'close'  | 'arrived';
+  type: 'security' | 'special-assistance' | 'flight' | 'boarding' | 'checkin' | 'close' | 'arrived' | 'dangerous_goods';
   text: string;
   flight?: Flight;
 }
@@ -32,7 +32,6 @@ function parseFlightNumber(flightNumber: string): string {
     '9': 'nine'
   };
 
-  // Convert each digit to its corresponding word
   return flightNumber.split('').map(digit => numberToWords[digit] || digit).join(' ');
 }
 
@@ -41,8 +40,12 @@ const generateSecurityAnnouncement = () => {
   return `Attention please. Dear passengers, may I have your attention please. Do not leave your baggage unattended at any time you are at the airport, as it will be removed for security reasons and may be destroyed. Thank you. The local time is ${currentTime}.`;
 };
 
+const generateDangerousGoodsAnnouncement = () => {
+  return `Attention Passengers: Dangerous goods can only be transported by air if prepared by qualified personnel, unless exempt. Some items may be carried in baggage if specific requirements are met. Batteries: Lithium and sodium ion batteries are allowed based on configuration and ratings. Spare batteries are not permitted in checked baggage. Small lithium battery-powered vehicles (e.g., hoverboards) are classified as dangerous goods. Smart Luggage: Baggage with non-removable batteries exceeding 0.3 g lithium or 2.7 Wh is prohibited. Such batteries must be removed and carried in the cabin. For detailed guidance on traveling with dangerous goods, including batteries and battery-powered devices, please visit the IATA Dangerous Goods Regulations website at iata.org/en/publications/dgr. Thank you for your attention.`;
+};
+
 const generateSpecialAssistanceAnnouncement = () => {
-  return "Dear passengers, We are committed to providing assistance for all passengers. If you require special assistance, please notify our staff or use the designated help points throughout the terminal.";
+  return "Dear passengers, we are committed to providing assistance for all passengers. If you require special assistance, please notify our staff or use the designated help points throughout the terminal.";
 };
 
 const logMp3Play = async (announcement: Announcement) => {
@@ -74,29 +77,24 @@ const shouldPlayArrivalAnnouncement = (flight: Flight): boolean => {
   const now = new Date();
   const arrivalTime = parseTime(flight.scheduled_out);
   
-  // Calculate the difference between current time and arrival time
   const timeSinceArrival = (now.getTime() - arrivalTime.getTime()) / (1000 * 60); // difference in minutes
   
-  // Do not play announcements if more than 15 minutes have passed
   if (timeSinceArrival > 15) {
     return false;
   }
 
-  // Initialize log for this flight if it doesn't exist
   if (!arrivalAnnouncementLog[flightKey]) {
     arrivalAnnouncementLog[flightKey] = { count: 0, lastAnnouncementTime: new Date(0) };
   }
 
   const log = arrivalAnnouncementLog[flightKey];
 
-  // First announcement when the plane lands
   if (log.count === 0) {
     log.count++;
     log.lastAnnouncementTime = now;
     return true;
   }
 
-  // Second and third announcements are made every 5 minutes
   const minutesSinceLastAnnouncement = (now.getTime() - log.lastAnnouncementTime.getTime()) / (1000 * 60);
   
   if (log.count < 3 && minutesSinceLastAnnouncement >= 5) {
@@ -112,23 +110,19 @@ export const processAnnouncements = async (flightData: FlightData) => {
     const announcements: Announcement[] = [];
     const now = new Date();
   
-    // Get current time in minutes since midnight
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
   
     // Process departures and arrivals
     [...flightData.departures, ...flightData.arrivals].forEach(flight => {
-      // Convert scheduled_out (e.g., "10:40") to total minutes since midnight
       const [scheduledHours, scheduledMinutes] = flight.scheduled_out.split(':').map(Number);
       const scheduledTimeInMinutes = scheduledHours * 60 + scheduledMinutes;
   
-      // Calculate time difference
       const timeDiff = scheduledTimeInMinutes - currentMinutes; // Difference in minutes
-// Log the time difference and flight identifier
-console.log(`Flight ${flight.ident}: Time Difference = ${timeDiff} minutes`);
-      // Convert flight status to lowercase for case-insensitive comparison
+      console.log(`Flight ${flight.ident}: Time Difference = ${timeDiff} minutes`);
+      
       const flightStatus = flight.status.toLowerCase();
   
-      // Check-in announcements for "Processing" or "CheckInOpen" status at specific times
+      // Check-in announcements
       if ((flightStatus === 'processing' || flightStatus === 'checkinopen' || flightStatus === 'checkin' || flightStatus === 'check in open') && 
           (timeDiff === 90 || timeDiff === 70 || timeDiff === 60 || timeDiff === 50 || timeDiff === 40)) {
         announcements.push({
@@ -173,6 +167,12 @@ console.log(`Flight ${flight.ident}: Time Difference = ${timeDiff} minutes`);
          type: 'security',
          text: generateSecurityAnnouncement()
        });
+
+       // Add dangerous goods announcement alongside security announcement
+       announcements.push({
+         type: 'dangerous_goods', // You can use a different type if needed
+         text: generateDangerousGoodsAnnouncement()
+       });
      }
   
      if (currentMinutesNow % 45 === 0) {
@@ -181,10 +181,12 @@ console.log(`Flight ${flight.ident}: Time Difference = ${timeDiff} minutes`);
          text: generateSpecialAssistanceAnnouncement()
        });
      }
-    // Add periodic audio ads every half hour.
-    setInterval(async () => {
-        await playAudioAd(); // Play ads.mp3 every thirty minutes.
-      }, 240 * 60 * 1000); // Every thirty minutes
+
+     // Add periodic audio ads every half hour.
+     setInterval(async () => {
+         await playAudioAd(); // Play ads.mp3 every 240 minutes.
+       }, 240 * 60 * 1000); // Every thirty minutes
+  
      // Process announcements queue
      for (const announcement of announcements) {
        console.log("Playing announcement:", announcement.text); // Debugging line
@@ -192,8 +194,7 @@ console.log(`Flight ${flight.ident}: Time Difference = ${timeDiff} minutes`);
        await logMp3Play(announcement);
        await playTTSAnnouncement(announcement.text);
      }
-  };
-
+};
 
 function parseTime(timeString: string): Date {
    const [hours, minutes] = timeString.split(':').map(Number);
