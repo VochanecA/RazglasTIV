@@ -34,15 +34,15 @@ export interface TTSEngine {
 
 // Function to get and initialize the TTS engine
 export const getFlightTTSEngine = (): TTSEngine => {
-  console.log("TTS Engine initialized");
-  return {
-    initialize() {
-      // Initialization logic here
-    },
-  };
+    // Your TTS engine initialization logic here
+    console.log("TTS Engine initialized");
+    return {
+        initialize() {
+            // Initialization logic here
+        }
+    };
 };
 
-// Function to check if announcements are within the allowed time
 export const checkIsAnnouncementTime = () => {
   const currentHour = new Date().getHours();
   const currentMonth = new Date().getMonth();
@@ -59,35 +59,35 @@ export const checkIsAnnouncementTime = () => {
 
 // Hook for managing flight announcements
 export const useFlightAnnouncements = () => {
-  const [flights, setFlights] = useState<FlightData | null>(null);
+    const [flights, setFlights] = useState<FlightData | null>(null);
 
-  useEffect(() => {
-    const setupAnnouncements = async () => {
-      if (!checkIsAnnouncementTime()) return;
+    useEffect(() => {
+        const setupAnnouncements = async () => {
+            if (!checkIsAnnouncementTime()) return;
 
-      // Setup background music
-      setupBackgroundMusic();
+            // Setup background music
+            setupBackgroundMusic();
 
-      try {
-        const flightData = await fetchFlightData();
-        setFlights(flightData);
+            try {
+                const flightData = await fetchFlightData();
+                setFlights(flightData);
 
-        if (flightData) {
-          await processAnnouncements(flightData);
-        }
-      } catch (error) {
-        console.error('Error setting up flight announcements:', error);
-      }
-    };
+                if (flightData) {
+                    await processAnnouncements(flightData);
+                }
+            } catch (error) {
+                console.error('Error setting up flight announcements:', error);
+            }
+        };
 
-    setupAnnouncements();
-    const intervalId = setInterval(setupAnnouncements, 60000); // Check every minute
+        setupAnnouncements();
+        const intervalId = setInterval(setupAnnouncements, 60000); // Check every minute
 
-    return () => {
-      clearInterval(intervalId);
-      fadeInBackgroundMusic(); // Ensure background music is restored
-    };
-  }, []);
+        return () => {
+            clearInterval(intervalId);
+            fadeInBackgroundMusic(); // Ensure background music is restored
+        };
+    }, []);
 
-  return flights;
+    return flights
 };
