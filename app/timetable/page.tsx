@@ -53,6 +53,15 @@ export default function Page() {
     }
   }, [flights]);
 
+  // Effect to switch tabs every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveTab(prevTab => (prevTab === 'departures' ? 'arrivals' : 'departures'));
+    }, 30000); // Switch every 30 seconds
+
+    return () => clearInterval(interval); // Cleanup on unmount
+  }, []);
+
   // If no user, show login prompt
   if (!user && showLoginMessage) {
     return (
@@ -85,12 +94,11 @@ export default function Page() {
   // Filter flights based on search query and active tab
   const filteredFlights = (flights?.[activeTab] || []).filter(flight => {
     const flightNumberMatch = flight.ident.toLowerCase().includes(searchQuery.toLowerCase());
-    const iataCodeMatch = flight.Kompanija?.toLowerCase().includes(searchQuery.toLowerCase()); // Assuming each flight has an iataCode property
-    const destinationMatch = flight.grad?.toLowerCase().includes(searchQuery.toLowerCase()); // Assuming each flight has a destination property
-    const destinationCodeMatch = flight.destination.code?.toLowerCase().includes(searchQuery.toLowerCase()); // Assuming each flight has a destination property
+    const iataCodeMatch = flight.Kompanija?.toLowerCase().includes(searchQuery.toLowerCase());
+    const destinationMatch = flight.grad?.toLowerCase().includes(searchQuery.toLowerCase());
+    const destinationCodeMatch = flight.destination.code?.toLowerCase().includes(searchQuery.toLowerCase());
 
-
-    return flightNumberMatch || iataCodeMatch || destinationMatch || destinationCodeMatch ;
+    return flightNumberMatch || iataCodeMatch || destinationMatch || destinationCodeMatch;
   });
 
   return (
@@ -101,15 +109,14 @@ export default function Page() {
         Flight Information
       </h1>
 
-{/* Search Input Field with Rounded Pills */}
-<input
-  type="text"
-  placeholder="Search Flights, airlines, destination, IATA code of origin/destination..."
-  value={searchQuery}
-  onChange={(e) => setSearchQuery(e.target.value)}
-  className="mb-4 p-2 border rounded-full bg-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 border-gray-300 dark:border-gray-600 focus:outline-none focus:ring focus:ring-blue-300 w-full" // Set to full width
-/>
-
+      {/* Search Input Field with Rounded Pills */}
+      <input
+        type="text"
+        placeholder="Search Flights, airlines, destination, IATA code of origin/destination..."
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        className="mb-4 p-2 border rounded-full bg-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 border-gray-300 dark:border-gray-600 focus:outline-none focus:ring focus:ring-blue-300 w-full"
+      />
 
       <div className="flex space-x-4 mb-4">
         <Tab 

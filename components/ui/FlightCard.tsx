@@ -16,6 +16,7 @@ const FlightCard = ({ flight, type }: { flight: Flight; type: 'departure' | 'arr
     setIsDarkTheme(darkModeEnabled);
   }, []);
 
+  
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden transition-all duration-200 ease-in-out">
       <div className="p-4 cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
