@@ -1,6 +1,7 @@
 import React from 'react';
 import { Flight } from '@/types/flight';
 
+
 interface FlightTableProps {
   flights: Flight[];
   type: 'departures' | 'arrivals';
@@ -40,9 +41,14 @@ const FlightTable: React.FC<FlightTableProps> = ({ flights, type, darkMode }) =>
    
 <tr
   key={flight.ident}
-  className={`${
-    index % 2 === 0 ? (darkMode ? 'bg-gray-700' : 'bg-gray-500') : (darkMode ? 'bg-gray-800' : 'bg-white')
-  } hover:bg-gray-200`}
+  className={`
+    ${darkMode 
+      ? (index % 2 === 0 ? 'bg-gray-700' : 'bg-gray-800') 
+      : (index % 2 === 0 ? 'bg-gray-100' : 'bg-white')
+    }
+    hover:${darkMode ? 'bg-gray-600' : 'bg-gray-200'}
+    transition-colors duration-200
+  `}
 >
  {/* Airline Logo */}
                 <td className="py-3 px-4 border-b border-l-0 border-r-0 border-t-0 flex items-center  justify-center">
@@ -56,23 +62,31 @@ const FlightTable: React.FC<FlightTableProps> = ({ flights, type, darkMode }) =>
     alt={flight.Kompanija || 'No Logo'}
     className="h-10 w-auto rounded-lg" // Added rounded-lg for rounded corners
   />
+  
 </div>
                 </td>
                 {/* Flight Number */}
-                <td className="py-3 px-4 border-b border-l-0 border-r-0 border-t-0 text-orange-500 text-4xl text-center font-extrabold ">{flight.Kompanija} {flight.ident}</td>
+                <td className="py-3 px-4 border-b border-l-0 border-r-0 border-t-0 text-orange-500 text-5xl text-center font-extrabold ">{flight.Kompanija} {flight.ident}</td>
                 {/* Grad */}
-                <td className="py-3 px-4 border-b border-l-0 border-r-0 border-t-0 text-sky-500 text-4xl text-center font-extrabold">{flight.grad}</td>
+                <td className="py-3 px-4 border-b border-l-0 border-r-0 border-t-0 text-sky-500 text-5xl text-center font-extrabold">{flight.grad}</td>
                 {/* Scheduled Out */}
-                <td className="py-3 px-4 border-b border-l-0 border-r-0 border-t-0 text-2xl text-center font-extrabold">{flight.scheduled_out}</td>
+                <td className="py-3 px-4 border-b border-l-0 border-r-0 border-t-0 text-orange-500 text-5xl text-center font-extrabold">{flight.scheduled_out}</td>
                 {/* Estimated Out */}
-                <td className="py-3 px-4 border-b border-l-0 border-r-0 border-t-0 text-2xl text-center font-extrabold">{flight.estimated_out}</td>
+                <td className="py-3 px-4 border-b border-l-0 border-r-0 border-t-0 text-4xl text-center font-extrabold">{flight.estimated_out}</td>
                 {/* Actual Out */}
-                <td className="py-3 px-4 border-b border-l-0 border-r-0 border-t-0 text-2xl text-center font-extrabold">{flight.actual_out}</td>
+                <td className="py-3 px-4 border-b border-l-0 border-r-0 border-t-0 text-4xl text-center font-extrabold">{flight.actual_out}</td>
  {/* Conditionally render Check-In and Gate data */}
  {type === 'departures' && (
                   <>
                     <td className="py-3 px-4 border-b border-l-0 border-r-0 border-t-0 text-2xl text-center font-extrabold">{flight.checkIn}</td>
-                    <td className="py-3 px-4 border-b border-l-0 border-r-0 border-t-0 text-2xl text-center font-extrabold">{flight.gate}</td>
+                    <td className="py-3 px-4 border-b border-l-0 border-r-0 border-t-0 text-center">
+  {flight.gate ? (
+    <div className="w-12 h-12 bg-red-500 text-white flex items-center justify-center rounded-full mx-auto font-extrabold text-2xl">
+      {flight.gate}
+    </div>
+  ) : null}
+</td>
+
                   </>
                 )}
  {/* Status */}
@@ -86,7 +100,7 @@ const FlightTable: React.FC<FlightTableProps> = ({ flights, type, darkMode }) =>
                       {flight.status}
                     </span>
                   ) : flight.status === "Arrived" ? (
-                    <span className="inline-block bg-orange-500 text-black rounded-full py-2 px-4">
+                    <span className="inline-block bg-orange-500 text-black  rounded-full py-2 px-4">
                       {flight.status}
                     </span>
                   ) : flight.status === "Delay" || flight.status === "Delayed" ? (

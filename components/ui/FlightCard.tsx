@@ -1,21 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { formatTime } from '@/lib/utils/formatTime'; // Adjust the import path as necessary
-import { Flight } from '@/types/flight';
 import Tooltip from '@/components/ui/ToolTip'; // Adjust the import path as necessary
-import { ClockArrowUp, PlaneTakeoff, TicketsPlane, Info } from 'lucide-react'; // Importing required icons
+import { ClockArrowUp, PlaneTakeoff, TicketsPlane, Info } from 'lucide-react';
+import { Flight } from '@/types/flight';
 
 const FlightCard = ({ flight, type }: { flight: Flight; type: 'departure' | 'arrival' }) => {
   const [logoError, setLogoError] = useState(false);
   const [isOpen, setIsOpen] = useState(false); // State for toggling card visibility
+  const [isDarkTheme, setIsDarkTheme] = useState(false); // Theme state
   const logoUrl = `https://www.flightaware.com/images/airline_logos/180px/${flight.KompanijaICAO}.png`;
   const placeholderUrl = 'https://via.placeholder.com/180x120?text=No+Logo';
+
+  useEffect(() => {
+    const darkModeEnabled = document.documentElement.classList.contains("dark");
+    setIsDarkTheme(darkModeEnabled);
+  }, []);
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden transition-all duration-200 ease-in-out">
       <div className="p-4 cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
+        {/* Top Section */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-4">
+            {/* Logo */}
             <div className="w-20 h-12 relative bg-white">
               <Image
                 src={logoError ? placeholderUrl : logoUrl}
@@ -27,41 +34,42 @@ const FlightCard = ({ flight, type }: { flight: Flight; type: 'departure' | 'arr
                 priority={true}
               />
             </div>
-            <div>
-              <a 
-                href={`https://www.flightaware.com/live/flight/${flight.KompanijaICAO}${flight.ident}`} 
-                target="_blank" 
-                rel="noopener noreferrer"
-              >
-                <Tooltip text={`Watch ${flight.KompanijaICAO} ${flight.ident} on flightaware.com`}>
-                  <span className="text-xl font-bold text-blue-600 dark:text-yellow-400">
-                    {flight.Kompanija} {flight.ident}
-                  </span>
-                </Tooltip>
-              </a>
 
-              <span className="text-light-blue-500 dark:text-blue-300 font-bold text-xl ml-2">
-                {flight.grad} {/* Updated styling */}
-              </span>
+            {/* Flight Details */}
+            <div className="flex items-center mt-2">
+              <div className="flex items-center space-x-4"> {/* This will place both items side by side with some space */}
+                <div>
+                  <a
+                    href={`https://www.flightaware.com/live/flight/${flight.KompanijaICAO}${flight.ident}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Tooltip text={`Watch ${flight.KompanijaICAO} ${flight.ident} on flightaware.com`}>
+                      <span className="text-xl font-bold text-blue-600 dark:text-yellow-400">
+                        {flight.Kompanija} {flight.ident}
+                      </span>
+                    </Tooltip>
+                  </a>
+                  <div className="text-light-blue-500 dark:text-blue-300 font-bold text-lg">
+                    {flight.grad}
+                  </div>
+                </div>
 
-              {/* Text before FlightAware Logo */}
-              <span className="ml-2 text-gray-700 dark:text-gray-500 text-sm">Watch flight on</span>
-
-              {/* FlightAware Logo with Link */}
-              <a 
-                href={`https://www.flightaware.com/live/flight/${flight.KompanijaICAO}${flight.ident}`} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="inline-block ml-2"
-              >
-                <Image
-                  src="https://www.flightaware.com/images/nav/flightaware-logo.png"
-                  alt="FlightAware Logo"
-                  width={50} // Adjust width as needed
-                  height={20} // Adjust height as needed
-                  className="object-contain"
-                />
-              </a>
+                {/* Add the FlightAware image link here */}
+                <a
+                  href={`https://www.flightaware.com/live/flight/${flight.KompanijaICAO}${flight.ident}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center text-blue-500 dark:text-blue-300"
+                >
+                  <span className="mr-2 text-sm font-medium">Watch flight on FlightAware</span>
+                  <img
+                    src={isDarkTheme ? "https://www.flightaware.com/images/og_default_image.png" : "https://flightaware.store/cdn/shop/files/FA_Logo_RGB-Hex_1_300x300.png?v=1623247331"}
+                    alt="FlightAware Logo"
+                    className="w-[55px] h-[30px]"
+                  />
+                </a>
+              </div>
             </div>
           </div>
 
@@ -83,124 +91,91 @@ const FlightCard = ({ flight, type }: { flight: Flight; type: 'departure' | 'arr
           </span>
         </div>
 
-        {/* Scheduled Information with Red Rounded Pill */}
-        <div className="flex flex-col md:flex-row md:space-x-4 justify-center mt-2"> {/* Center and stack pills vertically on mobile, horizontally on desktop */}
-          <div className="inline-flex items-center px-3 py-1 text-sm font-bold text-white bg-red-600 rounded-full w-full max-w-xs justify-center mb-2 md:mb-0"> {/* Added margin-bottom for spacing */}
-            <ClockArrowUp color="white" size={16} className="mr-1" /> {/* Clock icon */}
-            Scheduled: <span className="font-medium ml-1">{flight.scheduled_out}</span>
+        {/* Flight Timings */}
+        <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="flex items-center">
+            <ClockArrowUp color="gray" size={16} className="mr-2" />
+            <span className="font-medium">Scheduled:</span>
+            <span className="ml-2">{flight.scheduled_out || '-'}</span>
           </div>
-
-          {/* Conditional rendering for Check-In and Gate pills */}
-          {type === 'arrival' && flight.status !== 'Departed' && (
-            <>
-              {/* Check-In Information with Orange Rounded Pill (Estimated Time) */}
-              <div className="inline-flex items-center px-3 py-1 text-sm font-bold text-white bg-orange-600 rounded-full w-full max-w-xs justify-center mb-2 md:mb-0"> {/* Added margin-bottom for spacing */}
-              <TicketsPlane color="black" size={16} className="mr=1" /> {/* Tickets icon */}
-                Estimated Time: <span className="font-medium ml=1">{flight.estimated_out}</span> {/* Display estimated time for arrivals */}
-              </div>
-
-              {/* Gate Information with Plane Takeoff Icon (Actual Time) */}
-              <div className="inline-flex items-center px-3 py-1 text-sm font-bold text-white bg-blue-600 rounded-full w-full max-w-xs justify-center mb-2 md:mb-0"> {/* Added margin-bottom for spacing */}
-              <PlaneTakeoff color="white" size={16} className="mr=1" /> {/* Plane Takeoff icon */}
-                Actual Time: <span className="font-medium ml=1">{flight.actual_out || '-'}</span> {/* Display actual time or a placeholder */}
-              </div>
-            </>
-          )}
-
-          {type === 'departure' && (
-            <>
-              {/* Check-In Information with Orange Rounded Pill (Check-In Time) */}
-              <div className="inline-flex items-center px-3 py-1 text-sm font-bold text-white bg-orange-600 rounded-full w-full max-w-xs justify-center mb-2 md:mb-0"> {/* Added margin-bottom for spacing */}
-              <TicketsPlane color="black" size={16} className="mr=1" /> {/* Tickets icon */}
-                Check-In: <span className="font-medium ml=1">{flight.checkIn}</span> {/* Display check-in time for departures */}
-              </div>
-
-              {/* Gate Information with Plane Takeoff Icon (Gate Time) */}
-              <div className="inline-flex items-center px-3 py-1 text-sm font-bold text-white bg-blue-600 rounded-full w-full max-w-xs justify-center mb-2 md:mb-0"> {/* Added margin-bottom for spacing */}
-              <PlaneTakeoff color="white" size={16} className="mr=1" /> {/* Plane Takeoff icon */}
-                Gate: <span className="font-medium ml=1">{flight.gate}</span> {/* Display gate information for departures */}
-              </div>
-            </>
-          )}
+          <div className="flex items-center">
+            <TicketsPlane color="gray" size={16} className="mr-2" />
+            <span className="font-medium">Estimated:</span>
+            <span className="ml-2">{flight.estimated_out || '-'}</span>
+          </div>
+          <div className="flex items-center">
+            <PlaneTakeoff color="gray" size={16} className="mr-2" />
+            <span className="font-medium">Actual:</span>
+            <span className="ml-2">{flight.actual_out || '-'}</span>
+          </div>
         </div>
 
-        {/* Info Text Below Scheduled Pill - Only for Departures */}
+        {/* Additional Information for Departures */}
         {type === 'departure' && (
           <>
-          <div className="flex flex-col space-y-1 text-gray-500 dark:text-gray-400">
-  <div className="flex items-center">
-    <Info color="#A0AEC0" size={16} className="mr-1" />
-    <span className="text-sm">Passengers should arrive at the airport at least two hours before departure. Verify your travel documents and avoid packing prohibited items.</span>
-  </div>
-  
-  <div className="flex items-center">
-    <Info color="#A0AEC0" size={16} className="mr-1" />
-    <span className="text-sm">
-        
-      For more information on dangerous goods regulations, visit{' '}
-      <a href="https://www.iata.org/en/programs/cargo/dgr/dgr-guidance-passengers/" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
-        IATA Guidance
-      </a>.
-    </span>
-  </div>
-</div>
+            <div className="mt-4">
+              <div className="flex items-center">
+                <Info color="#A0AEC0" size={16} className="mr-2" />
+                <span className="text-sm text-gray-700 dark:text-gray-400">
+                  Passengers should arrive at the airport at least two hours before departure. Verify your travel documents and avoid packing prohibited items.
+                </span>
+              </div>
+              <div className="flex items-center mt-2">
+                <Info color="#A0AEC0" size={16} className="mr-2" />
+                <span className="text-sm text-gray-700 dark:text-gray-400">
+                  For more information on dangerous goods regulations, visit{' '}
+                  <a
+                    href="https://www.iata.org/en/programs/cargo/dgr/dgr-guidance-passengers/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 underline"
+                  >
+                    IATA Guidance
+                  </a>.
+                </span>
+              </div>
+            </div>
 
-
-
+            {/* Collapsible Content for Departures */}
+            {isOpen && (
+              <div className="mt-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div>
+                    <div className="text-gray-500 dark:text-gray-400">Scheduled</div>
+                    <div className="font-bold">{flight.scheduled_out || '-'}</div>
+                  </div>
+                  <div className="flex items-center">
+                    <div className="bg-blue-500 text-white rounded-full px-3 py-1 mr-2">
+                      Check In
+                    </div>
+                    <div className="bg-blue-200 text-blue-800 rounded-full px-3 py-1">
+                      {flight.checkIn || '-'}
+                    </div>
+                  </div>
+                  <div className="flex items-center">
+                    <div className="bg-green-500 text-white rounded-full px-3 py-1 mr-2">
+                      Gate
+                    </div>
+                    <div className="bg-green-200 text-green-800 rounded-full px-3 py-1">
+                      {flight.gate || '-'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </>
         )}
 
-{/* Collapsible content */}
-{isOpen && (
-          <div className="mt=4 space-y=4">
-            {/* Adjust grid layout here for 2 or 4 columns */}
-            <div className={`grid grid-cols-${isOpen ? 2 : 4} gap=4 text-sm`}>
-              {/* Scheduled, Estimated, and Actual Information in one row */}
-              <div>
-                <div className="text-gray500 dark:text-gray400 text-lg font-semibold">Scheduled</div>
-                <div className="dark:text-gray200 text-lg font-bold">{flight.scheduled_out}</div>
-              </div>
-              <div>
-                <div className="text-gray500 dark:text-gray400 text-lg font-semibold">Estimated</div>
-                <div className="dark:text-gray200 text-lg font-bold">{flight.estimated_out}</div>
-              </div>
-              <div>
-                <div className="text-gray500 dark:text-gray400 text-lg font-semibold">Actual</div>
-                <div className="dark:text-gray200 text-lg font-bold">{flight.actual_out}</div>
-              </div>
-
-
-
-              {type === 'arrival' && (
-                <>
-
-                </>
-              )}
-
-              {/* Destination Information in another row */}
-              <div>
-                <div className="text-gray500 dark:text-gray400">IATA code:</div>
-                <div className="font-bold text-light-blue-500 dark:text-orange-300">{flight.destination.code}</div>
-              </div>
-
-              {/* Destination Name */}
-              <div>
-                <div className="text-gray500 dark:text-gray400">Destination:</div>
-  {/* Ensure this is blue */}
-  <div className="text-light-blue-500 dark:text-blue-300 font-bold text-xl ml-2">{flight.grad}</div> 
-              </div>
-
-              {/* Departure-specific info */}
-              {type === 'departure' && (
-                <>
-                  {/* Additional departure-specific info can go here if needed */}
-                </>
-              )}
-            </div> 
-          </div> 
+        {/* Collapsible Content for Arrivals */}
+        {type === 'arrival' && isOpen && (
+          // You can add any specific information for arrivals here if needed.
+          // For now, we will leave it empty or you can customize it.
+          <>
+            {/* You can add additional arrival-specific information here if necessary */}
+          </>
         )}
-      </div> 
-    </div> 
+      </div>
+    </div>
   );
 };
 
