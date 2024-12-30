@@ -57,7 +57,7 @@ const FlightCard = ({ flight, type }: { flight: Flight; type: 'departure' | 'arr
                 </div>
 
                 {/* Add the FlightAware image link here */}
-                <a
+{/*                 <a
                   href={`https://www.flightaware.com/live/flight/${flight.KompanijaICAO}${flight.ident}`}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -69,7 +69,7 @@ const FlightCard = ({ flight, type }: { flight: Flight; type: 'departure' | 'arr
                     alt="FlightAware Logo"
                     className="w-[55px] h-[30px]"
                   />
-                </a>
+                </a> */}
               </div>
             </div>
           </div>
@@ -88,7 +88,7 @@ const FlightCard = ({ flight, type }: { flight: Flight; type: 'departure' | 'arr
                 : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100 font-bold'
             }`}
           >
-            {flight.status === 'Processing' ? 'Check In Open' : flight.status}
+            {flight.status === 'Processing' ? 'Check In' : flight.status}
           </span>
         </div>
 
