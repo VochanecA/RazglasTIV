@@ -117,7 +117,7 @@ export const processAnnouncements = async (flightData: FlightData) => {
 
     // Check-in announcements
     if ((flightStatus === 'processing' || flightStatus === 'checkinopen' || flightStatus === 'checkin' || flightStatus === 'check in open') && 
-        (timeDiff === 90 || timeDiff === 85  || timeDiff === 70 || timeDiff === 60 || timeDiff === 50 || timeDiff === 40)) {
+        (timeDiff === 90 || timeDiff === 75  || timeDiff === 70 || timeDiff === 60 || timeDiff === 50 || timeDiff === 40)) {
       const response = await fetch(`/api/getAnnouncements?airlineCode=${flight.KompanijaICAO}&type=checkin`);
       if (response.ok) {
         const template = await response.json();

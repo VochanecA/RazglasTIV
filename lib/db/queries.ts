@@ -49,7 +49,6 @@ export async function getTeamByStripeCustomerId(customerId: string) {
   return result.length > 0 ? result[0] : null;
 }
 
-
 export async function updateTeamSubscription(
   teamId: number,
   subscriptionData: {
@@ -147,7 +146,21 @@ export async function createMp3Play(playData: {
   });
 }
 
-export async function getAnnouncementTemplate(airlineId: number, type: AnnouncementType, language: string) {
+export async function getAirlineIdByCode(code: string): Promise<number> {
+  const result = await db
+    .select()
+    .from(airlines)
+    .where(eq(airlines.icaoCode, code))  // Changed from code to icao_code
+    .limit(1);
+
+  return result.length > 0 ? result[0].id : -1;
+}
+
+export async function getAnnouncementTemplate(
+  airlineId: number, 
+  type: AnnouncementType,
+  language: string = 'en'
+) {
   const result = await db
     .select()
     .from(announcementTemplates)
@@ -191,73 +204,63 @@ export async function updateMp3Play(
     gate?: string;
     filename?: string;
     playedAt?: Date; 
-   }>
+  }>
 ) {
-   return await db
-     .update(mp3Plays)
-     .set({
-       ...updatedData,
-       playedAt: updatedData.playedAt || undefined 
-     })
-     .where(eq(mp3Plays.id, id));
+  return await db
+    .update(mp3Plays)
+    .set({
+      ...updatedData,
+      playedAt: updatedData.playedAt || undefined 
+    })
+    .where(eq(mp3Plays.id, id));
 }
 
 export async function deleteMp3Play(id: number) {
-   return await db.delete(mp3Plays).where(eq(mp3Plays.id, id));
+  return await db.delete(mp3Plays).where(eq(mp3Plays.id, id));
 }
 
 export async function createAnnouncementTemplate(templateData: {
-   airlineId: number;
-   type: AnnouncementType;
-   language: string;
-   template: string;
+  airlineId: number;
+  type: AnnouncementType;
+  language: string;
+  template: string;
 }) {
-   return await db.insert(announcementTemplates).values(templateData);
+  return await db.insert(announcementTemplates).values(templateData);
 }
 
 export async function getAnnouncementTemplates(limit = 10) {
-   return await db
-     .select()
-     .from(announcementTemplates)
-     .orderBy(desc(announcementTemplates.airlineId))
-     .limit(limit);
+  return await db
+    .select()
+    .from(announcementTemplates)
+    .orderBy(desc(announcementTemplates.airlineId))
+    .limit(limit);
 }
 
 export async function getAnnouncementTemplateById(id: number) {
-   const result = await db
-     .select()
-     .from(announcementTemplates)
-     .where(eq(announcementTemplates.id, id))
-     .limit(1);
+  const result = await db
+    .select()
+    .from(announcementTemplates)
+    .where(eq(announcementTemplates.id, id))
+    .limit(1);
 
-   return result.length > 0 ? result[0] : null;
+  return result.length > 0 ? result[0] : null;
 }
 
 export async function updateAnnouncementTemplate(
-   id: number,
-   updatedData: Partial<{
-       airlineId?: number;
-       type?: AnnouncementType;
-       language?: string;
-       template?: string;
-   }>
+  id: number,
+  updatedData: Partial<{
+    airlineId?: number;
+    type?: AnnouncementType;
+    language?: string;
+    template?: string;
+  }>
 ) {
-   return await db
-     .update(announcementTemplates)
-     .set(updatedData)
-     .where(eq(announcementTemplates.id, id));
-}
-
-export async function getAirlineIdByCode(code: string): Promise<number> {
-  const result = await db
-    .select()
-    .from(airlines)
-    .where(eq(airlines.code, code))
-    .limit(1);
-
-  return result.length > 0 ? result[0].id : -1;
+  return await db
+    .update(announcementTemplates)
+    .set(updatedData)
+    .where(eq(announcementTemplates.id, id));
 }
 
 export async function deleteAnnouncementTemplate(id: number) {
-   return await db.delete(announcementTemplates).where(eq(announcementTemplates.id, id));
+  return await db.delete(announcementTemplates).where(eq(announcementTemplates.id, id));
 }
