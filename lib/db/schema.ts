@@ -4,7 +4,7 @@ import {
   varchar,
   text,
   timestamp,
-  integer,
+  integer,boolean,jsonb
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
@@ -140,6 +140,57 @@ export const mp3Plays = pgTable('mp3_plays', {
   filename: varchar('filename', { length: 255 }).notNull(),
   playedAt: timestamp('played_at').notNull().defaultNow(),
 })
+
+// Enum for announcement types
+export enum AnnouncementType {
+  CHECKIN = 'checkin',
+  BOARDING = 'boarding',
+  CLOSE = 'close',
+  DELAY = 'delay',
+  GATE_CHANGE = 'gate_change',
+  SECURITY = 'security',
+  ASSISTANCE = 'assistance'
+}
+
+// Airlines Table
+export const airlines = pgTable('airlines', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 255 }).notNull(),
+  fullName: varchar('full_name', { length: 255 }),
+  code: varchar('code', { length: 3 }).notNull().unique(),
+  icaoCode: varchar('icao_code', { length: 4 }).notNull().unique(),
+  country: varchar('country', { length: 100 }),
+  state: varchar('state', { length: 100 }),
+  logoUrl: text('logo_url'),
+  defaultLanguage: varchar('default_language', { length: 10 }).default('en'),
+  // createdAt: timestamp('created_at').notNull().defaultNow(),
+  // updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+
+
+// Announcement Templates Table
+export const announcementTemplates = pgTable('announcement_templates', {
+  id: serial('id').primaryKey(),
+  airlineId: integer('airline_id').references(() => airlines.id).notNull(),
+  type: varchar('type', { 
+    length: 50,
+    enum: [
+      AnnouncementType.CHECKIN,
+      AnnouncementType.BOARDING,
+      AnnouncementType.CLOSE,
+      AnnouncementType.DELAY,
+      AnnouncementType.GATE_CHANGE,
+      AnnouncementType.SECURITY,
+      AnnouncementType.ASSISTANCE
+    ]
+  }).notNull(),
+  language: varchar('language', { length: 10 }).notNull(),
+  template: text('template').notNull(),
+  // createdAt: timestamp('created_at').notNull().defaultNow(),
+  // updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+// do odje je novi dio
 
 export enum ActivityType {
   SIGN_UP = 'SIGN_UP',

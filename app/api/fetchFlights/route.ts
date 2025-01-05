@@ -57,8 +57,10 @@ export async function GET() {
         .filter(flight => flight.TipLeta === 'O')
         .map(flight => ({
           ident: `${flight.BrojLeta}`,
-          status: mapStatus(flight.StatusEN, flight.Status),
-          scheduled_out: formatTime(flight.Planirano),
+        // status: mapStatus(flight.StatusEN, flight.Status),
+          status: 'Processing',
+       // scheduled_out: formatTime(flight.Planirano),
+       scheduled_out: '12:45',
           estimated_out: formatTime(flight.Predvidjeno),
           actual_out: formatTime(flight.Aktuelno),
           origin: { code: 'TIV' },

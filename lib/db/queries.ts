@@ -1,23 +1,12 @@
+'use server'
+
 import { desc, and, eq, isNull } from 'drizzle-orm';
 import { db } from './drizzle';
-import { activityLogs, teamMembers, teams, users } from './schema';
+import { airlines, activityLogs, teamMembers, teams, users, announcementTemplates, AnnouncementType, mp3Plays } from './schema';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth/session';
 import { pgTable, serial, varchar, timestamp } from 'drizzle-orm/pg-core';
 
-// Define the mp3Plays table schema
-export const mp3Plays = pgTable('mp3_plays', {
-  id: serial('id').primaryKey(),
-  flightIcaoCode: varchar('flight_icao_code', { length: 4 }).notNull(),
-  flightNumber: varchar('flight_number', { length: 10 }).notNull(),
-  destinationCode: varchar('destination_code', { length: 3 }).notNull(),
-  callType: varchar('call_type', { length: 50 }).notNull(),
-  gate: varchar('gate', { length: 20 }),
-  filename: varchar('filename', { length: 255 }).notNull(),
-  playedAt: timestamp('played_at').notNull().defaultNow(),
-});
-
-// User authentication and session handling
 export async function getUser() {
   const sessionCookie = (await cookies()).get('session');
   if (!sessionCookie || !sessionCookie.value) {
@@ -50,8 +39,6 @@ export async function getUser() {
   return user[0];
 }
 
-
-// Fetch a team by Stripe Customer ID
 export async function getTeamByStripeCustomerId(customerId: string) {
   const result = await db
     .select()
@@ -62,7 +49,7 @@ export async function getTeamByStripeCustomerId(customerId: string) {
   return result.length > 0 ? result[0] : null;
 }
 
-// Update team subscription details
+
 export async function updateTeamSubscription(
   teamId: number,
   subscriptionData: {
@@ -81,7 +68,6 @@ export async function updateTeamSubscription(
     .where(eq(teams.id, teamId));
 }
 
-// Get user with their associated team
 export async function getUserWithTeam(userId: number) {
   const result = await db
     .select({
@@ -96,7 +82,6 @@ export async function getUserWithTeam(userId: number) {
   return result[0];
 }
 
-// Fetch activity logs for the authenticated user
 export async function getActivityLogs() {
   const user = await getUser();
   if (!user) {
@@ -118,7 +103,6 @@ export async function getActivityLogs() {
     .limit(10);
 }
 
-// Fetch the team for a specific user
 export async function getTeamForUser(userId: number) {
   const result = await db.query.users.findFirst({
     where: eq(users.id, userId),
@@ -148,8 +132,6 @@ export async function getTeamForUser(userId: number) {
   return result?.teamMembers[0]?.team || null;
 }
 
-// CRUD operations for mp3Plays
-
 export async function createMp3Play(playData: {
   flightIcaoCode: string;
   flightNumber: string;
@@ -157,15 +139,30 @@ export async function createMp3Play(playData: {
   callType: string;
   gate?: string;
   filename: string;
-  playedAt?: Date;  // Add this optional field
+  playedAt?: Date; 
 }) {
   return await db.insert(mp3Plays).values({
     ...playData,
-    playedAt: playData.playedAt || new Date(), // Default to current date if not provided
+    playedAt: playData.playedAt || new Date(), 
   });
 }
 
-// Read mp3 play entries
+export async function getAnnouncementTemplate(airlineId: number, type: AnnouncementType, language: string) {
+  const result = await db
+    .select()
+    .from(announcementTemplates)
+    .where(
+      and(
+        eq(announcementTemplates.airlineId, airlineId),
+        eq(announcementTemplates.type, type),
+        eq(announcementTemplates.language, language)
+      )
+    )
+    .limit(1);
+
+  return result.length > 0 ? result[0] : null;
+}
+
 export async function getMp3Plays(limit = 10) {
   return await db
     .select()
@@ -174,7 +171,6 @@ export async function getMp3Plays(limit = 10) {
     .limit(limit);
 }
 
-// Read a single mp3 play entry by ID
 export async function getMp3PlayById(id: number) {
   const result = await db
     .select()
@@ -185,7 +181,6 @@ export async function getMp3PlayById(id: number) {
   return result.length > 0 ? result[0] : null;
 }
 
-// Update an existing mp3 play entry
 export async function updateMp3Play(
   id: number,
   updatedData: Partial<{
@@ -195,19 +190,74 @@ export async function updateMp3Play(
     callType?: string;
     gate?: string;
     filename?: string;
-    playedAt?: Date; // Optional for updates
-  }>
+    playedAt?: Date; 
+   }>
 ) {
-  return await db
-    .update(mp3Plays)
-    .set({
-      ...updatedData,
-      playedAt: updatedData.playedAt || undefined // Keep playedAt unchanged if not provided
-   })
-   .where(eq(mp3Plays.id, id));
+   return await db
+     .update(mp3Plays)
+     .set({
+       ...updatedData,
+       playedAt: updatedData.playedAt || undefined 
+     })
+     .where(eq(mp3Plays.id, id));
 }
 
-// Delete an mp3 play entry
 export async function deleteMp3Play(id: number) {
    return await db.delete(mp3Plays).where(eq(mp3Plays.id, id));
+}
+
+export async function createAnnouncementTemplate(templateData: {
+   airlineId: number;
+   type: AnnouncementType;
+   language: string;
+   template: string;
+}) {
+   return await db.insert(announcementTemplates).values(templateData);
+}
+
+export async function getAnnouncementTemplates(limit = 10) {
+   return await db
+     .select()
+     .from(announcementTemplates)
+     .orderBy(desc(announcementTemplates.airlineId))
+     .limit(limit);
+}
+
+export async function getAnnouncementTemplateById(id: number) {
+   const result = await db
+     .select()
+     .from(announcementTemplates)
+     .where(eq(announcementTemplates.id, id))
+     .limit(1);
+
+   return result.length > 0 ? result[0] : null;
+}
+
+export async function updateAnnouncementTemplate(
+   id: number,
+   updatedData: Partial<{
+       airlineId?: number;
+       type?: AnnouncementType;
+       language?: string;
+       template?: string;
+   }>
+) {
+   return await db
+     .update(announcementTemplates)
+     .set(updatedData)
+     .where(eq(announcementTemplates.id, id));
+}
+
+export async function getAirlineIdByCode(code: string): Promise<number> {
+  const result = await db
+    .select()
+    .from(airlines)
+    .where(eq(airlines.code, code))
+    .limit(1);
+
+  return result.length > 0 ? result[0].id : -1;
+}
+
+export async function deleteAnnouncementTemplate(id: number) {
+   return await db.delete(announcementTemplates).where(eq(announcementTemplates.id, id));
 }
