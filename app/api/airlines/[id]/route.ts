@@ -3,16 +3,30 @@ import { db } from '@/lib/db/drizzle';
 import { airlines } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 
+// Helper function to validate params.id
+const validateId = (id: string) => {
+  const parsedId = parseInt(id);
+  return isNaN(parsedId) ? null : parsedId;
+};
+
 // GET single airline by ID
 export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const id = validateId(params.id);
+  if (!id) {
+    return NextResponse.json(
+      { success: false, message: 'Invalid ID parameter' },
+      { status: 400 }
+    );
+  }
+
   try {
     const data = await db
       .select()
       .from(airlines)
-      .where(eq(airlines.id, parseInt(params.id)))
+      .where(eq(airlines.id, id))
       .limit(1);
 
     if (!data.length) {
@@ -37,11 +51,26 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  try {
-    const body = await req.json();
-    const id = parseInt(params.id);
+  const id = validateId(params.id);
+  if (!id) {
+    return NextResponse.json(
+      { success: false, message: 'Invalid ID parameter' },
+      { status: 400 }
+    );
+  }
 
-    // Check if airline exists
+  try {
+    const body: Partial<{
+      name: string;
+      fullName: string;
+      code: string;
+      icaoCode: string;
+      country: string;
+      state: string;
+      logoUrl: string;
+      defaultLanguage: string;
+    }> = await req.json();
+
     const existingAirline = await db
       .select()
       .from(airlines)
@@ -85,9 +114,15 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  try {
-    const id = parseInt(params.id);
+  const id = validateId(params.id);
+  if (!id) {
+    return NextResponse.json(
+      { success: false, message: 'Invalid ID parameter' },
+      { status: 400 }
+    );
+  }
 
+  try {
     const deletedAirline = await db
       .delete(airlines)
       .where(eq(airlines.id, id))
