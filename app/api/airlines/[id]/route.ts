@@ -10,23 +10,22 @@ const validateId = (id: string) => {
 };
 
 // GET single airline by ID
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  const id = validateId(params.id);
-  if (!id) {
-    return NextResponse.json(
-      { success: false, message: 'Invalid ID parameter' },
-      { status: 400 }
-    );
-  }
-
+export async function GET(req: NextRequest) {
   try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+
+    if (!id || isNaN(parseInt(id))) {
+      return NextResponse.json(
+        { success: false, message: 'Invalid or missing ID' },
+        { status: 400 }
+      );
+    }
+
     const data = await db
       .select()
       .from(airlines)
-      .where(eq(airlines.id, id))
+      .where(eq(airlines.id, parseInt(id)))
       .limit(1);
 
     if (!data.length) {
