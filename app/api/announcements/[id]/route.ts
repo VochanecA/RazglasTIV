@@ -52,13 +52,12 @@ export async function POST(request: Request): Promise<NextResponse> {
 // PUT: Update an existing announcement template
 export async function PUT(
     request: Request,
-    { params }: { params: { id: string } } // This line should be changed
+    context: { params: Promise<{ id: string }> } // Accept context with params as a promise
 ): Promise<NextResponse> {
     try {
-        // Await params to ensure it's fully resolved
-        const { id } = await params;  // Ensure params are awaited
+        const { id } = await context.params; // Await params to resolve it
 
-        // Simulate async validation
+        // Validate ID
         const numericId = await validateId(id);
         if (!numericId) {
             return jsonResponse('error', 'Invalid template ID', 400);
@@ -99,32 +98,33 @@ export async function PUT(
     }
 }
 
+
   // DELETE: Delete an announcement template
-  export async function DELETE(
+// DELETE: Delete an announcement template
+export async function DELETE(
     request: Request,
-    { params }: { params: { id: string } }
-  ): Promise<NextResponse> {
+    context: { params: Promise<{ id: string }> } // Accept context with params as a promise
+): Promise<NextResponse> {
     try {
-      // Await params to ensure it's fully resolved
-      const { id } = await params;  // Ensure params are awaited
-  
-      if (!id || isNaN(Number(id))) {
-        return jsonResponse('error', 'Invalid template ID', 400);
-      }
-  
-      const deletedRows = await db
-        .delete(announcementTemplates)
-        .where(eq(announcementTemplates.id, Number(id)))
-        .returning();
-  
-      if (deletedRows.length === 0) {
-        return jsonResponse('error', 'Template not found', 404);
-      }
-  
-      return jsonResponse('success', { message: 'Template deleted successfully', deletedTemplate: deletedRows[0] });
+        const { id } = await context.params; // Await params to resolve it
+
+        if (!id || isNaN(Number(id))) {
+            return jsonResponse('error', 'Invalid template ID', 400);
+        }
+
+        const deletedRows = await db
+            .delete(announcementTemplates)
+            .where(eq(announcementTemplates.id, Number(id)))
+            .returning();
+
+        if (deletedRows.length === 0) {
+            return jsonResponse('error', 'Template not found', 404);
+        }
+
+        return jsonResponse('success', { message: 'Template deleted successfully', deletedTemplate: deletedRows[0] });
     } catch (error) {
-      console.error('Error deleting announcement template:', error);
-      return jsonResponse('error', 'Failed to delete template', 500);
+        console.error('Error deleting announcement template:', error);
+        return jsonResponse('error', 'Failed to delete template', 500);
     }
-  }
-  
+}
+
