@@ -49,9 +49,10 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 }
 // PUT: Update an existing announcement template
+// PUT: Update an existing announcement template
 export async function PUT(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: { id: string } } // This line should be changed
 ): Promise<NextResponse> {
     try {
         // Await params to ensure it's fully resolved
