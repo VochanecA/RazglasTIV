@@ -39,6 +39,25 @@ const AnnouncementPage: React.FC = () => {
     template: '',
   });
   const [airlines, setAirlines] = useState<Airline[]>([]);
+  const [newAirline, setNewAirline] = useState<{
+    name: string;
+    fullName: string;
+    code: string;
+    icaoCode: string;
+    country: string;
+    state: string;
+    logoUrl: string;
+    defaultLanguage: string;
+  }>({
+    name: '',
+    fullName: '',
+    code: '',
+    icaoCode: '',
+    country: '',
+    state: '',
+    logoUrl: '',
+    defaultLanguage: '',
+  });
 
   // Fetch data for airlines and templates
   useEffect(() => {
@@ -79,6 +98,14 @@ const AnnouncementPage: React.FC = () => {
     }));
   };
 
+  const handleAirlineChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setNewAirline(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
@@ -111,7 +138,7 @@ const AnnouncementPage: React.FC = () => {
 
       setTemplates(prev => {
         if (newTemplate.id) {
-          return prev.map(template => 
+          return prev.map(template =>
             template.id === newTemplate.id ? savedTemplate : template
           );
         }
@@ -155,6 +182,46 @@ const AnnouncementPage: React.FC = () => {
     } catch (error) {
       console.error('Error deleting template:', error);
       setErrorMessage('Failed to delete template');
+    }
+  };
+
+  const handleAddAirline = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage('');
+
+    if (!newAirline.name || !newAirline.code || !newAirline.icaoCode) {
+      setErrorMessage('Airline name, code, and ICAO code are required');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/airlines', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newAirline),
+      });
+
+      if (response.ok) {
+        const { data: addedAirline } = await response.json();
+        setAirlines(prev => [...prev, addedAirline]);
+
+        // Reset form
+        setNewAirline({
+          name: '',
+          fullName: '',
+          code: '',
+          icaoCode: '',
+          country: '',
+          state: '',
+          logoUrl: '',
+          defaultLanguage: '',
+        });
+      } else {
+        throw new Error('Failed to add airline');
+      }
+    } catch (error) {
+      console.error('Error adding airline:', error);
+      setErrorMessage('Failed to add airline');
     }
   };
 
@@ -215,7 +282,6 @@ const AnnouncementPage: React.FC = () => {
               <option value="assistance">Assistance</option>
             </select>
 
-
             <input
               type="text"
               name="language"
@@ -245,6 +311,45 @@ const AnnouncementPage: React.FC = () => {
           </button>
         </form>
 
+        <h2 className="text-2xl font-semibold mb-4">Add New Airline</h2>
+
+        <form onSubmit={handleAddAirline} className="mb-6">
+          <input
+            type="text"
+            name="name"
+            placeholder="Airline Name"
+            value={newAirline.name}
+            onChange={handleAirlineChange}
+            required
+            className="border p-3 mb-4 w-full rounded-lg dark:border-gray-700 dark:bg-gray-800"
+          />
+          <input
+            type="text"
+            name="code"
+            placeholder="Airline Code"
+            value={newAirline.code}
+            onChange={handleAirlineChange}
+            required
+            className="border p-3 mb-4 w-full rounded-lg dark:border-gray-700 dark:bg-gray-800"
+          />
+          <input
+            type="text"
+            name="icaoCode"
+            placeholder="ICAO Code"
+            value={newAirline.icaoCode}
+            onChange={handleAirlineChange}
+            required
+            className="border p-3 mb-4 w-full rounded-lg dark:border-gray-700 dark:bg-gray-800"
+          />
+
+          <button
+            type="submit"
+            className="bg-green-500 text-white p-3 rounded-lg hover:bg-green-600 dark:bg-green-700"
+          >
+            Add Airline
+          </button>
+        </form>
+
         <table className="table-auto w-full border-collapse border border-gray-300 dark:border-gray-700">
           <thead>
             <tr className="bg-gray-100 dark:bg-gray-800">
@@ -263,13 +368,13 @@ const AnnouncementPage: React.FC = () => {
                 <td className="border px-4 py-2 flex gap-2">
                   <button
                     onClick={() => handleEdit(template.id)}
-                    className="bg-yellow-500 text-white px-3 py-1 rounded-lg hover:bg-yellow-600 dark:bg-yellow-600"
+                    className="bg-yellow-500 text-white p-2 rounded-lg hover:bg-yellow-600 dark:bg-yellow-700"
                   >
                     Edit
                   </button>
                   <button
                     onClick={() => handleDelete(template.id)}
-                    className="bg-red-500 text-white px-3 py-1 rounded-lg hover:bg-red-600 dark:bg-red-600"
+                    className="bg-red-500 text-white p-2 rounded-lg hover:bg-red-600 dark:bg-red-700"
                   >
                     Delete
                   </button>

@@ -23,7 +23,7 @@ export default function DashboardLayout({
     { href: '/dashboard/activity', icon: Activity, label: 'Activity' },
     { href: '/dashboard/security', icon: Shield, label: 'Security' },
     { href: '/timetable', icon: Airplay, label: 'PA Announcements',color: "#FFFF00" },
-        { href: '/templatesAnnouncements', icon: Airplay, label: 'Templates Announcements',color: "#FFFF00" },
+        { href: '/templatesAnnouncements', icon: Settings, label: 'Templates for PA',color: "#FFFF00" },
   ];
 
   return (

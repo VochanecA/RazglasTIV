@@ -148,7 +148,7 @@ export const processAnnouncements = async (flightData: FlightData) => {
          text: template.template
            .replace('{flightNumber}', parseFlightNumber(flight.ident))
            .replace('{gate}', parseCheckInOrGateNumbers(flight.gate))
-           .replace('{destination}', flight.destination.code),
+           .replace('{destination}', flight.grad),
          flight
        });
      }
