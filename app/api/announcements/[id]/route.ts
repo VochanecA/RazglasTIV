@@ -52,10 +52,11 @@ export async function POST(request: Request): Promise<NextResponse> {
 // PUT: Update an existing announcement template
 export async function PUT(
     request: Request,
-    context: { params: Promise<{ id: string }> } // Accept context with params as a promise
+    { params }: { params: { id: string } } // This should be changed
 ): Promise<NextResponse> {
     try {
-        const { id } = await context.params; // Await params to resolve it
+        // Correctly access params without explicit typing
+        const { id } = await params; // Await params to resolve it
 
         // Validate ID
         const numericId = await validateId(id);
@@ -103,10 +104,11 @@ export async function PUT(
 // DELETE: Delete an announcement template
 export async function DELETE(
     request: Request,
-    context: { params: Promise<{ id: string }> } // Accept context with params as a promise
+    { params }: { params: { id: string } } // This should be changed
 ): Promise<NextResponse> {
     try {
-        const { id } = await context.params; // Await params to resolve it
+        // Correctly access params without explicit typing
+        const { id } = await params; // Await params to resolve it
 
         if (!id || isNaN(Number(id))) {
             return jsonResponse('error', 'Invalid template ID', 400);
