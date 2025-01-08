@@ -3,6 +3,17 @@ import { db } from '@/lib/db/drizzle';
 import { announcementTemplates, AnnouncementType } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 
+// Helper function to validate params.id
+const validateId = async (id: string): Promise<number | null> => {
+    // Simulate some async operation, like checking from a database or an external API
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        const parsedId = parseInt(id, 10);
+        resolve(isNaN(parsedId) ? null : parsedId);
+      }, 100);  // Simulating async delay, 100ms
+    });
+  };
+
 const jsonResponse = (status: string, data: any, statusCode = 200) => 
   NextResponse.json({ status, data }, { status: statusCode });
 
@@ -37,56 +48,56 @@ export async function POST(request: Request): Promise<NextResponse> {
     return jsonResponse('error', 'Failed to create template', 500);
   }
 }
-
 // PUT: Update an existing announcement template
 export async function PUT(
     request: Request,
     { params }: { params: { id: string } }
-  ): Promise<NextResponse> {
+): Promise<NextResponse> {
     try {
-      // Await params to ensure it's fully resolved
-      const { id } = await params;  // Ensure params are awaited
-  
-      const body = await request.json();
-      const { airlineId, type, language, template } = body;
-  
-      // Validate required fields
-      if (!airlineId || !type || !language || !template) {
-        return jsonResponse('error', 'Missing required fields', 400);
-      }
-  
-      // Validate ID
-      if (!id || isNaN(Number(id))) {
-        return jsonResponse('error', 'Invalid template ID', 400);
-      }
-  
-      // Validate announcement type
-      if (!Object.values(AnnouncementType).includes(type)) {
-        return jsonResponse('error', 'Invalid announcement type', 400);
-      }
-  
-      const [updatedTemplate] = await db
-        .update(announcementTemplates)
-        .set({
-          airlineId: Number(airlineId),
-          type,
-          language,
-          template
-        })
-        .where(eq(announcementTemplates.id, Number(id)))
-        .returning();
-  
-      if (!updatedTemplate) {
-        return jsonResponse('error', 'Template not found', 404);
-      }
-  
-      return jsonResponse('success', updatedTemplate);
+        // Await params to ensure it's fully resolved
+        const { id } = await params;  // Ensure params are awaited
+
+        // Simulate async validation
+        const numericId = await validateId(id);
+        if (!numericId) {
+            return jsonResponse('error', 'Invalid template ID', 400);
+        }
+
+        const body = await request.json();
+        const { airlineId, type, language, template } = body;
+
+        // Validate required fields
+        if (!airlineId || !type || !language || !template) {
+            return jsonResponse('error', 'Missing required fields', 400);
+        }
+
+        // Validate announcement type
+        if (!Object.values(AnnouncementType).includes(type)) {
+            return jsonResponse('error', 'Invalid announcement type', 400);
+        }
+
+        const [updatedTemplate] = await db
+            .update(announcementTemplates)
+            .set({
+                airlineId: Number(airlineId),
+                type,
+                language,
+                template
+            })
+            .where(eq(announcementTemplates.id, numericId))
+            .returning();
+
+        if (!updatedTemplate) {
+            return jsonResponse('error', 'Template not found', 404);
+        }
+
+        return jsonResponse('success', updatedTemplate);
     } catch (error) {
-      console.error('Error updating announcement template:', error);
-      return jsonResponse('error', 'Failed to update template', 500);
+        console.error('Error updating announcement template:', error);
+        return jsonResponse('error', 'Failed to update template', 500);
     }
-  }
-  
+}
+
   // DELETE: Delete an announcement template
   export async function DELETE(
     request: Request,
