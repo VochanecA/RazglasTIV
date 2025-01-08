@@ -3,6 +3,7 @@ import { db } from '@/lib/db/drizzle';
 import { announcementTemplates, AnnouncementType } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 
+
 // Helper function to validate params.id
 const validateId = (idString: string | null): number | null => {
     if (!idString) return null; // Return null if idString is null or empty
@@ -12,7 +13,7 @@ const validateId = (idString: string | null): number | null => {
 
 // Helper function to create a standardized JSON response
 const jsonResponse = (status: string, data: any, statusCode = 200) => 
-  NextResponse.json({ status, data }, { status: statusCode });
+    NextResponse.json({ status, data }, { status: statusCode });
 
 // GET: Fetch all announcement templates
 export async function GET(): Promise<NextResponse> {
@@ -50,10 +51,10 @@ export async function POST(request: Request): Promise<NextResponse> {
 // PUT: Update an existing announcement template
 export async function PUT(
     request: Request,
-    context: { params: Promise<{ id: string }> } // Use Promise for params
+    { params }: { params: Promise<{ id: string }> } // Use Promise for params
 ): Promise<NextResponse> {
     try {
-        const { id } = await context.params; // Await params to resolve it
+        const { id } = await params; // Await params to resolve it
 
         // Validate ID
         const numericId = validateId(id);
@@ -99,10 +100,10 @@ export async function PUT(
 // DELETE: Delete an announcement template
 export async function DELETE(
     request: Request,
-    context: { params: Promise<{ id: string }> } // Use Promise for params
+    { params }: { params: Promise<{ id: string }> } // Use Promise for params
 ): Promise<NextResponse> {
     try {
-        const { id } = await context.params; // Await params to resolve it
+        const { id } = await params; // Await params to resolve it
 
         // Validate ID
         const numericId = validateId(id);
