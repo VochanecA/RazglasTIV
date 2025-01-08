@@ -4,18 +4,18 @@ import { airlines } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 
 // Helper function to validate params.id
-const validateId = (id: string) => {
-  const parsedId = parseInt(id);
-  return isNaN(parsedId) ? null : parsedId;
+const validateId = (idString: string | null): number | null => {
+  if (!idString) return null;
+  const id = parseInt(idString, 10);
+  return isNaN(id) || id < 1 ? null : id;
 };
 
 // GET single airline by ID
-export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest) {
   try {
-    const id = validateId(params.id);
+    const pathParts = request.nextUrl.pathname.split('/');
+    const idString = pathParts[pathParts.length - 1];
+    const id = validateId(idString);
     
     if (!id) {
       return NextResponse.json(
@@ -48,19 +48,19 @@ export async function GET(
 }
 
 // PUT update airline
-export async function PUT(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
-  const id = validateId(params.id);
-  if (!id) {
-    return NextResponse.json(
-      { success: false, message: 'Invalid ID parameter' },
-      { status: 400 }
-    );
-  }
-
+export async function PUT(request: NextRequest) {
   try {
+    const pathParts = request.nextUrl.pathname.split('/');
+    const idString = pathParts[pathParts.length - 1];
+    const id = validateId(idString);
+    
+    if (!id) {
+      return NextResponse.json(
+        { success: false, message: 'Invalid ID parameter' },
+        { status: 400 }
+      );
+    }
+
     const body: Partial<{
       name: string;
       fullName: string;
@@ -111,19 +111,19 @@ export async function PUT(
 }
 
 // DELETE airline
-export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
-  const id = validateId(params.id);
-  if (!id) {
-    return NextResponse.json(
-      { success: false, message: 'Invalid ID parameter' },
-      { status: 400 }
-    );
-  }
-
+export async function DELETE(request: NextRequest) {
   try {
+    const pathParts = request.nextUrl.pathname.split('/');
+    const idString = pathParts[pathParts.length - 1];
+    const id = validateId(idString);
+    
+    if (!id) {
+      return NextResponse.json(
+        { success: false, message: 'Invalid ID parameter' },
+        { status: 400 }
+      );
+    }
+
     const deletedAirline = await db
       .delete(airlines)
       .where(eq(airlines.id, id))
