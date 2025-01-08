@@ -9,13 +9,19 @@ const validateId = (id: string) => {
   return isNaN(parsedId) ? null : parsedId;
 };
 
+type Context = {
+  params: {
+    id: string;
+  };
+};
+
 // GET single airline by ID
 export async function GET(
-  req: NextRequest,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: Context
 ) {
   try {
-    const id = validateId(params.id);
+    const id = validateId(context.params.id);
     
     if (!id) {
       return NextResponse.json(
@@ -49,10 +55,10 @@ export async function GET(
 
 // PUT update airline
 export async function PUT(
-  req: NextRequest,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: Context
 ) {
-  const id = validateId(params.id);
+  const id = validateId(context.params.id);
   if (!id) {
     return NextResponse.json(
       { success: false, message: 'Invalid ID parameter' },
@@ -70,7 +76,7 @@ export async function PUT(
       state: string;
       logoUrl: string;
       defaultLanguage: string;
-    }> = await req.json();
+    }> = await request.json();
 
     const existingAirline = await db
       .select()
@@ -112,10 +118,10 @@ export async function PUT(
 
 // DELETE airline
 export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: Context
 ) {
-  const id = validateId(params.id);
+  const id = validateId(context.params.id);
   if (!id) {
     return NextResponse.json(
       { success: false, message: 'Invalid ID parameter' },
