@@ -48,11 +48,10 @@ export async function POST(request: Request): Promise<NextResponse> {
 // PUT: Update an existing announcement template
 export async function PUT(
     request: Request,
-    { params }: { params: { id: string } } // Keep this as is for destructuring
+    { params }: { params: Promise<{ id: string }> } // Use the awaited format
 ): Promise<NextResponse> {
     try {
-        // Directly use params without awaiting
-        const { id } = params; // No need to await here
+        const { id } = await params; // Await params to resolve it
 
         // Validate ID
         const numericId = validateId(id);
@@ -97,11 +96,10 @@ export async function PUT(
 // DELETE: Delete an announcement template
 export async function DELETE(
     request: Request,
-    { params }: { params: { id: string } } // This should be changed
+    { params }: { params: Promise<{ id: string }> } // Use the awaited format
 ): Promise<NextResponse> {
     try {
-        // Await params to resolve it
-        const { id } = await params; // This line should not use await
+        const { id } = await params; // Await params to resolve it
 
         // Validate ID
         const numericId = validateId(id);
