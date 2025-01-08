@@ -4,15 +4,13 @@ import { announcementTemplates, AnnouncementType } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 
 // Helper function to validate params.id
-const validateId = async (id: string): Promise<number | null> => {
-    // Simulate some async operation, like checking from a database or an external API
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const parsedId = parseInt(id, 10);
-        resolve(isNaN(parsedId) ? null : parsedId);
-      }, 100);  // Simulating async delay, 100ms
-    });
-  };
+// Helper function to validate params.id
+const validateId = (idString: string | null): number | null => {
+    if (!idString) return null; // Return null if idString is null or empty
+    const id = parseInt(idString, 10); // Parse the string to an integer
+    return isNaN(id) || id < 1 ? null : id; // Return null if NaN or less than 1
+};
+
 
 const jsonResponse = (status: string, data: any, statusCode = 200) => 
   NextResponse.json({ status, data }, { status: statusCode });
