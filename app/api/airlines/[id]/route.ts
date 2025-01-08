@@ -3,12 +3,6 @@ import { db } from '@/lib/db/drizzle';
 import { airlines } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 
-interface RouteSegmentConfig {
-  params: {
-    id: string;
-  }
-}
-
 // Helper function to validate params.id
 const validateId = (id: string) => {
   const parsedId = parseInt(id);
@@ -17,11 +11,11 @@ const validateId = (id: string) => {
 
 // GET single airline by ID
 export async function GET(
-  request: NextRequest,
-  context: RouteSegmentConfig
+  request: Request,
+  { params }: { params: { id: string } }
 ) {
   try {
-    const id = validateId(context.params.id);
+    const id = validateId(params.id);
     
     if (!id) {
       return NextResponse.json(
@@ -55,10 +49,10 @@ export async function GET(
 
 // PUT update airline
 export async function PUT(
-  request: NextRequest,
-  context: RouteSegmentConfig
+  request: Request,
+  { params }: { params: { id: string } }
 ) {
-  const id = validateId(context.params.id);
+  const id = validateId(params.id);
   if (!id) {
     return NextResponse.json(
       { success: false, message: 'Invalid ID parameter' },
@@ -118,10 +112,10 @@ export async function PUT(
 
 // DELETE airline
 export async function DELETE(
-  request: NextRequest,
-  context: RouteSegmentConfig
+  request: Request,
+  { params }: { params: { id: string } }
 ) {
-  const id = validateId(context.params.id);
+  const id = validateId(params.id);
   if (!id) {
     return NextResponse.json(
       { success: false, message: 'Invalid ID parameter' },
