@@ -4,13 +4,11 @@ import { announcementTemplates, AnnouncementType } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 
 // Helper function to validate params.id
-// Helper function to validate params.id
 const validateId = (idString: string | null): number | null => {
     if (!idString) return null; // Return null if idString is null or empty
     const id = parseInt(idString, 10); // Parse the string to an integer
     return isNaN(id) || id < 1 ? null : id; // Return null if NaN or less than 1
 };
-
 
 const jsonResponse = (status: string, data: any, statusCode = 200) => 
   NextResponse.json({ status, data }, { status: statusCode });
@@ -50,14 +48,14 @@ export async function POST(request: Request): Promise<NextResponse> {
 // PUT: Update an existing announcement template
 export async function PUT(
     request: Request,
-    { params }: { params: { id: string } } // Correctly destructured params
+    { params }: { params: { id: string } } // Keep this as is for destructuring
 ): Promise<NextResponse> {
     try {
-        // Await params to resolve it
-        const { id } = await params;
+        // Directly use params without awaiting
+        const { id } = params; // No need to await here
 
         // Validate ID
-        const numericId = await validateId(id);
+        const numericId = validateId(id);
         if (!numericId) {
             return jsonResponse('error', 'Invalid template ID', 400);
         }
@@ -96,25 +94,24 @@ export async function PUT(
         return jsonResponse('error', 'Failed to update template', 500);
     }
 }
-
-
-
 // DELETE: Delete an announcement template
 export async function DELETE(
     request: Request,
-    { params }: { params: { id: string } } // Correctly destructured params
+    { params }: { params: { id: string } } // This should be changed
 ): Promise<NextResponse> {
     try {
         // Await params to resolve it
-        const { id } = await params;
+        const { id } = await params; // This line should not use await
 
-        if (!id || isNaN(Number(id))) {
+        // Validate ID
+        const numericId = validateId(id);
+        if (!numericId) {
             return jsonResponse('error', 'Invalid template ID', 400);
         }
 
         const deletedRows = await db
             .delete(announcementTemplates)
-            .where(eq(announcementTemplates.id, Number(id)))
+            .where(eq(announcementTemplates.id, numericId))
             .returning();
 
         if (deletedRows.length === 0) {
