@@ -48,7 +48,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     return jsonResponse('error', 'Failed to create template', 500);
   }
 }
-// PUT: Update an existing announcement template
+
 // PUT: Update an existing announcement template
 export async function PUT(
     request: Request,
@@ -100,7 +100,7 @@ export async function PUT(
 }
 
 
-  // DELETE: Delete an announcement template
+
 // DELETE: Delete an announcement template
 export async function DELETE(
     request: Request,
