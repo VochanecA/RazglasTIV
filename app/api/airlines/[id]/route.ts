@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db/drizzle';
-import { airlines } from '@/lib/db/schema';
+import { airlines, announcementTemplates } from '@/lib/db/schema'; // Added the import for announcementTemplates
 import { eq } from 'drizzle-orm';
 
 // Helper function to validate params.id
@@ -11,13 +11,12 @@ const validateId = (idString: string | null): number | null => {
 };
 
 // GET single airline by ID
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest, context: { params: { id: string } }) {
   try {
-    const pathParts = request.nextUrl.pathname.split('/');
-    const idString = pathParts[pathParts.length - 1];
-    const id = validateId(idString);
-    
-    if (!id) {
+    const { id } = context.params;  // No need to await here
+    const validatedId = validateId(id);
+
+    if (!validatedId) {
       return NextResponse.json(
         { success: false, message: 'Invalid or missing ID' },
         { status: 400 }
@@ -27,7 +26,7 @@ export async function GET(request: NextRequest) {
     const data = await db
       .select()
       .from(airlines)
-      .where(eq(airlines.id, id))
+      .where(eq(airlines.id, validatedId))
       .limit(1);
 
     if (!data.length) {
@@ -48,34 +47,24 @@ export async function GET(request: NextRequest) {
 }
 
 // PUT update airline
-export async function PUT(request: NextRequest) {
+export async function PUT(request: NextRequest, context: { params: { id: string } }) {
   try {
-    const pathParts = request.nextUrl.pathname.split('/');
-    const idString = pathParts[pathParts.length - 1];
-    const id = validateId(idString);
-    
-    if (!id) {
+    const { id } = context.params;  // No need to await here
+    const validatedId = validateId(id);
+
+    if (!validatedId) {
       return NextResponse.json(
         { success: false, message: 'Invalid ID parameter' },
         { status: 400 }
       );
     }
 
-    const body: Partial<{
-      name: string;
-      fullName: string;
-      code: string;
-      icaoCode: string;
-      country: string;
-      state: string;
-      logoUrl: string;
-      defaultLanguage: string;
-    }> = await request.json();
+    const body = await request.json();
 
     const existingAirline = await db
       .select()
       .from(airlines)
-      .where(eq(airlines.id, id))
+      .where(eq(airlines.id, validatedId))
       .limit(1);
 
     if (!existingAirline.length) {
@@ -97,7 +86,7 @@ export async function PUT(request: NextRequest) {
         logoUrl: body.logoUrl ?? existingAirline[0].logoUrl,
         defaultLanguage: body.defaultLanguage ?? existingAirline[0].defaultLanguage,
       })
-      .where(eq(airlines.id, id))
+      .where(eq(airlines.id, validatedId))
       .returning();
 
     return NextResponse.json({ success: true, data: updatedAirline[0] });
@@ -111,13 +100,12 @@ export async function PUT(request: NextRequest) {
 }
 
 // DELETE airline
-export async function DELETE(request: NextRequest) {
+export async function DELETE(request: NextRequest, context: { params: { id: string } }) {
   try {
-    const pathParts = request.nextUrl.pathname.split('/');
-    const idString = pathParts[pathParts.length - 1];
-    const id = validateId(idString);
-    
-    if (!id) {
+    const { id } = context.params;  // No need to await here
+    const validatedId = validateId(id);
+
+    if (!validatedId) {
       return NextResponse.json(
         { success: false, message: 'Invalid ID parameter' },
         { status: 400 }
@@ -126,7 +114,7 @@ export async function DELETE(request: NextRequest) {
 
     const deletedAirline = await db
       .delete(airlines)
-      .where(eq(airlines.id, id))
+      .where(eq(airlines.id, validatedId))
       .returning();
 
     if (!deletedAirline.length) {

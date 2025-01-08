@@ -40,75 +40,79 @@ export async function POST(request: Request): Promise<NextResponse> {
 
 // PUT: Update an existing announcement template
 export async function PUT(
-  request: Request,
-  { params }: { params: { id: string } }
-): Promise<NextResponse> {
-  try {
-    const body = await request.json();
-    const { airlineId, type, language, template } = body;
-    const id = params.id;
-
-    // Validate required fields
-    if (!airlineId || !type || !language || !template) {
-      return jsonResponse('error', 'Missing required fields', 400);
+    request: Request,
+    { params }: { params: { id: string } }
+  ): Promise<NextResponse> {
+    try {
+      // Await params to ensure it's fully resolved
+      const { id } = await params;  // Ensure params are awaited
+  
+      const body = await request.json();
+      const { airlineId, type, language, template } = body;
+  
+      // Validate required fields
+      if (!airlineId || !type || !language || !template) {
+        return jsonResponse('error', 'Missing required fields', 400);
+      }
+  
+      // Validate ID
+      if (!id || isNaN(Number(id))) {
+        return jsonResponse('error', 'Invalid template ID', 400);
+      }
+  
+      // Validate announcement type
+      if (!Object.values(AnnouncementType).includes(type)) {
+        return jsonResponse('error', 'Invalid announcement type', 400);
+      }
+  
+      const [updatedTemplate] = await db
+        .update(announcementTemplates)
+        .set({
+          airlineId: Number(airlineId),
+          type,
+          language,
+          template
+        })
+        .where(eq(announcementTemplates.id, Number(id)))
+        .returning();
+  
+      if (!updatedTemplate) {
+        return jsonResponse('error', 'Template not found', 404);
+      }
+  
+      return jsonResponse('success', updatedTemplate);
+    } catch (error) {
+      console.error('Error updating announcement template:', error);
+      return jsonResponse('error', 'Failed to update template', 500);
     }
-
-    // Validate ID
-    if (!id || isNaN(Number(id))) {
-      return jsonResponse('error', 'Invalid template ID', 400);
-    }
-
-    // Validate announcement type
-    if (!Object.values(AnnouncementType).includes(type)) {
-      return jsonResponse('error', 'Invalid announcement type', 400);
-    }
-
-    const [updatedTemplate] = await db
-      .update(announcementTemplates)
-      .set({
-        airlineId: Number(airlineId),
-        type,
-        language,
-        template
-      })
-      .where(eq(announcementTemplates.id, Number(id)))
-      .returning();
-
-    if (!updatedTemplate) {
-      return jsonResponse('error', 'Template not found', 404);
-    }
-
-    return jsonResponse('success', updatedTemplate);
-  } catch (error) {
-    console.error('Error updating announcement template:', error);
-    return jsonResponse('error', 'Failed to update template', 500);
   }
-}
-
-// DELETE: Delete an announcement template
-export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
-): Promise<NextResponse> {
-  try {
-    const id = params.id;
-
-    if (!id || isNaN(Number(id))) {
-      return jsonResponse('error', 'Invalid template ID', 400);
+  
+  // DELETE: Delete an announcement template
+  export async function DELETE(
+    request: Request,
+    { params }: { params: { id: string } }
+  ): Promise<NextResponse> {
+    try {
+      // Await params to ensure it's fully resolved
+      const { id } = await params;  // Ensure params are awaited
+  
+      if (!id || isNaN(Number(id))) {
+        return jsonResponse('error', 'Invalid template ID', 400);
+      }
+  
+      const deletedRows = await db
+        .delete(announcementTemplates)
+        .where(eq(announcementTemplates.id, Number(id)))
+        .returning();
+  
+      if (deletedRows.length === 0) {
+        return jsonResponse('error', 'Template not found', 404);
+      }
+  
+      return jsonResponse('success', { message: 'Template deleted successfully', deletedTemplate: deletedRows[0] });
+    } catch (error) {
+      console.error('Error deleting announcement template:', error);
+      return jsonResponse('error', 'Failed to delete template', 500);
     }
-
-    const deletedRows = await db
-      .delete(announcementTemplates)
-      .where(eq(announcementTemplates.id, Number(id)))
-      .returning();
-
-    if (deletedRows.length === 0) {
-      return jsonResponse('error', 'Template not found', 404);
-    }
-
-    return jsonResponse('success', { deletedTemplate: deletedRows[0] });
-  } catch (error) {
-    console.error('Error deleting announcement template:', error);
-    return jsonResponse('error', 'Failed to delete template', 500);
   }
-}
+  
