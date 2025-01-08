@@ -50,7 +50,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 // PUT: Update an existing announcement template
 export async function PUT(
     request: Request,
-    { params }: { params: Promise<{ id: string }> } // Awaited format for params
+    { params }: { params: Promise<{ id: string }> } // Use Promise for params
 ): Promise<NextResponse> {
     try {
         const { id } = await params; // Await params to resolve it
@@ -99,7 +99,7 @@ export async function PUT(
 // DELETE: Delete an announcement template
 export async function DELETE(
     request: Request,
-    { params }: { params: Promise<{ id: string }> } // Awaited format for params
+    { params }: { params: Promise<{ id: string }> } // Use Promise for params
 ): Promise<NextResponse> {
     try {
         const { id } = await params; // Await params to resolve it
