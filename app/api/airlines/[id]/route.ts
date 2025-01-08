@@ -61,17 +61,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const body: Partial<{
-      name: string;
-      fullName: string;
-      code: string;
-      icaoCode: string;
-      country: string;
-      state: string;
-      logoUrl: string;
-      defaultLanguage: string;
-    }> = await request.json();
-
+    const body = await request.json();
     const existingAirline = await db
       .select()
       .from(airlines)
