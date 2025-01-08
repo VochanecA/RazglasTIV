@@ -1,8 +1,8 @@
-import { NextResponse } from 'next/server';
+// app/api/announcements/[id]/route.ts
+import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db/drizzle';
 import { announcementTemplates, AnnouncementType } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
-
 
 // Helper function to validate params.id
 const validateId = (idString: string | null): number | null => {
@@ -15,43 +15,10 @@ const validateId = (idString: string | null): number | null => {
 const jsonResponse = (status: string, data: any, statusCode = 200) => 
     NextResponse.json({ status, data }, { status: statusCode });
 
-// GET: Fetch all announcement templates
-export async function GET(): Promise<NextResponse> {
-    try {
-        const templates = await db.select().from(announcementTemplates);
-        return jsonResponse('success', templates);
-    } catch (error) {
-        console.error('Error fetching announcement templates:', error);
-        return jsonResponse('error', 'Failed to fetch templates', 500);
-    }
-}
-
-// POST: Create a new announcement template
-export async function POST(request: Request): Promise<NextResponse> {
-    try {
-        const { airlineId, type, language, template } = await request.json();
-        
-        // Validate announcement type
-        if (!Object.values(AnnouncementType).includes(type)) {
-            return jsonResponse('error', 'Invalid announcement type', 400);
-        }
-        
-        const [newTemplate] = await db
-            .insert(announcementTemplates)
-            .values({ airlineId: Number(airlineId), type, language, template })
-            .returning();
-        
-        return jsonResponse('success', newTemplate, 201);
-    } catch (error) {
-        console.error('Error creating announcement template:', error);
-        return jsonResponse('error', 'Failed to create template', 500);
-    }
-}
-
 // PUT: Update an existing announcement template
 export async function PUT(
-    request: Request,
-    { params }: { params: Promise<{ id: string }> } // Use Promise for params
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string }> } // Correctly typed as Promise
 ): Promise<NextResponse> {
     try {
         const { id } = await params; // Await params to resolve it
@@ -87,7 +54,7 @@ export async function PUT(
             .returning();
 
         if (!updatedTemplate) {
-            return jsonResponse('error', 'Template not found', 404);
+            return jsonResponse('error', 'Template not found or could not be updated', 404);
         }
 
         return jsonResponse('success', updatedTemplate);
@@ -99,8 +66,8 @@ export async function PUT(
 
 // DELETE: Delete an announcement template
 export async function DELETE(
-    request: Request,
-    { params }: { params: Promise<{ id: string }> } // Use Promise for params
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string }> } // Correctly typed as Promise
 ): Promise<NextResponse> {
     try {
         const { id } = await params; // Await params to resolve it
@@ -117,7 +84,7 @@ export async function DELETE(
             .returning();
 
         if (deletedRows.length === 0) {
-            return jsonResponse('error', 'Template not found', 404);
+            return jsonResponse('error', 'Template not found or could not be deleted', 404);
         }
 
         return jsonResponse('success', { message: 'Template deleted successfully', deletedTemplate: deletedRows[0] });

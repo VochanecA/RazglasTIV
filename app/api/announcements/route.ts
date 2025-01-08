@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+// app/api/announcements/[id]/route.ts
+import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db/drizzle';
 import { announcementTemplates, AnnouncementType } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
@@ -19,7 +20,7 @@ export async function GET(): Promise<NextResponse> {
 }
 
 // POST: Create a new announcement template
-export async function POST(request: Request): Promise<NextResponse> {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const { airlineId, type, language, template } = await request.json();
 
@@ -40,22 +41,39 @@ export async function POST(request: Request): Promise<NextResponse> {
 }
 
 // PUT: Update an existing announcement template
-export async function PUT(request: Request, { params }: { params: { id: string } }): Promise<NextResponse> {
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> } // Correctly typed as Promise
+): Promise<NextResponse> {
   try {
-    const id = params.id;  // The 'id' comes from the URL path
-    const { airlineId, type, language, template } = await request.json();
+    const { id } = await params; // Await params to resolve it
 
+    // Validate ID
     if (!id || isNaN(Number(id))) {
       return jsonResponse('error', 'Invalid template ID', 400);
     }
 
+    const body = await request.json();
+    const { airlineId, type, language, template } = body;
+
+    // Validate required fields
+    if (!airlineId || !type || !language || !template) {
+      return jsonResponse('error', 'Missing required fields', 400);
+    }
+
+    // Validate announcement type
     if (!Object.values(AnnouncementType).includes(type)) {
       return jsonResponse('error', 'Invalid announcement type', 400);
     }
 
     const [updatedTemplate] = await db
       .update(announcementTemplates)
-      .set({ airlineId: Number(airlineId), type, language, template })
+      .set({
+        airlineId: Number(airlineId),
+        type,
+        language,
+        template,
+      })
       .where(eq(announcementTemplates.id, Number(id)))
       .returning();
 
@@ -71,10 +89,14 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 }
 
 // DELETE: Delete an announcement template
-export async function DELETE(request: Request, { params }: { params: { id: string } }): Promise<NextResponse> {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> } // Correctly typed as Promise
+): Promise<NextResponse> {
   try {
-    const id = params.id;  // The 'id' comes from the URL path
+    const { id } = await params; // Await params to resolve it
 
+    // Validate ID
     if (!id || isNaN(Number(id))) {
       return jsonResponse('error', 'Invalid template ID', 400);
     }
