@@ -144,6 +144,7 @@ export const mp3Plays = pgTable('mp3_plays', {
 // Enum for announcement types
 export enum AnnouncementType {
   CHECKIN = 'checkin',
+  ARRIVED = 'arrived',
   BOARDING = 'boarding',
   CLOSE = 'close',
   DELAY = 'delay',
@@ -177,6 +178,7 @@ export const announcementTemplates = pgTable('announcement_templates', {
     length: 50,
     enum: [
       AnnouncementType.CHECKIN,
+      AnnouncementType.ARRIVED,
       AnnouncementType.BOARDING,
       AnnouncementType.CLOSE,
       AnnouncementType.DELAY,
