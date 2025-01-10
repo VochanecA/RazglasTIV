@@ -43,54 +43,52 @@ export const getFlightTTSEngine = (): TTSEngine => {
     };
 };
 
+
 export const checkIsAnnouncementTime = () => {
   const currentHour = new Date().getHours();
   const currentMonth = new Date().getMonth();
-  
+
   // Announcement times:
   // April to October (months 3-9): 6am to 8pm
   // November to March (months 10-2): 6am to 3pm
   if (currentMonth >= 3 && currentMonth <= 9) {
-      return currentHour >= 6 && currentHour < 20;
+    return currentHour >= 6 && currentHour < 20;
   } else {
-      return currentHour >= 6 && currentHour < 19;
+    return currentHour >= 6 && currentHour < 21;
   }
 };
 
 // Hook for managing flight announcements
 export const useFlightAnnouncements = () => {
-  const [flights, setFlights] = useState<FlightData | null>(null);
-  
-  useEffect(() => {
-      const setupAnnouncements = async () => {
-          // Remove the time-based restriction
-          // Now fetchFlightData will run 24/7
-          try {
-              // Setup background music (only during announcement hours)
-              if (checkIsAnnouncementTime()) {
-                  setupBackgroundMusic();
-              }
+    const [flights, setFlights] = useState<FlightData | null>(null);
 
-              const flightData = await fetchFlightData();
-              setFlights(flightData);
-              
-              // Process announcements only during specific hours
-              if (checkIsAnnouncementTime() && flightData) {
-                  await processAnnouncements(flightData);
-              }
-          } catch (error) {
-              console.error('Error setting up flight announcements:', error);
-          }
-      };
-      
-      setupAnnouncements();
-      const intervalId = setInterval(setupAnnouncements, 60000); // Check every minute
-      
-      return () => {
-          clearInterval(intervalId);
-          fadeInBackgroundMusic(); // Ensure background music is restored
-      };
-  }, []);
-  
-  return flights;
+    useEffect(() => {
+        const setupAnnouncements = async () => {
+            if (!checkIsAnnouncementTime()) return;
+
+            // Setup background music
+            setupBackgroundMusic();
+
+            try {
+                const flightData = await fetchFlightData();
+                setFlights(flightData);
+
+                if (flightData) {
+                    await processAnnouncements(flightData);
+                }
+            } catch (error) {
+                console.error('Error setting up flight announcements:', error);
+            }
+        };
+
+        setupAnnouncements();
+        const intervalId = setInterval(setupAnnouncements, 60000); // Check every minute
+
+        return () => {
+            clearInterval(intervalId);
+            fadeInBackgroundMusic(); // Ensure background music is restored
+        };
+    }, []);
+
+    return flights;
 };

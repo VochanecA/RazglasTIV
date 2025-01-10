@@ -76,20 +76,23 @@ const FlightCard = ({ flight, type }: { flight: Flight; type: 'departure' | 'arr
 
           {/* Status Badge */}
           <span
-            className={`px-2 py-1 text-sm font-semibold rounded-full ${
-              flight.status === (type === 'departure' ? 'Departed' : 'Arrived')
-                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100'
-                : flight.status === 'Delayed'
-                ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100'
-                : flight.status === 'Processing'
-                ? 'bg-yellow-400 text-black font-bold blink'
-                : flight.status === 'Boarding'
-                ? 'bg-red-600 text-white font-bold blink-red'
-                : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100 font-bold'
-            }`}
-          >
-            {flight.status === 'Processing' ? 'Check In' : flight.status}
-          </span>
+  className={`px-2 py-1 text-sm font-semibold rounded-full ${
+    flight.status === (type === 'departure' ? 'Departed' : 'Arrived')
+      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100'
+      : flight.status === 'Delay'
+      ? 'bg-red-500 text-white font-bold blink'
+      : flight.status === 'Processing'
+      ? 'bg-green-400 text-black font-bold blink'
+      : flight.status === 'Boarding'
+      ? 'bg-orange-700 text-white font-bold blink-red'
+      : flight.status === 'Closed'
+      ? 'bg-red-700 text-white font-bold blink-red'
+      : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100 font-bold'
+  }`}
+>
+  {flight.status === 'Processing' ? 'Check In' : flight.status}
+</span>
+
         </div>
 
         {/* Flight Timings */}
@@ -146,18 +149,18 @@ const FlightCard = ({ flight, type }: { flight: Flight; type: 'departure' | 'arr
                     <div className="font-bold">{flight.scheduled_out || '-'}</div>
                   </div>
                   <div className="flex items-center">
-                    <div className="bg-blue-500 text-white rounded-full px-3 py-1 mr-2">
+                    <div className="bg-blue-500 text-white rounded-full px-3 py-1 mr-2 font-bold">
                       Check In
                     </div>
-                    <div className="bg-blue-200 text-blue-800 rounded-full px-3 py-1">
+                    <div className="bg-blue-200 text-blue-800 rounded-full px-3 py-1 font-bold">
                       {flight.checkIn || '-'}
                     </div>
                   </div>
                   <div className="flex items-center">
-                    <div className="bg-green-500 text-white rounded-full px-3 py-1 mr-2">
+                    <div className="bg-green-500 text-white rounded-full px-3 py-1 mr-2 font-bold">
                       Gate
                     </div>
-                    <div className="bg-green-200 text-green-800 rounded-full px-3 py-1">
+                    <div className="bg-green-800 text-white-800 rounded-full px-3 py-1 font-bold blink">
                       {flight.gate || '-'}
                     </div>
                   </div>
