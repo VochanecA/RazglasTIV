@@ -6,11 +6,16 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const airlineCode = searchParams.get('airlineCode');
   const type = searchParams.get('type');
+  const language = searchParams.get('language') || 'en'; // Default to 'en' if language is not provided
 
-  console.log('Received query:', { airlineCode, type });
+  console.log('Received query:', { airlineCode, type, language });
 
-  if (typeof airlineCode !== 'string' || typeof type !== 'string') {
-    console.log('Invalid parameters:', { airlineCode, type });
+  if (
+    typeof airlineCode !== 'string' || 
+    typeof type !== 'string' || 
+    typeof language !== 'string'
+  ) {
+    console.log('Invalid parameters:', { airlineCode, type, language });
     return NextResponse.json({ error: 'Invalid query parameters' }, { status: 400 });
   }
 
@@ -23,11 +28,15 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Airline not found' }, { status: 404 });
     }
 
-    const template = await getAnnouncementTemplate(airlineId, type as AnnouncementType, 'en');
+    const template = await getAnnouncementTemplate(
+      airlineId, 
+      type as AnnouncementType, 
+      language
+    );
     console.log('Template result:', template);
 
     if (!template) {
-      console.log('Template not found:', { airlineId, type });
+      console.log('Template not found:', { airlineId, type, language });
       return NextResponse.json({ error: 'Announcement template not found' }, { status: 404 });
     }
 
