@@ -1,28 +1,9 @@
+'use client';
+
 import { FlightData, Flight } from './flightTTS';
 import { addAnnouncement } from './audioManager';
 import { createMp3Play } from './db/queries';
 import { AnnouncementType } from './db/schema';
-
-// Function to determine the language code for TTS based on the device's language
-function getLanguageCode(): string {
-  const deviceLanguage = navigator.language || 'en'; // Default to English if language is not detected
-  return deviceLanguage.split('-')[0]; // Use the first part, e.g., 'en' for 'en-US'
-}
-
-// Helper function to fetch the appropriate announcement template based on language
-async function getAnnouncementTemplate(
-  airlineCode: string,
-  type: AnnouncementType,
-  language: string
-): Promise<{ template: string } | null> {
-  const response = await fetch(
-    `/api/getAnnouncements?airlineCode=${airlineCode}&type=${type}&language=${language}`
-  );
-  if (response.ok) {
-    return await response.json();
-  }
-  return null;
-}
 
 // Announcement log for arrivals
 const arrivalAnnouncementLog: Record<string, { count: number; lastAnnouncementTime: Date }> = {};
@@ -40,43 +21,35 @@ interface Announcement {
   flight?: Flight;
 }
 
-// Helper functions remain unchanged for parsing numbers and flight details
+// Helper functions remain the same
 function parseCheckInOrGateNumbers(input: string): string {
-  const numbers = input
-    .split(',')
+  const numbers = input.split(',')
     .map(num => parseInt(num.trim(), 10))
     .filter(num => !isNaN(num));
 
   if (numbers.length === 0) {
-    return '';
+    return ""; // Return an empty string if no valid numbers are found
   }
 
   if (numbers.length === 1) {
-    return numbers[0].toString();
+    return numbers[0].toString(); // Return single number as a string
   }
 
-  const lastNumber = numbers.pop();
-  return `${numbers.join(', ')} and ${lastNumber}`;
+  const lastNumber = numbers.pop(); // Remove the last number
+  return `${numbers.join(', ')} and ${lastNumber}`; // Join with commas and add "and"
 }
 
 function parseFlightNumber(flightNumber: string): string {
   const numberToWords: Record<string, string> = {
-    '0': 'zero',
-    '1': 'one',
-    '2': 'two',
-    '3': 'three',
-    '4': 'four',
-    '5': 'five',
-    '6': 'six',
-    '7': 'seven',
-    '8': 'eight',
-    '9': 'nine',
+    '0': 'zero', '1': 'one', '2': 'two', '3': 'three',
+    '4': 'four', '5': 'five', '6': 'six', '7': 'seven',
+    '8': 'eight', '9': 'nine'
   };
-
+  
   return flightNumber.split('').map(digit => numberToWords[digit] || digit).join(' ');
 }
 
-// Generate announcements based on events
+// Announcement generators remain the same
 const generateSecurityAnnouncement = () => {
   const currentTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   return `Attention please. Dear passengers, may I have your attention please. Do not leave your baggage unattended at any time you are at the airport, as it will be removed for security reasons and may be destroyed. Thank you. The local time is ${currentTime}.`;
@@ -87,7 +60,7 @@ const generateDangerousGoodsAnnouncement = () => {
 };
 
 const generateSpecialAssistanceAnnouncement = () => {
-  return 'Dear passengers, we are committed to providing assistance for all passengers. If you require special assistance, please notify our staff or use the designated help points throughout the terminal.';
+  return "Dear passengers, we are committed to providing assistance for all passengers. If you require special assistance, please notify our staff or use the designated help points throughout the terminal.";
 };
 
 async function logMp3Play(announcement: Announcement) {
@@ -97,10 +70,9 @@ async function logMp3Play(announcement: Announcement) {
     destinationCode: announcement.flight?.destination?.code || '',
     callType: announcement.type,
     filename: `${announcement.type}_announcement.mp3`,
-    gate: announcement.flight?.gate || undefined,
+    gate: announcement.flight?.gate || undefined
   });
 }
-
 
 const shouldPlayArrivalAnnouncement = (flight: Flight): boolean => {
   const flightKey = `${flight.Kompanija} ${flight.ident}-${flight.origin.code}`;
