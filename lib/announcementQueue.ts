@@ -16,7 +16,7 @@ const lastAnnouncementTimes: Record<string, Date> = {
 const THROTTLE_TIME = 30 * 60 * 1000; // 30 minutes in milliseconds
 
 interface Announcement {
-  type: 'security' | 'special-assistance' | 'flight' | 'boarding' | 'checkin' | 'close' | 'arrived' | 'dangerous_goods';
+  type: 'security' | 'special-assistance' | 'flight' | 'boarding' | 'delay' | 'earlier'  | 'cancelled' | 'diverted' | 'checkin' | 'close' | 'arrived' | 'dangerous_goods';
   text: string;
   flight?: Flight;
 }
@@ -137,6 +137,55 @@ export const processAnnouncements = async (flightData: FlightData) => {
        });
      }
    }
+
+   
+   // Diverted announcements
+   if ((flightStatus === 'diverted' || flightStatus === 'Diverted' ) && [90,80,70,60,50,40,30,20,10].includes(timeDiff)) {
+    const response = await fetch(`/api/getAnnouncements?airlineCode=${flight.KompanijaICAO}&type=diverted`);
+    if (response.ok) {
+      const template = await response.json();
+      announcements.push({
+        type: 'diverted',
+        text: template.template
+          .replace('{flightNumber}', parseFlightNumber(flight.ident))
+          .replace('{destination}', flight.grad),
+          // .replace('{counters}', parseCheckInOrGateNumbers(flight.checkIn)),
+        flight
+      });
+    }
+  }
+
+     // Cancelled announcements
+     if ((flightStatus === 'cancelled' || flightStatus === 'Cancelled' ) && [90,80,70,60,50,40,30,20,10].includes(timeDiff)) {
+      const response = await fetch(`/api/getAnnouncements?airlineCode=${flight.KompanijaICAO}&type=cancelled`);
+      if (response.ok) {
+        const template = await response.json();
+        announcements.push({
+          type: 'cancelled',
+          text: template.template
+            .replace('{flightNumber}', parseFlightNumber(flight.ident))
+            .replace('{destination}', flight.grad),
+            // .replace('{counters}', parseCheckInOrGateNumbers(flight.checkIn)),
+          flight
+        });
+      }
+    }
+
+       // Earlier announcements
+   if ((flightStatus === 'earlier' || flightStatus === 'Earlier' ) && [90,70,60,40,30].includes(timeDiff)) {
+    const response = await fetch(`/api/getAnnouncements?airlineCode=${flight.KompanijaICAO}&type=earlier`);
+    if (response.ok) {
+      const template = await response.json();
+      announcements.push({
+        type: 'earlier',
+        text: template.template
+          .replace('{flightNumber}', parseFlightNumber(flight.ident))
+          .replace('{destination}', flight.grad),
+          // .replace('{counters}', parseCheckInOrGateNumbers(flight.checkIn)),
+        flight
+      });
+    }
+  }
 
    // Boarding announcements
    if (flightStatus === 'boarding' && (timeDiff === 30 || timeDiff === 25 || timeDiff === 20 || timeDiff ===15)) {

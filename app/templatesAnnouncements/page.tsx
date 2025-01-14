@@ -273,6 +273,9 @@ const AnnouncementPage: React.FC = () => {
               className="border p-3 rounded-lg dark:border-gray-700 dark:bg-gray-800"
             >
               <option value="">Select Type</option>
+              <option value="cancelled">Cancelled</option>
+              <option value="diverted">Diverted</option>
+              <option value="earlier">Earlier</option>
               <option value="arrived">Arrived</option>
               <option value="checkin">Check-in</option>
               <option value="boarding">Boarding</option>
