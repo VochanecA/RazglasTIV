@@ -37,13 +37,13 @@ export const menuData: MenuItem[] = [
     newTab: false,
     icon: InfoIcon, // Just reference the icon component
   },
-  {
-    id: 5,
-    title: "AeroVoice",
-    path: "/flights",
-    newTab: false,
-    icon: AirplayIcon, // Just reference the icon component
-  },
+  // {
+  //   id: 5,
+  //   title: "AeroVoice",
+  //   path: "/flights",
+  //   newTab: false,
+  //   icon: AirplayIcon, // Just reference the icon component
+  // },
   
   {
     id: 6,
