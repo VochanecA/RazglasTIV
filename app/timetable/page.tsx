@@ -4,11 +4,13 @@ import React, { useState, useEffect } from 'react';
 import { FlightAnnouncementsProvider } from '@/components/ui/FlightAnnouncementsProvider';
 import { useFlightAnnouncements } from '@/lib/flightTTS';
 import FlightCard from '@/components/ui/FlightCard';
+import AirlineDistributionCard from '@/components/ui/AirlineDistributionCard';
 import { FlightData } from '@/types/flight';
 import Skeleton from '@/components/ui/skeleton';
 import { PlaneTakeoff, PlaneLanding, Lock, ListFilter, List } from 'lucide-react'; // Added ListFilter and List icons
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/lib/auth';
+
 
 const Tab = ({ label, isActive, onClick, icon }: { label: string; isActive: boolean; onClick: () => void; icon: React.ReactNode }) => (
   <button
@@ -132,6 +134,9 @@ export default function Page() {
     return flightNumberMatch || iataCodeMatch || destinationMatch || destinationCodeMatch;
   });
 
+  // Combine all flights for airline distribution (both departures and arrivals)
+  const allFlights = [...(flights?.departures || []), ...(flights?.arrivals || [])];
+
   return (
     <div className="container mx-auto p-4 bg-white dark:bg-gray-800">
       <FlightAnnouncementsProvider />
@@ -139,6 +144,11 @@ export default function Page() {
       <h1 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">
         Flight Information
       </h1>
+
+      {/* Airline Distribution Card */}
+      <div className="mb-6">
+        <AirlineDistributionCard flights={allFlights} />
+      </div>
 
       {/* Search Input Field */}
       <input
@@ -212,6 +222,7 @@ export default function Page() {
           ))}
         </div>
       )}
+
 
       {/* Last Fetched Time */}
       {lastFetchedTime && (
