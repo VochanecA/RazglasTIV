@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { FlightData } from './FlightScheduleOverview';
 import { PlaneTakeoff } from 'lucide-react';
 
@@ -11,6 +10,7 @@ type AirlineCount = {
   name: string;
   value: number;
   color: string;
+  percentage: number;
 };
 
 export default function AirlineDistributionCard({ flights }: AirlineDistributionCardProps) {
@@ -50,32 +50,15 @@ export default function AirlineDistributionCard({ flights }: AirlineDistribution
     const chartData: AirlineCount[] = sortedAirlines.map((airline, index) => ({
       name: airline.name,
       value: airline.count,
-      color: colors[index % colors.length]
+      color: colors[index % colors.length],
+      percentage: Math.round((airline.count / flights.length) * 100)
     }));
 
     setAirlineData(chartData);
     setTotalFlights(flights.length);
   }, [flights]);
 
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      return (
-        <div className="bg-white dark:bg-gray-800 p-2 shadow-md rounded-md border border-slate-200 dark:border-slate-700">
-          <p className="text-sm font-medium">{data.name}</p>
-          <p className="text-xs text-slate-600 dark:text-slate-400">
-            {data.value} flight{data.value !== 1 ? 's' : ''} ({Math.round((data.value / totalFlights) * 100)}%)
-          </p>
-        </div>
-      );
-    }
-    return null;
-  };
-
-  const renderLegendText = (value: string) => {
-    // Truncate long airline names
-    return value.length > 18 ? value.substring(0, 15) + '...' : value;
-  };
+  const maxValue = Math.max(...airlineData.map(airline => airline.value));
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-4 transition-colors duration-200">
@@ -85,34 +68,33 @@ export default function AirlineDistributionCard({ flights }: AirlineDistribution
       </div>
       
       {airlineData.length > 0 ? (
-        <div className="mt-4" style={{ height: '200px' }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={airlineData}
-                cx="50%"
-                cy="50%"
-                innerRadius={40}
-                outerRadius={70}
-                paddingAngle={2}
-                dataKey="value"
-              >
-                {airlineData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip content={<CustomTooltip />} />
-              <Legend 
-                layout="vertical" 
-                align="right"
-                verticalAlign="middle"
-                formatter={renderLegendText}
-                iconSize={8}
-                iconType="circle"
-                wrapperStyle={{ fontSize: '10px', paddingLeft: '10px' }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
+        <div className="mt-4 space-y-3">
+          {airlineData.map((airline, index) => {
+            const barWidth = (airline.value / maxValue) * 100;
+            const truncatedName = airline.name.length > 20 ? airline.name.substring(0, 17) + '...' : airline.name;
+            
+            return (
+              <div key={index} className="group">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-medium text-slate-700 dark:text-slate-300" title={airline.name}>
+                    {truncatedName}
+                  </span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    {airline.value} ({airline.percentage}%)
+                  </span>
+                </div>
+                <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+                  <div
+                    className="h-2 rounded-full transition-all duration-500 ease-out"
+                    style={{
+                      width: `${barWidth}%`,
+                      backgroundColor: airline.color
+                    }}
+                  />
+                </div>
+              </div>
+            );
+          })}
         </div>
       ) : (
         <div className="flex items-center justify-center h-48">
@@ -120,7 +102,7 @@ export default function AirlineDistributionCard({ flights }: AirlineDistribution
         </div>
       )}
       
-      <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 text-center">
+      <p className="text-xs text-slate-500 dark:text-slate-400 mt-4 text-center">
         Total: {totalFlights} flight{totalFlights !== 1 ? 's' : ''}
       </p>
     </div>
