@@ -5,6 +5,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db/drizzle';
 
 
+
 import {
   User,
   users,
@@ -204,11 +205,21 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
 });
 
 export async function signOut() {
-  const user = (await getUser()) as User;
-  const userWithTeam = await getUserWithTeam(user.id);
-  await logActivity(userWithTeam?.teamId, user.id, ActivityType.SIGN_OUT);
-  (await cookies()).delete('session');
+  try {
+    const user = (await getUser()) as User; // Retrieve the current user
+    const userWithTeam = await getUserWithTeam(user.id); // Get user details including team information
+
+    if (userWithTeam) {
+      await logActivity(userWithTeam.teamId, user.id, ActivityType.SIGN_OUT); // Log the sign-out activity
+    }
+
+    (await cookies()).delete('session'); // Delete the session cookie
+  } catch (error) {
+    console.error('Error during sign out:', error);
+    // Handle error appropriately (e.g., show notification to user)
+  }
 }
+
 
 const updatePasswordSchema = z
   .object({
@@ -299,7 +310,7 @@ export const deleteAccount = validatedActionWithUser(
     }
 
     (await cookies()).delete('session');
-    redirect('/sign-in');
+    redirect('');
   }
 );
 

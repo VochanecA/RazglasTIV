@@ -55,7 +55,8 @@ const ANNOUNCEMENT_SCHEDULE = {
   '1st': -60,
   '2nd': -40,
   'Boarding': -30,
-  'LastCall': -15
+  'LastCall': -15,
+    'Close': -5
 };
 
 const FlightInfo = () => {

@@ -3,10 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { FlightAnnouncementsProvider } from '@/components/ui/FlightAnnouncementsProvider';
 import { useFlightAnnouncements } from '@/lib/flightTTS';
-import FlightCard from '@/components/ui/FlightCard'; 
-import { FlightData } from '@/types/flight'; 
-import Skeleton from '@/components/ui/skeleton'; 
-import { PlaneTakeoff, PlaneLanding, Lock } from 'lucide-react'; 
+import FlightCard from '@/components/ui/FlightCard';
+import { FlightData } from '@/types/flight';
+import Skeleton from '@/components/ui/skeleton';
+import { PlaneTakeoff, PlaneLanding, Lock, ListFilter, List } from 'lucide-react'; // Added ListFilter and List icons
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/lib/auth';
 
@@ -27,9 +27,14 @@ export default function Page() {
   const [activeTab, setActiveTab] = useState<'departures' | 'arrivals'>('departures');
   const [lastFetchedTime, setLastFetchedTime] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  // New state to control showing all flights
+  const [showAllFlights, setShowAllFlights] = useState(false);
 
-  // Fetch flights only if the user is logged in
-  const flights = user ? (useFlightAnnouncements() as FlightData) : null;
+  // Always call the hook unconditionally
+  const flightData = useFlightAnnouncements(); // This will always be called
+
+  // Conditionally handle flights based on user
+  const flights = user ? (flightData as FlightData) : null;
 
   // Redirect to sign-in after showing message
   useEffect(() => {
@@ -57,7 +62,7 @@ export default function Page() {
   useEffect(() => {
     const interval = setInterval(() => {
       setActiveTab(prevTab => (prevTab === 'departures' ? 'arrivals' : 'departures'));
-    }, 30000); // Switch every 30 seconds
+    }, 10000); // Switch every 30 seconds
 
     return () => clearInterval(interval); // Cleanup on unmount
   }, []);
@@ -77,8 +82,8 @@ export default function Page() {
           <p className="text-sm text-gray-500 dark:text-gray-400">
             You will be redirected to the login page in 10 seconds...
           </p>
-          <button 
-            onClick={() => router.push('/sign-in')} 
+          <button
+            onClick={() => router.push('/sign-in')}
             className="mt-4 w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors"
           >
             Go to Login Now
@@ -91,8 +96,34 @@ export default function Page() {
   // Render nothing if still loading or no user
   if (!user) return null;
 
-  // Filter flights based on search query and active tab
-  const filteredFlights = (flights?.[activeTab] || []).filter(flight => {
+  // Define a grace period for filtering out departed/arrived flights
+  const now = new Date();
+  const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000); // 10 minutes ago
+
+  // Filter flights based on their scheduled time to hide departed/arrived ones
+  const getFilteredFlightsByTime = (flightsArray: FlightData['departures'] | FlightData['arrivals']) => {
+    // If showAllFlights is true, return the array without time filtering
+    if (showAllFlights) {
+      return flightsArray;
+    }
+
+    return flightsArray.filter(flight => {
+      // Assuming 'scheduled_out' is the relevant time for both departures and arrivals.
+      // If your FlightData type has a 'scheduled_in' for arrivals, use that for arrivals.
+      if (!flight.scheduled_out) return false;
+      const [hours, minutes] = flight.scheduled_out.split(':').map(Number);
+      const scheduledTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+      // Keep the flight if its scheduled time is after the 'tenMinutesAgo' mark
+      return scheduledTime > tenMinutesAgo;
+    });
+  };
+
+  // Apply time-based filtering before applying search query filter
+  const timeFilteredDepartures = flights?.departures ? getFilteredFlightsByTime(flights.departures) : [];
+  const timeFilteredArrivals = flights?.arrivals ? getFilteredFlightsByTime(flights.arrivals) : [];
+
+  // Combine time-filtered flights with search query filter
+  const filteredFlights = (activeTab === 'departures' ? timeFilteredDepartures : timeFilteredArrivals).filter(flight => {
     const flightNumberMatch = flight.ident.toLowerCase().includes(searchQuery.toLowerCase());
     const iataCodeMatch = flight.Kompanija?.toLowerCase().includes(searchQuery.toLowerCase());
     const destinationMatch = flight.grad?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -109,7 +140,7 @@ export default function Page() {
         Flight Information
       </h1>
 
-      {/* Search Input Field with Rounded Pills */}
+      {/* Search Input Field */}
       <input
         type="text"
         placeholder="Search Flights, airlines, destination, IATA code of origin/destination..."
@@ -118,19 +149,44 @@ export default function Page() {
         className="mb-4 p-2 border rounded-full bg-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 border-gray-300 dark:border-gray-600 focus:outline-none focus:ring focus:ring-blue-300 w-full"
       />
 
-      <div className="flex space-x-4 mb-4">
-        <Tab 
-          label="Departures" 
-          isActive={activeTab === 'departures'} 
-          onClick={() => setActiveTab('departures')} 
-          icon={<PlaneTakeoff color="lightblue" size={20} />}
-        />
-        <Tab 
-          label="Arrivals" 
-          isActive={activeTab === 'arrivals'} 
-          onClick={() => setActiveTab('arrivals')} 
-          icon={<PlaneLanding color="lightblue" size={20} />}
-        />
+      {/* Tabs and Show All Flights Toggle */}
+      <div className="flex justify-between items-center mb-4">
+        <div className="flex space-x-4">
+          <Tab
+            label="Departures"
+            isActive={activeTab === 'departures'}
+            onClick={() => setActiveTab('departures')}
+            icon={<PlaneTakeoff color="lightblue" size={20} />}
+          />
+          <Tab
+            label="Arrivals"
+            isActive={activeTab === 'arrivals'}
+            onClick={() => setActiveTab('arrivals')}
+            icon={<PlaneLanding color="lightblue" size={20} />}
+          />
+        </div>
+
+        {/* Show All Flights Toggle Button */}
+        <button
+          onClick={() => setShowAllFlights(!showAllFlights)}
+          className={`flex items-center justify-center gap-2 py-2 px-4 rounded-full font-semibold transition-colors duration-200 ease-in-out
+            ${showAllFlights
+              ? 'bg-blue-600 text-white shadow-md hover:bg-blue-700'
+              : 'bg-blue-200 text-blue-800 shadow-md hover:bg-blue-300 dark:bg-blue-800 dark:text-blue-200 dark:hover:bg-blue-700'
+            }`}
+        >
+          {showAllFlights ? (
+            <>
+              <ListFilter size={18} />
+              <span>Hide Departed/Arrived</span>
+            </>
+          ) : (
+            <>
+              <List size={18} />
+              <span>Show All Flights</span>
+            </>
+          )}
+        </button>
       </div>
 
       {/* Show skeletons while loading flights */}
@@ -138,7 +194,7 @@ export default function Page() {
         <div className="flex flex-col gap-4">
           {filteredFlights.length > 0 ? (
             filteredFlights.map((flight) => (
-              <FlightCard key={flight.ident} flight={flight} type={activeTab === 'departures' ? 'departure' : 'arrival'} />
+              <FlightCard key={`${flight.ident}-${flight.Kompanija}`} flight={flight} type={activeTab === 'departures' ? 'departure' : 'arrival'} />
             ))
           ) : (
             <p className="text-gray-500">No flights found</p>
@@ -163,30 +219,6 @@ export default function Page() {
           Last fetched at: {lastFetchedTime}
         </div>
       )}
-
-      {/* Additional Information */}
-      <div className="mt-4 text-sm text-gray-500 dark:text-gray-400 text-center">
-        We recommend using <strong>Chrome</strong> or <strong>Firefox</strong> for better audio experience.
-      </div>
-
-      {/* Logos Section */}
-      <div className="flex justify-center mt-2">
-        <img 
-          src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/Google_Chrome_icon_%28February_2022%29.svg/48px-Google_Chrome_icon_%28February_2022%29.svg.png" 
-          alt="Chrome Logo" 
-          className="h-8 mx-2" 
-        />
-        <img 
-          src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Firefox_logo%2C_2019.svg/1024px-Firefox_logo%2C_2019.svg.png" 
-          alt="Firefox Logo" 
-          className="h-8 mx-2" 
-        />
-      </div>
-
-      {/* Courtesy Text */}
-      <div className="mt-4 text-sm text-gray-500 dark:text-gray-400 text-center">
-        Courtesy of Smooth Lounge Radio - California Chill
-      </div>
     </div>
   );
 }

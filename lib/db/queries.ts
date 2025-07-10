@@ -2,7 +2,7 @@
 
 import { desc, and, eq, isNull } from 'drizzle-orm';
 import { db } from './drizzle';
-import { airlines, activityLogs, teamMembers, teams, users, announcementTemplates, AnnouncementType, mp3Plays } from './schema';
+import { airlines, activityLogs, teamMembers, teams, users, announcementTemplates, AnnouncementType, mp3Plays, announcementSchedules } from './schema';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth/session';
 import { pgTable, serial, varchar, timestamp } from 'drizzle-orm/pg-core';
@@ -259,6 +259,20 @@ export async function updateAnnouncementTemplate(
     .update(announcementTemplates)
     .set(updatedData)
     .where(eq(announcementTemplates.id, id));
+}
+
+export async function getAnnouncementSchedule(airlineId: number, type: AnnouncementType) {
+  const result = await db
+    .select()
+    .from(announcementSchedules)
+    .where(
+      and(
+        eq(announcementSchedules.airlineId, airlineId),
+        eq(announcementSchedules.type, type) // Ensure type is AnnouncementType
+      )
+    );
+
+  return result.length > 0 ? result : [];
 }
 
 export async function deleteAnnouncementTemplate(id: number) {

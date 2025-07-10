@@ -40,7 +40,7 @@ const Terminal = () => {
           <h2 className="text-white font-bold">Tivat Terminal 1 & 2</h2>
         </div>
         <img 
-          src="/api/placeholder/50/50" 
+          src="/favicon-32x32.png" 
           alt="Airport Logo" 
           className="h-8 w-8 rounded-full"
         />

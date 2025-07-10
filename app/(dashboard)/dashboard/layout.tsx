@@ -1,6 +1,8 @@
-'use client';
+// app/dashboard/dashboard/layout.tsx
 
-import { useState } from 'react';
+"use client";
+
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -13,17 +15,46 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark" | "system">("system");
 
-  // Determine the current theme
-  const currentTheme = localStorage.getItem('theme') || 'light';
+  // Check for saved theme in localStorage and apply it
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme') as "light" | "dark" | "system";
+    
+    if (savedTheme) {
+      setTheme(savedTheme);
+      document.documentElement.classList.add(savedTheme);
+    } else {
+      const systemPrefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      const initialTheme = systemPrefersDark ? "dark" : "light";
+      setTheme(initialTheme);
+      document.documentElement.classList.add(initialTheme);
+    }
+  }, []);
+
+  // Function to toggle theme
+  const toggleTheme = (newTheme: "light" | "dark" | "system") => {
+    setTheme(newTheme);
+    localStorage.setItem("theme", newTheme);
+
+    // Update document class for CSS styling
+    document.documentElement.classList.remove("light", "dark");
+    
+    if (newTheme === "system") {
+      const systemPrefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      document.documentElement.classList.add(systemPrefersDark ? "dark" : "light");
+    } else {
+      document.documentElement.classList.add(newTheme);
+    }
+  };
 
   const navItems = [
     { href: '/dashboard', icon: Users, label: 'Team' },
     { href: '/dashboard/general', icon: Settings, label: 'General' },
     { href: '/dashboard/activity', icon: Activity, label: 'Activity' },
     { href: '/dashboard/security', icon: Shield, label: 'Security' },
-    { href: '/timetable', icon: Airplay, label: 'PA Announcements',color: "#FFFF00" },
-    { href: '/templatesAnnouncements', icon: Settings, label: 'Templates for PA',color: "#FFFF00" },
+    { href: '/timetable', icon: Airplay, label: 'PA Announcements', color: "#FFFF00" },
+    { href: '/templatesAnnouncements', icon: Settings, label: 'Templates for PA', color: "#FFFF00" },
   ];
 
   return (
@@ -31,13 +62,13 @@ export default function DashboardLayout({
       {/* Mobile header */}
       <div
         className={`lg:hidden flex items-center justify-between border-b p-4 ${
-          currentTheme === 'dark' 
+          theme === 'dark' 
             ? 'bg-gray-800 text-white border-gray-700' 
             : 'bg-white text-gray-900 border-gray-200'
         }`}
       >
         <div className="flex items-center">
-          <span className="font-medium">Settings:</span>
+          <span className="font-medium">Settings</span>
         </div>
         <Button
           className="-mr-3"
@@ -48,7 +79,7 @@ export default function DashboardLayout({
           <span className="sr-only">Toggle sidebar</span>
         </Button>
       </div>
-  
+
       <div className="flex flex-1 overflow-hidden h-full">
         {/* Sidebar */}
         <aside
@@ -56,7 +87,7 @@ export default function DashboardLayout({
             isSidebarOpen ? 'block' : 'hidden'
           } lg:relative absolute inset-y-0 left-0 z-40 lg:translate-x-0 ${
             isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-          } ${currentTheme === 'dark' ? 'bg-gray-800 text-white border-gray-700' : 'bg-white text-gray-900 border-gray-200'}`}
+          } ${theme === 'dark' ? 'bg-gray-800 text-white border-gray-700' : 'bg-white text-gray-900 border-gray-200'}`}
         >
           <nav className="h-full overflow-y-auto p-4">
             {navItems.map((item) => (
@@ -64,7 +95,7 @@ export default function DashboardLayout({
                 <Button
                   variant={pathname === item.href ? 'secondary' : 'ghost'}
                   className={`my-1 w-full justify-start ${
-                    pathname === item.href ? (currentTheme === 'dark' ? 'bg-gray-700' : 'bg-gray-100') : ''
+                    pathname === item.href ? (theme === 'dark' ? 'bg-gray-700' : 'bg-gray-100') : ''
                   }`}
                   onClick={() => setIsSidebarOpen(false)}
                 >
@@ -75,11 +106,10 @@ export default function DashboardLayout({
             ))}
           </nav>
         </aside>
-  
+
         {/* Main content */}
         <main className="flex-1 overflow-y-auto p-0 lg:p-4">{children}</main>
       </div>
     </div>
   );
-  
 }

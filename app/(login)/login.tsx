@@ -24,11 +24,8 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
   // State for password visibility
   const [showPassword, setShowPassword] = useState(false);
 
-  // Determine the current theme
-  const currentTheme = localStorage.getItem('theme') || 'light';
-
   return (
-    <div className={`min-h-[100dvh] flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 ${currentTheme === 'dark' ? 'bg-gray-800 text-white' : 'bg-gray-50 text-gray-900'}`}>
+    <div className="min-h-[100dvh] flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
           <CircleIcon className="h-12 w-12 text-orange-500" />
@@ -43,10 +40,10 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
           <input type="hidden" name="redirect" value={redirect || ''} />
           <input type="hidden" name="priceId" value={priceId || ''} />
           <input type="hidden" name="inviteId" value={inviteId || ''} />
-          
+
           {/* Email Field */}
           <div>
-            <Label htmlFor="email" className={`block text-sm font-medium ${currentTheme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
+            <Label htmlFor="email" className="block text-sm font-medium">
               Email
             </Label>
             <div className="mt-1">
@@ -57,7 +54,7 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
                 autoComplete="email"
                 required
                 maxLength={50}
-                className={`appearance-none rounded-full block w-full px-3 py-2 border ${currentTheme === 'dark' ? 'border-gray-600 placeholder-gray-400 text-white bg-gray-700' : 'border-gray-300 placeholder-gray-500 text-gray-900 bg-white'} focus:outline-none focus:ring-orange-500 focus:border-orange-500`}
+                className="appearance-none rounded-full block w-full px-3 py-2 border focus:outline-none focus:ring-orange-500 focus:border-orange-500"
                 placeholder="Enter your email"
               />
             </div>
@@ -65,10 +62,10 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
 
           {/* Password Field */}
           <div>
-            <Label htmlFor="password" className={`block text-sm font-medium ${currentTheme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
+            <Label htmlFor="password" className="block text-sm font-medium">
               Password
             </Label>
-            <div className="mt-1 relative"> {/* Add relative positioning for the icon */}
+            <div className="mt-1 relative">
               <Input
                 id="password"
                 name="password"
@@ -77,7 +74,7 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
                 required
                 minLength={8}
                 maxLength={100}
-                className={`appearance-none rounded-full block w-full px-3 py-2 border ${currentTheme === 'dark' ? 'border-gray-600 placeholder-gray-400 text-white bg-gray-700' : 'border-gray-300 placeholder-gray-500 text-gray-900 bg-white'} focus:outline-none focus:ring-orange-500 focus:border-orange-500`}
+                className="appearance-none rounded-full block w-full px-3 py-2 border focus:outline-none focus:ring-orange-500 focus:border-orange-500"
                 placeholder="Enter your password"
               />
               {/* Eye Icon for toggling password visibility */}
@@ -96,17 +93,14 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
 
           {/* Error Message */}
           {state?.error && (
-            <div className={`text-red-500 text-sm`}>{state.error}</div>
+            <div className="text-red-500 text-sm">{state.error}</div>
           )}
 
           {/* Submit Button */}
           <div>
             <Button
               type="submit"
-              className={`w-full flex justify-center items-center py-2 px-4 border border-gray-${currentTheme === 'dark' ? '600' : '300'} rounded-full shadow-sm text-sm font-medium ${pending ? 
-                (currentTheme === 'dark' ? 'bg-orange400 cursor-notallowed' : 'bg-orange400 cursor-notallowed') :
-                (currentTheme === 'dark' ? "bg-orange600 hover:bg-orange700" : "bg-orange600 hover:bg-orange700")} 
-              focus:outline-none focus:ring2 focus:ring-offset2 focus:ring-orange500`}
+              className="w-full flex justify-center items-center py-2 px-4 border rounded-full shadow-sm text-sm font-medium bg-orange600 hover:bg-orange700 focus:outline-none focus:ring2 focus:ring-offset2 focus:ring-orange500"
               disabled={pending}
             >
               {pending ? (
@@ -125,26 +119,28 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
 
         {/* Divider */}
         <br />
-        <div className='mt6'>
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300" />
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className={`px-2 ${currentTheme === 'dark' ? 'bg-gray-800 text-gray-500' : 'bg-gray-50 text-gray-500'}`}>
-                {mode === 'signin'
-                  ? 'New to our platform?'
-                  : 'Already have an account?'}
-              </span>
-            </div>
+        <div className='mt-6'>
+          {/* Flex container for divider and text */}
+          <div className='flex items-center'>
+            {/* Left Divider Line */}
+            <div className='flex-grow border-t border-gray-300'></div>
+            {/* Text in the middle */}
+            <span className='mx-4 text-sm'>
+              {mode === 'signin'
+                ? 'New to our platform?'
+                : 'Already have an account?'}
+            </span>
+            {/* Right Divider Line */}
+            <div className='flex-grow border-t border-gray-300'></div>
           </div>
 
-          <div className="mt-6">
+          {/* Link */}
+          <div className='mt-6'>
             <Link
               href={`${mode === 'signin' ? '/sign-up' : '/sign-in'}${
                 redirect ? `?redirect=${redirect}` : ''
               }${priceId ? `&priceId=${priceId}` : ''}`}
-              className={`w-full flex justify-center py-2 px-4 border border-gray-${currentTheme === 'dark' ? '600' : '300'} rounded-full shadow-sm text-sm font-medium ${currentTheme === 'dark' ? 'text-white bg-gray700 hover:bg-gray600' : 'text-gray700 bg-white hover:bg-gray50'} focus:outline-none focus:ring2 focus:ring-offset2 focus:ring-orange500`}
+              className={`w-full flex justify-center py-2 px-4 border rounded-full shadow-sm text-sm font-medium bg-white text-gray-700 hover:bg-gray50 focus:outline-none focus:ring2 focus:ring-offset2 focus:ring-orange500`}
             >
               {mode === 'signin'
                 ? 'Create an account'

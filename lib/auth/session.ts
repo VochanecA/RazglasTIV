@@ -53,7 +53,7 @@ export async function setSession(user: NewUser) {
   (await cookies()).set('session', encryptedSession, {
     expires: expiresInOneDay,
     httpOnly: true,
-    secure: true,
+    secure: false, // ne cookie-je preko secure-jer ondancece da radi
     sameSite: 'lax',
   });
 }

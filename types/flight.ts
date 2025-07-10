@@ -2,6 +2,7 @@
 
 export interface Flight {
   ident: string;
+  TipLeta: string;
   status: string;
   scheduled_out: string;
   scheduled_in: string;

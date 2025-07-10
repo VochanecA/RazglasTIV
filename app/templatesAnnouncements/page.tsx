@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { Trash, Pencil, PlusCircle, Search } from 'lucide-react';
 
 interface Airline {
   id: number;
@@ -355,89 +356,53 @@ const AnnouncementPage: React.FC = () => {
         </form>
 
         <table className="table-auto w-full border-collapse">
-  <thead className="hidden sm:table-header-group">
-    <tr className="bg-gray-100 dark:bg-gray-800">
-      <th
-        className="px-4 py-2"
-        style={{ borderBottom: "1px solid #d1d5db", border: "none" }} // Only bottom border
-      >
-        Template
-      </th>
-      <th
-        className="px-4 py-2"
-        style={{ borderBottom: "1px solid #d1d5db", border: "none" }} // Only bottom border
-      >
-        Type
-      </th>
-      <th
-        className="px-4 py-2"
-        style={{ borderBottom: "1px solid #d1d5db", border: "none" }} // Only bottom border
-      >
-        Language
-      </th>
-      <th
-        className="px-4 py-2"
-        style={{ borderBottom: "1px solid #d1d5db", border: "none" }} // Only bottom border
-      >
-        Actions
-      </th>
-    </tr>
-  </thead>
-  <tbody>
-    {filteredTemplates.map((template) => (
-      <tr
-        key={template.id}
-        className="odd:bg-gray-50 even:bg-white dark:odd:bg-gray-800 dark:even:bg-gray-900"
-      >
-        <td
-          className="px-4 py-2 sm:table-cell flex flex-col sm:flex-row"
-          style={{ borderBottom: "1px solid #d1d5db", border: "none" }} // Only bottom border
-        >
-          <span className="sm:hidden font-semibold">Template:</span>
-          {template.template}
-        </td>
-        <td
-          className="px-4 py-2 sm:table-cell flex flex-col sm:flex-row"
-          style={{ borderBottom: "1px solid #d1d5db", border: "none" }} // Only bottom border
-        >
-          <span className="sm:hidden font-semibold">Type:</span>
-          {template.type}
-        </td>
-        <td
-          className="px-4 py-2 sm:table-cell flex flex-col sm:flex-row"
-          style={{ borderBottom: "1px solid #d1d5db", border: "none" }} // Only bottom border
-        >
-          <span className="sm:hidden font-semibold">Language:</span>
-          {template.language}
-        </td>
-        <td
-          className="px-4 py-2 sm:table-cell flex flex-col sm:flex-row gap-2"
-          style={{ borderBottom: "1px solid #d1d5db", border: "none" }} // Only bottom border
-        >
-          <span className="sm:hidden font-semibold">Actions:</span>
-          <button
-            onClick={() => handleEdit(template.id)}
-            className="bg-yellow-500 text-white p-2 rounded-lg hover:bg-yellow-600 dark:bg-yellow-700 w-full sm:w-32"
-          >
-            Edit
-          </button>
-          <button
-            onClick={() => handleDelete(template.id)}
-            className="bg-red-500 text-white p-2 rounded-lg hover:bg-red-600 dark:bg-red-700 w-full sm:w-32"
-          >
-            Delete
-          </button>
-        </td>
-      </tr>
-    ))}
-  </tbody>
-</table>
-
-
-
-
-
-
+          <thead className="hidden sm:table-header-group">
+            <tr className="bg-gray-100 dark:bg-gray-800">
+              <th className="px-4 py-2">Template</th>
+              <th className="px-4 py-2">Type</th>
+              <th className="px-4 py-2">Language</th>
+              <th className="px-4 py-2">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredTemplates.map((template) => (
+              <tr
+                key={template.id}
+                className="odd:bg-gray-50 even:bg-white dark:odd:bg-gray-800 dark:even:bg-gray-900"
+              >
+                <td className="px-4 py-2 sm:table-cell flex flex-col sm:flex-row">
+                  <span className="sm:hidden font-semibold">Template:</span>
+                  {template.template}
+                </td>
+                <td className="px-4 py-2 sm:table-cell flex flex-col sm:flex-row">
+                  <span className="sm:hidden font-semibold">Type:</span>
+                  {template.type}
+                </td>
+                <td className="px-4 py-2 sm:table-cell flex flex-col sm:flex-row">
+                  <span className="sm:hidden font-semibold">Language:</span>
+                  {template.language}
+                </td>
+                <td className="px-4 py-2 sm:table-cell flex flex-col sm:flex-row gap-2">
+                  <span className="sm:hidden font-semibold">Actions:</span>
+                  <button
+                    onClick={() => handleEdit(template.id)}
+                    className="bg-yellow-500 text-white p-2 rounded-lg hover:bg-yellow-600 dark:bg-yellow-700 w-full sm:w-32"
+                  >
+                    <Pencil className="w-4 h-4" />
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(template.id)}
+                    className="bg-red-500 text-white p-2 rounded-lg hover:bg-red-600 dark:bg-red-700 w-full sm:w-32"
+                  >
+                    <Trash className="w-4 h-4" />
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

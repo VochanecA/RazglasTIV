@@ -3,23 +3,22 @@ import { Settings } from './settings';
 import { getTeamForUser, getUser } from '@/lib/db/queries';
 
 export default async function SettingsPage() {
-  try {
-    const user = await getUser();
-    if (!user) {
-      console.error('No user found. Redirecting to sign-in.');
-      redirect('/sign-in');
-      return null;
-    }
+  const user = await getUser();
 
-    const teamData = await getTeamForUser(user.id);
-    if (!teamData) {
-      throw new Error('Team not found for user.');
-    }
-
-    return <Settings teamData={teamData} />;
-  } catch (error) {
-    console.error('Error in SettingsPage:', error);
-    redirect('/error'); // Optional: Redirect to a generic error page
-    return null;
+  // Redirect to sign-in if no user is found
+  if (!user) {
+   // console.error('No user found. Redirecting to sign-in.');
+    redirect('/'); // This will stop further execution -rijesen problem sa log out-om
   }
+
+  const teamData = await getTeamForUser(user.id);
+
+  // Handle case where team data is not found
+  if (!teamData) {
+ //   console.error('Team not found for user.');
+    redirect('/error'); // Redirect to an error page
+  }
+
+  // Render the Settings component with team data
+  return <Settings teamData={teamData} />;
 }

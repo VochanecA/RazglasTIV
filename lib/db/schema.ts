@@ -8,6 +8,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
+
 export const users = pgTable('users', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 100 }),
@@ -199,6 +200,31 @@ export const announcementTemplates = pgTable('announcement_templates', {
   // updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 // do odje je novi dio
+
+
+export const announcementSchedules = pgTable('announcement_schedules', {
+  id: serial('id').primaryKey(),
+  type: varchar('type', {
+    length: 50,
+    enum: [
+      AnnouncementType.CHECKIN,
+      AnnouncementType.ARRIVED,
+      AnnouncementType.BOARDING,
+      AnnouncementType.CLOSE,
+      AnnouncementType.CANCELLED,
+      AnnouncementType.EARLIER,
+      AnnouncementType.DIVERTED,
+      AnnouncementType.DELAY,
+      AnnouncementType.GATE_CHANGE,
+      AnnouncementType.SECURITY,
+      AnnouncementType.ASSISTANCE,
+    ],
+  }).notNull(),
+  times: jsonb('times').notNull(), // Array of minutes (e.g., [90, 75, 60])
+  airlineId: integer('airline_id').references(() => airlines.id), // Optional: Link to a specific airline
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
 
 export enum ActivityType {
   SIGN_UP = 'SIGN_UP',
