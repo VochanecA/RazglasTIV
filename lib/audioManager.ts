@@ -110,7 +110,7 @@ const playCancelledFlightAnnouncements = async () => {
   }
 
   const currentTime = new Date();
-  const activeCancelledFlights = cancelledFlights.filter(flight => 
+  const activeCancelledFlights = cancelledFlights.filter(flight =>
     currentTime >= flight.startTime && currentTime < flight.endTime
   );
 
@@ -120,7 +120,7 @@ const playCancelledFlightAnnouncements = async () => {
   }
 
   console.log(`Playing ${activeCancelledFlights.length} cancelled flight announcements`);
-  
+
   // Add all cancelled flight announcements to the queue
   const cancelledAnnouncements = activeCancelledFlights.map(flight => ({
     text: flight.text,
@@ -189,7 +189,7 @@ export const addCancelledFlight = (text: string, flightInfo?: FlightMP3Info) => 
 export const removeCancelledFlight = (text: string) => {
   const initialLength = cancelledFlights.length;
   cancelledFlights = cancelledFlights.filter(flight => flight.text !== text);
-  
+
   if (cancelledFlights.length < initialLength) {
     console.log('Removed cancelled flight:', text);
   }
@@ -323,11 +323,20 @@ const playGongAndTTS = async (text: string): Promise<void> => {
     return Promise.resolve();
   }
 
-  // MODIFICATION: Prevent gong if TTS is already speaking
-  if (window.speechSynthesis.speaking) {
-    console.log('TTS is already speaking, skipping gong and playing TTS directly.');
-    return playTTSAnnouncementWithoutGong(text);
+  // MODIFICATION: Pause background music immediately
+  if (backgroundAudio) {
+    backgroundAudio.pause();
+    console.log('Background music paused for TTS.');
   }
+
+  // MODIFICATION: Prevent gong if TTS is already speaking - This logic might need re-evaluation
+  // If a TTS is already speaking, we still want to play the gong for the *new* announcement.
+  // The original problem was background music not stopping, not gong not playing.
+  // Let's ensure gong always plays first, then TTS.
+  // if (window.speechSynthesis.speaking) {
+  //   console.log('TTS is already speaking, skipping gong and playing TTS directly.');
+  //   return playTTSAnnouncementWithoutGong(text);
+  // }
 
   if (!gongAudio) {
     preloadGongSound();
@@ -386,11 +395,17 @@ const playGongAndMP3 = async (mp3Path: string): Promise<void> => {
     return Promise.resolve();
   }
 
-  // MODIFICATION: Prevent gong if TTS is already speaking
-  if (window.speechSynthesis.speaking) {
-    console.log('TTS is already speaking, skipping gong and playing MP3 directly.');
-    return playMP3Announcement(mp3Path);
+  // MODIFICATION: Pause background music immediately
+  if (backgroundAudio) {
+    backgroundAudio.pause();
+    console.log('Background music paused for MP3.');
   }
+
+  // MODIFICATION: Prevent gong if TTS is already speaking - Same re-evaluation as above
+  // if (window.speechSynthesis.speaking) {
+  //   console.log('TTS is already speaking, skipping gong and playing MP3 directly.');
+  //   return playMP3Announcement(mp3Path);
+  // }
 
   if (!gongAudio) {
     preloadGongSound();
@@ -446,16 +461,15 @@ const processAnnouncementQueue = async () => {
   if (isProcessingQueue || announcementQueue.length === 0) return;
 
   isProcessingQueue = true;
-  let isFirstAnnouncement = true;
+  // let isFirstAnnouncement = true; // This flag is no longer strictly needed for fadeOut
 
   try {
+    // MODIFICATION: Move fadeOutBackgroundMusic here, before starting any announcement
+    // This ensures it attempts to fade out/pause BEFORE the gong or TTS starts.
+    await fadeOutBackgroundMusic(); // This will pause if volume reaches 0.1
+
     while (announcementQueue.length > 0) {
       try {
-        if (isFirstAnnouncement) {
-          await fadeOutBackgroundMusic();
-          isFirstAnnouncement = false;
-        }
-
         const announcement = announcementQueue[0];
 
         if (announcement.flightInfo) {
@@ -546,16 +560,18 @@ export const setupBackgroundMusic = () => {
   // Only setup if on timetable page
   if (window.location.pathname !== '/timetable') return;
 
-  // const streamUrl = process.env.NEXT_PUBLIC_STREAM_URL || 'https://smoothjazz.cdnstream1.com/2586_128.mp3';
-    const streamUrl = process.env.NEXT_PUBLIC_STREAM_URL || 'https://jking.cdnstream1.com/b22139_128mp3';
+  const streamUrl = process.env.NEXT_PUBLIC_STREAM_URL || 'https://jking.cdnstream1.com/b22139_128mp3';
   backgroundAudio = new Audio(streamUrl);
   backgroundAudio.loop = true;
-  backgroundAudio.volume = 0.4;
+  backgroundAudio.volume = 0.3;
 
-  // Handle play promise
-  backgroundAudio.play().catch(error => {
-    console.error('Failed to start background music:', error);
-  });
+  // Crucial for mobile: Add an event listener to play the music ONLY after a user interaction.
+  // For example, when the component mounts or a "Play Music" button is clicked.
+  // This example assumes you'll trigger playBackgroundMusic() from your UI.
+  console.log('Background music setup. Remember to call playBackgroundMusic() from a user interaction.');
+  // backgroundAudio.play().catch(error => { // Remove this direct play() call
+  //   console.error('Failed to start background music:', error);
+  // });
 
   // Setup interval to check if we're still on timetable page
   musicControlInterval = setInterval(() => {
@@ -568,23 +584,50 @@ export const setupBackgroundMusic = () => {
   preloadGongSound();
 };
 
+// New export for playing background music after user interaction
+export const playBackgroundMusic = () => {
+  if (backgroundAudio && backgroundAudio.paused) {
+    backgroundAudio.play().catch(error => {
+      console.error('Failed to play background music on user interaction:', error);
+    });
+  }
+};
+
+
 export const fadeOutBackgroundMusic = (): Promise<void> => {
-  if (!backgroundAudio) return Promise.resolve();
+  if (!backgroundAudio) return Promise.resolve(); // Initial check covers the overall function call
 
   return new Promise<void>((resolve) => {
-    const originalVolume = backgroundAudio!.volume;
+    // MODIFIED: Add a null check here before accessing properties like 'paused'
+    if (backgroundAudio === null) {
+      console.warn('backgroundAudio is null inside fadeOutBackgroundMusic promise.');
+      return resolve(); // Should not happen if initial check works, but defensive coding
+    }
+
+    // If background music isn't currently playing, no need to fade out, just resolve.
+    if (backgroundAudio.paused) {
+      return resolve();
+    }
+
+    const initialVolume = backgroundAudio.volume; // Store current volume to restore later
 
     const fadeOutInterval = setInterval(() => {
-      if (backgroundAudio && backgroundAudio.volume > 0.1) {
-        backgroundAudio.volume = Math.max(0, backgroundAudio.volume - 0.1);
+      // MODIFIED: Add null check for backgroundAudio inside the interval callback as well
+      if (backgroundAudio === null) {
+        clearInterval(fadeOutInterval);
+        console.warn('backgroundAudio became null during fadeOutInterval.');
+        return resolve();
+      }
+
+      if (backgroundAudio.volume > 0.01) { // Fade to near zero
+        backgroundAudio.volume = Math.max(0, backgroundAudio.volume - 0.05); // Faster fade out
       } else {
         clearInterval(fadeOutInterval);
-        if (backgroundAudio) {
-          backgroundAudio.pause();
-        }
+        backgroundAudio.pause(); // Ensure it's paused after fading
+        backgroundAudio.volume = initialVolume; // Reset volume for next fade-in
         resolve();
       }
-    }, 200);
+    }, 50); // Faster interval for smoother and quicker fade
   });
 };
 
@@ -592,8 +635,8 @@ export const stopBackgroundMusic = () => {
   if (backgroundAudio) {
     backgroundAudio.pause();
     backgroundAudio.currentTime = 0;
-    backgroundAudio.src = '';
-    backgroundAudio = null;
+    // backgroundAudio.src = ''; // This might not be necessary and could prevent re-use
+    backgroundAudio.volume = 0.3; // Reset volume
   }
 
   if (musicControlInterval) {
@@ -629,8 +672,13 @@ export const fadeInBackgroundMusic = (): Promise<void> => {
     return Promise.resolve();
   }
 
+  // If already playing and at target volume, resolve.
+  if (!backgroundAudio.paused && backgroundAudio.volume >= 0.3) {
+      return Promise.resolve();
+  }
+
   return new Promise<void>((resolve) => {
-    backgroundAudio!.volume = 0;
+    backgroundAudio!.volume = backgroundAudio!.volume > 0 ? backgroundAudio!.volume : 0; // Start from current or 0
     backgroundAudio!.play().catch(error => {
       console.error('Failed to resume background music:', error);
       resolve();
@@ -639,12 +687,12 @@ export const fadeInBackgroundMusic = (): Promise<void> => {
 
     const fadeInInterval = setInterval(() => {
       if (backgroundAudio && backgroundAudio.volume < 0.3) {
-        backgroundAudio.volume = Math.min(0.3, backgroundAudio.volume + 0.1);
+        backgroundAudio.volume = Math.min(0.3, backgroundAudio.volume + 0.05); // Slower, smoother fade in
       } else {
         clearInterval(fadeInInterval);
         resolve();
       }
-    }, 200);
+    }, 100); // Slower interval for smoother fade
   });
 };
 
