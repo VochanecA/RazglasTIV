@@ -188,12 +188,12 @@ export default function Page() {
           {showAllFlights ? (
             <>
               <ListFilter size={18} />
-              <span>Hide Departed/Arrived</span>
+              <span>Hide</span>
             </>
           ) : (
             <>
               <List size={18} />
-              <span>Show All Flights</span>
+              <span>All</span>
             </>
           )}
         </button>
