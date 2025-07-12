@@ -7,7 +7,7 @@ import { setupBackgroundMusic, fadeOutBackgroundMusic, fadeInBackgroundMusic } f
 
 // Flight and FlightData interfaces
 export interface Flight {
-  delay: any;
+  delay?: number | null;
   ident: string;
   TipLeta: string;
   status: string;

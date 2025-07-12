@@ -18,7 +18,7 @@ export interface Flight {
   KompanijaNaziv: string;
   checkIn: string;
   gate: string;
-  delay?: number | null; // Delay in minutes
+  // delay?: number | null; // Delay in minutes
 }
 
 export interface FlightData {
