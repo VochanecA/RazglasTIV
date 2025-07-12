@@ -15,6 +15,8 @@ const DELAY_ANNOUNCEMENT_INTERVAL = 30 * 60 * 1000; // 30 minutes for delayed fl
 const MAX_DELAY_ANNOUNCEMENTS = 6; // Maximum number of delay announcements
 const EARLIER_ANNOUNCEMENT_INTERVAL = 10 * 60 * 1000; // 10 minutes for earlier flights
 const MAX_EARLIER_ANNOUNCEMENTS = 6; // Maximum number of earlier announcements
+const ON_TIME_ANNOUNCEMENT_INTERVAL = 60 * 60 * 1000; // 60 minutes for on-time flights
+const MAX_ON_TIME_ANNOUNCEMENTS = 2; // Maximum number of on-time announcements
 
 // Check-in timing intervals (in minutes before departure)
 const CHECKIN_INTERVALS = [90, 75, 70, 60, 50, 40] as const;
@@ -24,34 +26,39 @@ const STATUS_INTERVALS = [90, 80, 70, 60, 50, 40, 30, 20, 10] as const;
 const EARLIER_INTERVALS = [90, 70, 60, 40, 30] as const;
 
 // Enhanced types
-type AnnouncementTypeExtended = 
-  | 'security' 
-  | 'special-assistance' 
-  | 'flight' 
-  | 'boarding' 
-  | 'delay' 
-  | 'earlier' 
-  | 'cancelled' 
-  | 'diverted' 
-  | 'checkin' 
-  | 'close' 
-  | 'arrived' 
-  | 'dangerous_goods';
+type AnnouncementTypeExtended =
+  | 'security'
+  | 'special-assistance'
+  | 'flight'
+  | 'boarding'
+  | 'delay'
+  | 'earlier'
+  | 'cancelled'
+  | 'diverted'
+  | 'checkin'
+  | 'close'
+  | 'arrived'
+  | 'dangerous_goods'
+  | 'on-time'; // Added 'on-time'
 
-type FlightStatus = 
-  | 'processing' 
-  | 'checkinopen' 
-  | 'checkin' 
-  | 'check in open' 
-  | 'boarding' 
-  | 'close' 
+type FlightStatus =
+  | 'processing'
+  | 'checkinopen'
+  | 'checkin'
+  | 'check in open'
+  | 'boarding'
+  | 'close'
   | 'delay'
   | 'delayed'
-  | 'arrived' 
+  | 'arrived'
   | 'landed'
-  | 'diverted' 
-  | 'cancelled' 
-  | 'earlier';
+  | 'diverted'
+  | 'cancelled'
+  | 'earlier'
+  | 'on-time' // Added 'on-time'
+  | 'on time' // Added variant
+  | 'On time' // Added variant
+  | 'ON TIME'; // Added variant
 
 interface Announcement {
   type: AnnouncementTypeExtended;
@@ -80,6 +87,12 @@ interface EarlierLogEntry {
   initialEarlierStatusTime: Date;
 }
 
+interface OnTimeLogEntry { // New interface for on-time announcements
+  count: number;
+  lastAnnouncementTime: Date;
+  flightKey: string;
+}
+
 interface CancelledFlightEntry {
   flightKey: string;
   text: string;
@@ -97,6 +110,7 @@ class AnnouncementState {
   private arrivalAnnouncementLog: Map<string, ArrivalLogEntry> = new Map();
   private delayAnnouncementLog: Map<string, DelayLogEntry> = new Map();
   private earlierAnnouncementLog: Map<string, EarlierLogEntry> = new Map();
+  private onTimeAnnouncementLog: Map<string, OnTimeLogEntry> = new Map(); // New log for on-time
   private cancelledFlights: Map<string, CancelledFlightEntry> = new Map();
   private lastAnnouncementTimes: Record<string, Date> = {
     security: new Date(0),
@@ -162,6 +176,26 @@ class AnnouncementState {
 
   clearEarlierLog(flightKey: string): void {
     this.earlierAnnouncementLog.delete(flightKey);
+  }
+
+  getOnTimeLog(flightKey: string): OnTimeLogEntry { // New method to get on-time log
+    if (!this.onTimeAnnouncementLog.has(flightKey)) {
+      this.onTimeAnnouncementLog.set(flightKey, {
+        count: 0,
+        lastAnnouncementTime: new Date(0),
+        flightKey
+      });
+    }
+    return this.onTimeAnnouncementLog.get(flightKey)!;
+  }
+
+  updateOnTimeLog(flightKey: string, updates: Partial<OnTimeLogEntry>): void { // New method to update on-time log
+    const log = this.getOnTimeLog(flightKey);
+    Object.assign(log, updates);
+  }
+
+  clearOnTimeLog(flightKey: string): void { // New method to clear on-time log
+    this.onTimeAnnouncementLog.delete(flightKey);
   }
 
   getLastAnnouncementTime(type: string): Date {
@@ -241,57 +275,54 @@ class AnnouncementState {
 
   cleanup(): void {
     const cutoffTime = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const keysToDelete: string[] = [];
-    
-    this.arrivalAnnouncementLog.forEach((entry, key) => {
-      if (entry.lastAnnouncementTime < cutoffTime) {
-        keysToDelete.push(key);
-      }
-    });
-    
-    this.delayAnnouncementLog.forEach((entry, key) => {
-      if (entry.lastAnnouncementTime < cutoffTime) {
-        keysToDelete.push(key);
-      }
-    });
-    
-    this.earlierAnnouncementLog.forEach((entry, key) => {
-      if (entry.lastAnnouncementTime < cutoffTime) {
-        keysToDelete.push(key);
-      }
-    });
-    
-    keysToDelete.forEach(key => {
-      this.arrivalAnnouncementLog.delete(key);
-      this.delayAnnouncementLog.delete(key);
-      this.earlierAnnouncementLog.delete(key);
+
+    // Clean up various announcement logs
+    const logsToClean = [
+      this.arrivalAnnouncementLog,
+      this.delayAnnouncementLog,
+      this.earlierAnnouncementLog,
+      this.onTimeAnnouncementLog, // Added on-time log to cleanup
+    ];
+
+    logsToClean.forEach(logMap => {
+      const keysToDelete: string[] = [];
+      logMap.forEach((entry, key) => {
+        if (entry.lastAnnouncementTime < cutoffTime) {
+          keysToDelete.push(key);
+        }
+      });
+      keysToDelete.forEach(key => logMap.delete(key));
     });
 
     const cancelledCutoffTime = new Date(Date.now() - 12 * 60 * 60 * 1000);
     const cancelledKeysToDelete: string[] = [];
-    
+
     this.cancelledFlights.forEach((entry, key) => {
       if (entry.lastAnnouncementTime < cancelledCutoffTime && entry.lastAnnouncementTime.getTime() > 0) {
         cancelledKeysToDelete.push(key);
       }
     });
-    
+
     cancelledKeysToDelete.forEach(key => {
       this.removeCancelledFlight(key);
     });
 
     const statusCutoffTime = new Date(Date.now() - 6 * 60 * 60 * 1000);
     const statusKeysToDelete: string[] = [];
-    
+
     this.previousFlightStatuses.forEach((_, key) => {
       const delayEntry = this.delayAnnouncementLog.get(key);
       const earlierEntry = this.earlierAnnouncementLog.get(key);
+      const onTimeEntry = this.onTimeAnnouncementLog.get(key); // Get on-time entry
+
       if ((!delayEntry || delayEntry.lastAnnouncementTime < statusCutoffTime) &&
-          (!earlierEntry || earlierEntry.lastAnnouncementTime < statusCutoffTime)) {
+        (!earlierEntry || earlierEntry.lastAnnouncementTime < statusCutoffTime) &&
+        (!onTimeEntry || onTimeEntry.lastAnnouncementTime < statusCutoffTime) // Check on-time entry
+      ) {
         statusKeysToDelete.push(key);
       }
     });
-    
+
     statusKeysToDelete.forEach(key => {
       this.previousFlightStatuses.delete(key);
     });
@@ -326,7 +357,7 @@ const parseFlightNumber = (flightNumber: string): string => {
     '4': 'four', '5': 'five', '6': 'six', '7': 'seven',
     '8': 'eight', '9': 'nine'
   };
-  
+
   return flightNumber.split('').map(digit => numberToWords[digit] || digit).join(' ');
 };
 
@@ -344,8 +375,9 @@ const getAnnouncementSuffix = (type: AnnouncementTypeExtended): string => {
     'special-assistance': '',
     flight: '',
     dangerous_goods: '',
+    'on-time': '_OnTime', // Added suffix for on-time
   };
-  
+
   return suffixMap[type] || '';
 };
 
@@ -364,8 +396,12 @@ const normalizeFlightStatus = (status: string): FlightStatus | null => {
     'earlier': 'earlier',
     'delay': 'delay',
     'delayed': 'delayed',
+    'on time': 'on-time', // Normalize "on time" to 'on-time'
+    'on-time': 'on-time',
+    'On time': 'on-time',
+    'ON TIME': 'on-time',
   };
-  
+
   return statusMap[status.toLowerCase()] || null;
 };
 
@@ -385,17 +421,25 @@ const generateSpecialAssistanceAnnouncement = (): string => {
 
 const generateDefaultDelayAnnouncement = (flight: Flight): string => {
   return `We regret to inform you that ${flight.Kompanija} flight ${parseFlightNumber(flight.ident)} ` +
-         `is currently delayed. We apologize for any inconvenience this may cause and are working ` +
-         `diligently to minimize the delay. Please stay tuned for further updates and announcements. ` +
-         `Thank you for your patience and understanding.`;
+    `is currently delayed. We apologize for any inconvenience this may cause and are working ` +
+    `diligently to minimize the delay. Please stay tuned for further updates and announcements. ` +
+    `Thank you for your patience and understanding.`;
 };
 
 const generateDefaultEarlierAnnouncement = (flight: Flight): string => {
   return `Attention please. ${flight.Kompanija} flight ${parseFlightNumber(flight.ident)} ` +
-         `from ${flight.origin.code} is arriving earlier than scheduled. ` +
-         `The flight is now expected to arrive at approximately ${flight.estimated_out || flight.scheduled_out}. ` +
-         `Please check the information screens for updates. Thank you.`;
+    `from ${flight.grad} is arriving earlier than scheduled. ` + // Changed origin.code to flight.grad
+    `The flight is now expected to arrive at approximately ${flight.estimated_out || flight.scheduled_out}. ` +
+    `Please check the information screens for updates. Thank you.`;
 };
+
+const generateDefaultOnTimeAnnouncement = (flight: Flight): string => {
+  return `Attention please. ${flight.Kompanija} flight ${parseFlightNumber(flight.ident)} ` +
+    `from ${flight.grad} is scheduled to arrive on time. ` + // Changed origin.code to flight.grad
+    `Expected arrival time is approximately ${flight.scheduled_out}. ` +
+    `Thank you.`;
+};
+
 
 const logMp3Play = async (announcement: Announcement): Promise<void> => {
   try {
@@ -415,7 +459,7 @@ const logMp3Play = async (announcement: Announcement): Promise<void> => {
 const shouldPlayArrivalAnnouncement = (flight: Flight): boolean => {
   const flightKey = `${flight.Kompanija} ${flight.ident}-${flight.origin.code}`;
   const now = new Date();
-  
+
   const arrivalTime = parseTime(flight.scheduled_out);
   const timeSinceArrival = (now.getTime() - arrivalTime.getTime()) / (1000 * 60);
 
@@ -432,7 +476,7 @@ const shouldPlayArrivalAnnouncement = (flight: Flight): boolean => {
   }
 
   const minutesSinceLastAnnouncement = (now.getTime() - log.lastAnnouncementTime.getTime()) / (1000 * 60);
-  
+
   if (log.count < MAX_ARRIVAL_ANNOUNCEMENTS && minutesSinceLastAnnouncement >= MIN_ANNOUNCEMENT_INTERVAL) {
     announcementState.updateArrivalLog(flightKey, {
       count: log.count + 1,
@@ -440,7 +484,7 @@ const shouldPlayArrivalAnnouncement = (flight: Flight): boolean => {
     });
     return true;
   }
-  
+
   return false;
 };
 
@@ -449,15 +493,15 @@ const shouldPlayDelayAnnouncement = (flight: Flight): boolean => {
   const now = new Date();
   const currentStatus = normalizeFlightStatus(flight.status);
   const previousStatus = announcementState.getPreviousFlightStatus(flightKey);
-  
+
   const isCurrentlyDelayed = currentStatus === 'delay' || currentStatus === 'delayed';
-  
+
   const log = announcementState.getDelayLog(flightKey);
 
   announcementState.setPreviousFlightStatus(flightKey, flight.status);
 
-  const statusChangedToDelayed = 
-    (previousStatus !== 'delay' && previousStatus !== 'delayed') && 
+  const statusChangedToDelayed =
+    (previousStatus !== 'delay' && previousStatus !== 'delayed') &&
     isCurrentlyDelayed;
 
   if ((previousStatus === 'delay' || previousStatus === 'delayed') && !isCurrentlyDelayed) {
@@ -479,16 +523,16 @@ const shouldPlayDelayAnnouncement = (flight: Flight): boolean => {
   }
 
   const timeSinceLastAnnouncement = now.getTime() - log.lastAnnouncementTime.getTime();
-  
-  if (log.count < MAX_DELAY_ANNOUNCEMENTS && 
-      timeSinceLastAnnouncement >= DELAY_ANNOUNCEMENT_INTERVAL) {
+
+  if (log.count < MAX_DELAY_ANNOUNCEMENTS &&
+    timeSinceLastAnnouncement >= DELAY_ANNOUNCEMENT_INTERVAL) {
     announcementState.updateDelayLog(flightKey, {
       count: log.count + 1,
       lastAnnouncementTime: now
     });
     return true;
   }
-  
+
   return false;
 };
 
@@ -497,10 +541,10 @@ const shouldPlayEarlierAnnouncement = (flight: Flight): boolean => {
   const now = new Date();
   const currentStatus = normalizeFlightStatus(flight.status);
   const previousStatus = announcementState.getPreviousFlightStatus(flightKey);
-  
+
   const isCurrentlyEarlier = currentStatus === 'earlier';
   const isArrivedStatus = ['arrived', 'landed'].includes(currentStatus || '');
-  
+
   const log = announcementState.getEarlierLog(flightKey);
 
   announcementState.setPreviousFlightStatus(flightKey, flight.status);
@@ -524,18 +568,66 @@ const shouldPlayEarlierAnnouncement = (flight: Flight): boolean => {
   }
 
   const timeSinceLastAnnouncement = now.getTime() - log.lastAnnouncementTime.getTime();
-  
-  if (log.count < MAX_EARLIER_ANNOUNCEMENTS && 
-      timeSinceLastAnnouncement >= EARLIER_ANNOUNCEMENT_INTERVAL) {
+
+  if (log.count < MAX_EARLIER_ANNOUNCEMENTS &&
+    timeSinceLastAnnouncement >= EARLIER_ANNOUNCEMENT_INTERVAL) {
     announcementState.updateEarlierLog(flightKey, {
       count: log.count + 1,
       lastAnnouncementTime: now
     });
     return true;
   }
-  
+
   return false;
 };
+
+const shouldPlayOnTimeAnnouncement = (flight: Flight): boolean => {
+  const flightKey = `${flight.Kompanija} ${flight.ident}-${flight.origin.code}`;
+  const now = new Date();
+  const currentStatus = normalizeFlightStatus(flight.status);
+  const previousStatus = announcementState.getPreviousFlightStatus(flightKey);
+
+  const isCurrentlyOnTime = currentStatus === 'on-time';
+  const isArrivedOrDeparted = ['arrived', 'landed', 'departed'].includes(currentStatus || ''); // Assuming 'departed' for departure flights
+
+  const log = announcementState.getOnTimeLog(flightKey);
+
+  announcementState.setPreviousFlightStatus(flightKey, flight.status);
+
+  // If status changes from on-time to something else (e.g., arrived/departed, delayed, cancelled)
+  if (previousStatus === 'on-time' && (isArrivedOrDeparted || currentStatus === 'delay' || currentStatus === 'delayed' || currentStatus === 'cancelled' || currentStatus === 'earlier')) {
+    announcementState.clearOnTimeLog(flightKey);
+    return false;
+  }
+
+  if (!isCurrentlyOnTime) {
+    return false;
+  }
+
+  // Play the first announcement if status changes to on-time
+  if (previousStatus !== 'on-time' && isCurrentlyOnTime) {
+    announcementState.updateOnTimeLog(flightKey, {
+      count: 1,
+      lastAnnouncementTime: now
+    });
+    return true;
+  }
+
+  // Subsequent announcements based on interval and max count
+  const timeSinceLastAnnouncement = now.getTime() - log.lastAnnouncementTime.getTime();
+
+  if (log.count < MAX_ON_TIME_ANNOUNCEMENTS &&
+    timeSinceLastAnnouncement >= ON_TIME_ANNOUNCEMENT_INTERVAL) {
+    announcementState.updateOnTimeLog(flightKey, {
+      count: log.count + 1,
+      lastAnnouncementTime: now
+    });
+    return true;
+  }
+
+  return false;
+};
+
 
 const fetchAnnouncementTemplate = async (airlineCode: string, type: string): Promise<AnnouncementTemplate | null> => {
   try {
@@ -565,10 +657,14 @@ const processFlightAnnouncement = async (
 
   announcementState.markAnnouncementProcessed(announcementKey);
 
-  if (type === 'delay') {
-    const template = await fetchAnnouncementTemplate(flight.KompanijaICAO, type);
-    const text = template 
-      ? template.template
+  let text: string;
+  let template: AnnouncementTemplate | null;
+
+  switch (type) {
+    case 'delay':
+      template = await fetchAnnouncementTemplate(flight.KompanijaICAO, type);
+      text = template
+        ? template.template
           .replace('{flightNumber}', parseFlightNumber(flight.ident))
           .replace('{destination}', flight.grad)
           .replace('{gate}', flight.gate ? parseCheckInOrGateNumbers(flight.gate) : '')
@@ -577,43 +673,37 @@ const processFlightAnnouncement = async (
           .replace('{originCODE}', flight.origin?.code || '')
           .replace('{delayMinutes}', flight.delay?.toString() || 'a short')
           .replace('{newTime}', flight.estimated_out || flight.scheduled_out)
-      : generateDefaultDelayAnnouncement(flight);
-
-    return {
-      type,
-      text,
-      flight,
-      priority: getPriorityForAnnouncementType(type)
-    };
-  }
-
-  if (type === 'earlier') {
-    const template = await fetchAnnouncementTemplate(flight.KompanijaICAO, type);
-    const text = template 
-      ? template.template
+        : generateDefaultDelayAnnouncement(flight);
+      break;
+    case 'earlier':
+      template = await fetchAnnouncementTemplate(flight.KompanijaICAO, type);
+      text = template
+        ? template.template
           .replace('{flightNumber}', parseFlightNumber(flight.ident))
-          .replace('{origin}', flight.origin.code)
+          .replace('{origin}', flight.grad) // Using flight.grad
           .replace('{newTime}', flight.estimated_out || flight.scheduled_out)
-      : generateDefaultEarlierAnnouncement(flight);
-
-    return {
-      type,
-      text,
-      flight,
-      priority: getPriorityForAnnouncementType(type)
-    };
+        : generateDefaultEarlierAnnouncement(flight);
+      break;
+    case 'on-time': // Handle 'on-time' announcements
+      template = await fetchAnnouncementTemplate(flight.KompanijaICAO, type);
+      text = template
+        ? template.template
+          .replace('{flightNumber}', parseFlightNumber(flight.ident))
+          .replace('{origin}', flight.grad) // Using flight.grad
+          .replace('{scheduledTime}', flight.scheduled_out)
+        : generateDefaultOnTimeAnnouncement(flight);
+      break;
+    default:
+      template = await fetchAnnouncementTemplate(flight.KompanijaICAO, type);
+      if (!template) return null;
+      text = template.template
+        .replace('{flightNumber}', parseFlightNumber(flight.ident))
+        .replace('{destination}', flight.grad)
+        .replace('{gate}', flight.gate ? parseCheckInOrGateNumbers(flight.gate) : '')
+        .replace('{counters}', flight.checkIn ? parseCheckInOrGateNumbers(flight.checkIn) : '')
+        .replace('{origin}', flight.grad)
+        .replace('{originCODE}', flight.origin?.code || '');
   }
-
-  const template = await fetchAnnouncementTemplate(flight.KompanijaICAO, type);
-  if (!template) return null;
-
-  const text = template.template
-    .replace('{flightNumber}', parseFlightNumber(flight.ident))
-    .replace('{destination}', flight.grad)
-    .replace('{gate}', flight.gate ? parseCheckInOrGateNumbers(flight.gate) : '')
-    .replace('{counters}', flight.checkIn ? parseCheckInOrGateNumbers(flight.checkIn) : '')
-    .replace('{origin}', flight.grad)
-    .replace('{originCODE}', flight.origin?.code || '');
 
   return {
     type,
@@ -632,13 +722,14 @@ const getPriorityForAnnouncementType = (type: AnnouncementTypeExtended): number 
     close: 3,
     boarding: 4,
     earlier: 3, // Same priority as close announcements
+    delay: 3, // Same priority as close announcements
+    'on-time': 5, // Set on-time announcements to priority 5
     checkin: 6,
     arrived: 7,
     'special-assistance': 8,
     flight: 9,
-    delay: 3,
   };
-  
+
   return priorityMap[type] || 10;
 };
 
@@ -646,16 +737,16 @@ const calculateTimeDifference = (scheduledTime: string, currentTime: Date): numb
   const [scheduledHours, scheduledMinutes] = scheduledTime.split(':').map(Number);
   const scheduledTimeInMinutes = scheduledHours * 60 + scheduledMinutes;
   const currentMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
-  
+
   return scheduledTimeInMinutes - currentMinutes;
 };
 
 const processCancelledFlights = (now: Date): void => {
   const cancelledFlights = announcementState.getCancelledFlights();
-  
+
   cancelledFlights.forEach((entry, flightKey) => {
     const timeSinceLastAnnouncement = now.getTime() - entry.lastAnnouncementTime.getTime();
-    
+
     if (!entry.addedToAudioManager || timeSinceLastAnnouncement >= CANCELLED_FLIGHT_ANNOUNCEMENT_INTERVAL) {
       const audioManagerData = {
         type: entry.flight.TipLeta.includes('I') ? 'ARR' as const : 'DEP' as const,
@@ -666,10 +757,10 @@ const processCancelledFlights = (now: Date): void => {
       };
 
       addCancelledFlight(entry.text, audioManagerData);
-      
+
       announcementState.setCancelledFlightAddedToAudioManager(flightKey, true);
       announcementState.updateCancelledFlightAnnouncementTime(flightKey, now);
-      
+
       console.log(`Added cancelled flight to audio manager: ${flightKey}`);
     }
   });
@@ -678,7 +769,7 @@ const processCancelledFlights = (now: Date): void => {
 const processFlightAnnouncements = async (flight: Flight, now: Date): Promise<Announcement[]> => {
   const announcements: Announcement[] = [];
   const flightStatus = normalizeFlightStatus(flight.status);
-  
+
   if (!flightStatus) {
     console.warn(`Unknown flight status: ${flight.status} for flight ${flight.ident}`);
     return announcements;
@@ -686,7 +777,7 @@ const processFlightAnnouncements = async (flight: Flight, now: Date): Promise<An
 
   if (flightStatus === 'cancelled') {
     const flightKey = `${flight.Kompanija} ${flight.ident}-${flight.destination?.code || flight.origin.code}`;
-    
+
     if (!announcementState.getCancelledFlights().has(flightKey)) {
       const template = await fetchAnnouncementTemplate(flight.KompanijaICAO, 'cancelled');
       if (template) {
@@ -701,13 +792,18 @@ const processFlightAnnouncements = async (flight: Flight, now: Date): Promise<An
         announcementState.addCancelledFlight(flightKey, text, flight);
       }
     }
-    
+
     return announcements;
   }
 
-  if (flightStatus !== 'arrived' && flightStatus !== 'landed' && flightStatus !== 'delay' && flightStatus !== 'delayed' && flightStatus !== 'earlier' &&
-      (!flight.gate || flight.gate.trim() === '')) {
-    console.log(`Skipping announcement for flight ${flight.ident} - No gate assigned`);
+  // If a flight has an on-time status and doesn't have a gate assigned, it's probably an arrival.
+  // We still want to announce on-time for arrivals even without a gate.
+  const isDepartureAndNoGate = flight.TipLeta.includes('D') && (!flight.gate || flight.gate.trim() === '');
+  const isNotOnTimeAndNoGate = flightStatus !== 'on-time' && (!flight.gate || flight.gate.trim() === '');
+
+  if (isDepartureAndNoGate && isNotOnTimeAndNoGate &&
+    flightStatus !== 'arrived' && flightStatus !== 'landed' && flightStatus !== 'delay' && flightStatus !== 'delayed' && flightStatus !== 'earlier') {
+    console.log(`Skipping announcement for flight ${flight.ident} - No gate assigned and not an arrival or relevant status`);
     return announcements;
   }
 
@@ -717,8 +813,8 @@ const processFlightAnnouncements = async (flight: Flight, now: Date): Promise<An
   const announcementChecks = [
     {
       type: 'checkin' as const,
-      condition: ['processing', 'checkinopen', 'checkin', 'check in open'].includes(flightStatus) && 
-                 CHECKIN_INTERVALS.includes(timeDiff as any)
+      condition: ['processing', 'checkinopen', 'checkin', 'check in open'].includes(flightStatus) &&
+        CHECKIN_INTERVALS.includes(timeDiff as any)
     },
     {
       type: 'boarding' as const,
@@ -744,6 +840,10 @@ const processFlightAnnouncements = async (flight: Flight, now: Date): Promise<An
       type: 'delay' as const,
       condition: (flightStatus === 'delay' || flightStatus === 'delayed') && shouldPlayDelayAnnouncement(flight)
     },
+    {
+      type: 'on-time' as const, // Added on-time check
+      condition: flightStatus === 'on-time' && shouldPlayOnTimeAnnouncement(flight) && flight.TipLeta.includes('I') // Only for arrival flights
+    },
   ];
 
   for (const check of announcementChecks) {
@@ -759,7 +859,7 @@ const processFlightAnnouncements = async (flight: Flight, now: Date): Promise<An
 const processPeriodicAnnouncements = (now: Date): Announcement[] => {
   const announcements: Announcement[] = [];
   const currentMinutes = now.getMinutes();
-  
+
   if (currentMinutes % 30 === 0) {
     const securityTime = announcementState.getLastAnnouncementTime('security');
     if (now.getTime() - securityTime.getTime() > THROTTLE_TIME) {
@@ -798,7 +898,7 @@ const processPeriodicAnnouncements = (now: Date): Announcement[] => {
 };
 
 const processAnnouncementQueue = async (announcements: Announcement[]): Promise<void> => {
-  const sortedAnnouncements = [...announcements].sort((a, b) => 
+  const sortedAnnouncements = [...announcements].sort((a, b) =>
     (a.priority || 10) - (b.priority || 10)
   );
 
@@ -859,12 +959,12 @@ export const processAnnouncements = async (flightData: FlightData): Promise<void
 
     processCancelledFlights(now);
 
-    const flightPromises = [...flightData.departures, ...flightData.arrivals].map(flight => 
+    const flightPromises = [...flightData.departures, ...flightData.arrivals].map(flight =>
       processFlightAnnouncements(flight, now)
     );
 
     const flightAnnouncementResults = await Promise.allSettled(flightPromises);
-    
+
     flightAnnouncementResults.forEach((result, index) => {
       if (result.status === 'fulfilled') {
         announcements.push(...result.value);
@@ -907,7 +1007,7 @@ export const manageCancelledFlights = {
       TipLeta: 'D',
       delay: undefined
     };
-    
+
     const text = `Flight ${flightNumber} to ${destination} has been cancelled. Passengers should contact their airline for rebooking assistance.`;
     announcementState.addCancelledFlight(flightKey, text, mockFlight);
   },
