@@ -6,6 +6,7 @@ import { getUser } from '@/lib/db/queries';
 import Navbar from '@/components/ui/navbar'; // Assuming default export for Navbar
 import { NotificationCenter } from '@/components/ui/NotificationCenter'; // Use named import for NotificationCenter
 import ThemeProvider from '@/components/ui/ThemeProvider'; // Assuming default export for ThemeProvider
+import { ScreenWakeManager } from '@/components/ScreenWakeManager'; // Import the screen wake manager
 import type { Metadata } from 'next';
 
 // Define the primary font with a CSS variable for easy use in Tailwind
@@ -60,7 +61,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const userPromise = getUser();
-
+  
   return (
     // suppressHydrationWarning is used here because ThemeProvider will modify the 'class' attribute on the client
     <html lang="en" suppressHydrationWarning>
@@ -78,6 +79,8 @@ export default async function RootLayout({
               {children}
             </main>
             <NotificationCenter />
+            {/* Screen Wake Manager - keeps screen active on mobile */}
+            <ScreenWakeManager enabled={true} autoStart={true} />
           </ThemeProvider>
         </UserProvider>
       </body>

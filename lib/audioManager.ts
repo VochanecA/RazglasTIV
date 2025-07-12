@@ -61,7 +61,7 @@ const getMP3Path = (flightInfo: FlightMP3Info): string => {
       const paths = individualGates.map(gate => {
         // Construct base announcement without gate numbers
         const baseAnnouncement = announcement.split('Gate')[0];
-        return `/sounds/DEP/${airline}/${flightNumber}/${airline}${flightNumber}${originCODE}${type}_${baseAnnouncement}Gate${gate.trim()}_sr_en.mp3`;
+        return `/sounds/DEP/${airline}/${flightNumber}/${originCODE}${type}_${baseAnnouncement}Gate${gate.trim()}_sr_en.mp3`;
       }).join('|');
 
       console.log('Generated MP3 paths for multiple gates:', paths);
@@ -70,7 +70,7 @@ const getMP3Path = (flightInfo: FlightMP3Info): string => {
   }
 
   // For single gate departures or other announcements
-  const path = `/sounds/${type}/${airline}/${flightNumber}/${airline}${flightNumber}${originCODE}${type}_${announcement}_sr_en.mp3`;
+  const path = `/sounds/${type}/${airline}/${flightNumber}/${originCODE}${type}_${announcement}_sr_en.mp3`;
   console.log('Generated MP3 path:', path);
   return path;
 };
@@ -546,10 +546,11 @@ export const setupBackgroundMusic = () => {
   // Only setup if on timetable page
   if (window.location.pathname !== '/timetable') return;
 
-  const streamUrl = process.env.NEXT_PUBLIC_STREAM_URL || 'https://smoothjazz.cdnstream1.com/2586_128.mp3';
+  // const streamUrl = process.env.NEXT_PUBLIC_STREAM_URL || 'https://smoothjazz.cdnstream1.com/2586_128.mp3';
+    const streamUrl = process.env.NEXT_PUBLIC_STREAM_URL || 'https://jking.cdnstream1.com/b22139_128mp3';
   backgroundAudio = new Audio(streamUrl);
   backgroundAudio.loop = true;
-  backgroundAudio.volume = 0.3;
+  backgroundAudio.volume = 0.4;
 
   // Handle play promise
   backgroundAudio.play().catch(error => {

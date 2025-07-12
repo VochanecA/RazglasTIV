@@ -21,6 +21,7 @@ export interface Flight {
   KompanijaNaziv: string;
   checkIn: string;
   gate: string;
+  
 }
 
 export interface FlightData {
