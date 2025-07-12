@@ -420,21 +420,21 @@ const generateSpecialAssistanceAnnouncement = (): string => {
 };
 
 const generateDefaultDelayAnnouncement = (flight: Flight): string => {
-  return `We regret to inform you that ${flight.Kompanija} flight ${parseFlightNumber(flight.ident)} ` +
+  return `We regret to inform you that ${flight.KompanijaNaziv} flight ${parseFlightNumber(flight.ident)} ` +
     `is currently delayed. We apologize for any inconvenience this may cause and are working ` +
     `diligently to minimize the delay. Please stay tuned for further updates and announcements. ` +
     `Thank you for your patience and understanding.`;
 };
 
 const generateDefaultEarlierAnnouncement = (flight: Flight): string => {
-  return `Attention please. ${flight.Kompanija} flight ${parseFlightNumber(flight.ident)} ` +
+  return `Attention please. ${flight.KompanijaNaziv} flight ${parseFlightNumber(flight.ident)} ` +
     `from ${flight.grad} is arriving earlier than scheduled. ` + // Changed origin.code to flight.grad
     `The flight is now expected to arrive at approximately ${flight.estimated_out || flight.scheduled_out}. ` +
     `Please check the information screens for updates. Thank you.`;
 };
 
 const generateDefaultOnTimeAnnouncement = (flight: Flight): string => {
-  return `Attention please. ${flight.Kompanija} flight ${parseFlightNumber(flight.ident)} ` +
+  return `Attention please. ${flight.KompanijaNaziv} flight ${parseFlightNumber(flight.ident)} ` +
     `from ${flight.grad} is scheduled to arrive on time. ` + // Changed origin.code to flight.grad
     `Expected arrival time is approximately ${flight.scheduled_out}. ` +
     `Thank you.`;
@@ -456,6 +456,37 @@ const logMp3Play = async (announcement: Announcement): Promise<void> => {
   }
 };
 
+// const shouldPlayArrivalAnnouncement = (flight: Flight): boolean => {
+//   const flightKey = `${flight.Kompanija} ${flight.ident}-${flight.origin.code}`;
+//   const now = new Date();
+
+//   const arrivalTime = parseTime(flight.scheduled_out);
+//   const timeSinceArrival = (now.getTime() - arrivalTime.getTime()) / (1000 * 60);
+
+//   if (timeSinceArrival > ARRIVAL_ANNOUNCEMENT_WINDOW) return false;
+
+//   const log = announcementState.getArrivalLog(flightKey);
+
+//   if (log.count === 0) {
+//     announcementState.updateArrivalLog(flightKey, {
+//       count: 1,
+//       lastAnnouncementTime: now
+//     });
+//     return true;
+//   }
+
+//   const minutesSinceLastAnnouncement = (now.getTime() - log.lastAnnouncementTime.getTime()) / (1000 * 60);
+
+//   if (log.count < MAX_ARRIVAL_ANNOUNCEMENTS && minutesSinceLastAnnouncement >= MIN_ANNOUNCEMENT_INTERVAL) {
+//     announcementState.updateArrivalLog(flightKey, {
+//       count: log.count + 1,
+//       lastAnnouncementTime: now
+//     });
+//     return true;
+//   }
+
+//   return false;
+// };
 const shouldPlayArrivalAnnouncement = (flight: Flight): boolean => {
   const flightKey = `${flight.Kompanija} ${flight.ident}-${flight.origin.code}`;
   const now = new Date();
@@ -463,18 +494,21 @@ const shouldPlayArrivalAnnouncement = (flight: Flight): boolean => {
   const arrivalTime = parseTime(flight.scheduled_out);
   const timeSinceArrival = (now.getTime() - arrivalTime.getTime()) / (1000 * 60);
 
+  // 1. Initial Check: Is it within the announcement window?
   if (timeSinceArrival > ARRIVAL_ANNOUNCEMENT_WINDOW) return false;
 
   const log = announcementState.getArrivalLog(flightKey);
 
+  // 2. First Announcement: If no previous announcements for this flight
   if (log.count === 0) {
     announcementState.updateArrivalLog(flightKey, {
       count: 1,
       lastAnnouncementTime: now
     });
-    return true;
+    return true; // Play the first announcement
   }
 
+  // 3. Subsequent Announcements: Check count and interval
   const minutesSinceLastAnnouncement = (now.getTime() - log.lastAnnouncementTime.getTime()) / (1000 * 60);
 
   if (log.count < MAX_ARRIVAL_ANNOUNCEMENTS && minutesSinceLastAnnouncement >= MIN_ANNOUNCEMENT_INTERVAL) {
@@ -482,10 +516,10 @@ const shouldPlayArrivalAnnouncement = (flight: Flight): boolean => {
       count: log.count + 1,
       lastAnnouncementTime: now
     });
-    return true;
+    return true; // Play a subsequent announcement
   }
 
-  return false;
+  return false; // Don't play an announcement
 };
 
 const shouldPlayDelayAnnouncement = (flight: Flight): boolean => {
