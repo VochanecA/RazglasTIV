@@ -1,17 +1,34 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { FlightAnnouncementsProvider } from '@/components/ui/FlightAnnouncementsProvider';
 import { useFlightAnnouncements } from '@/lib/flightTTS';
 import FlightCard from '@/components/ui/FlightCard';
 import AirlineDistributionCard from '@/components/ui/AirlineDistributionCard';
-import { FlightData } from '@/types/flight';
 import Skeleton from '@/components/ui/skeleton';
-import { PlaneTakeoff, PlaneLanding, Lock, ListFilter, List } from 'lucide-react'; // Added ListFilter and List icons
+import { PlaneTakeoff, PlaneLanding, Lock, ListFilter, List } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/lib/auth';
 import BackgroundVolume from '@/components/ui/BackgroundVolume';
+import { setupBackgroundMusic, playBackgroundMusic, cleanupAudioResources } from '@/lib/audioManager'; // Import audio functions
+import { FlightData, Flight } from '@/types/flight'; // Ensure FlightData and Flight are imported from the correct source
 
+// Custom hook for debouncing a value
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
 
 const Tab = ({ label, isActive, onClick, icon }: { label: string; isActive: boolean; onClick: () => void; icon: React.ReactNode }) => (
   <button
@@ -30,26 +47,43 @@ export default function Page() {
   const [activeTab, setActiveTab] = useState<'departures' | 'arrivals'>('departures');
   const [lastFetchedTime, setLastFetchedTime] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  // New state to control showing all flights
   const [showAllFlights, setShowAllFlights] = useState(false);
 
+  // Debounce the search query to reduce re-renders during typing
+  const debouncedSearchQuery = useDebounce(searchQuery, 300); // 300ms debounce delay
+
   // Always call the hook unconditionally
-  const flightData = useFlightAnnouncements(); // This will always be called
+  // Explicitly cast the return type to resolve type mismatch errors
+  const flightData = useFlightAnnouncements() as FlightData | null | undefined;
 
   // Conditionally handle flights based on user
-  const flights = user ? (flightData as FlightData) : null;
+  const flights = user ? flightData : null;
+
+  // Effect for setting up and cleaning up background music
+  useEffect(() => {
+    setupBackgroundMusic();
+
+    // IMPORTANT: playBackgroundMusic needs to be triggered by a user interaction.
+    // For a real application, you'd typically have a "Start Experience" button
+    // or similar that the user clicks, which then calls playBackgroundMusic().
+    // For development/testing, you might temporarily uncomment the line below
+    // but be aware of browser autoplay policies.
+    // playBackgroundMusic(); // Uncomment this ONLY if you have a user gesture that triggers it.
+
+    return () => {
+      cleanupAudioResources(); // Clean up all audio resources on component unmount
+    };
+  }, []); // Empty dependency array ensures this runs once on mount and cleanup on unmount
 
   // Redirect to sign-in after showing message
   useEffect(() => {
     if (!user) {
       setShowLoginMessage(true);
 
-      // Set a timeout to redirect after 10 seconds
       const redirectTimer = setTimeout(() => {
         router.push('/sign-in');
-      }, 10000); // 10 seconds delay
+      }, 10000);
 
-      // Clear the timeout if the component unmounts
       return () => clearTimeout(redirectTimer);
     }
   }, [user, router]);
@@ -61,11 +95,11 @@ export default function Page() {
     }
   }, [flights]);
 
-  // Effect to switch tabs every 30 seconds
+  // Effect to switch tabs every 10 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       setActiveTab(prevTab => (prevTab === 'departures' ? 'arrivals' : 'departures'));
-    }, 10000); // Switch every 30 seconds
+    }, 10000); // Switch every 10 seconds
 
     return () => clearInterval(interval); // Cleanup on unmount
   }, []);
@@ -100,54 +134,67 @@ export default function Page() {
   if (!user) return null;
 
   // Define a grace period for filtering out departed/arrived flights
-  const now = new Date();
-  const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000); // 10 minutes ago
+  const now = useMemo(() => new Date(), []); // Memoize 'now' to prevent unnecessary re-calculation
+  const tenMinutesAgo = useMemo(() => new Date(now.getTime() - 10 * 60 * 1000), [now]);
 
-  // Filter flights based on their scheduled time to hide departed/arrived ones
-  const getFilteredFlightsByTime = (flightsArray: FlightData['departures'] | FlightData['arrivals']) => {
-    // If showAllFlights is true, return the array without time filtering
+  // Memoize the time-based filtering function
+  // Changed the type of flightsArray to Flight[]
+  const getFilteredFlightsByTime = useCallback((flightsArray: Flight[]) => {
     if (showAllFlights) {
       return flightsArray;
     }
-
     return flightsArray.filter(flight => {
-      // Assuming 'scheduled_out' is the relevant time for both departures and arrivals.
-      // If your FlightData type has a 'scheduled_in' for arrivals, use that for arrivals.
       if (!flight.scheduled_out) return false;
       const [hours, minutes] = flight.scheduled_out.split(':').map(Number);
       const scheduledTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
-      // Keep the flight if its scheduled time is after the 'tenMinutesAgo' mark
       return scheduledTime > tenMinutesAgo;
     });
-  };
+  }, [showAllFlights, now, tenMinutesAgo]);
 
-  // Apply time-based filtering before applying search query filter
-  const timeFilteredDepartures = flights?.departures ? getFilteredFlightsByTime(flights.departures) : [];
-  const timeFilteredArrivals = flights?.arrivals ? getFilteredFlightsByTime(flights.arrivals) : [];
 
-  // Combine time-filtered flights with search query filter
-  const filteredFlights = (activeTab === 'departures' ? timeFilteredDepartures : timeFilteredArrivals).filter(flight => {
-    const flightNumberMatch = flight.ident.toLowerCase().includes(searchQuery.toLowerCase());
-    const iataCodeMatch = flight.Kompanija?.toLowerCase().includes(searchQuery.toLowerCase());
-    const destinationMatch = flight.grad?.toLowerCase().includes(searchQuery.toLowerCase());
-    const destinationCodeMatch = flight.destination.code?.toLowerCase().includes(searchQuery.toLowerCase());
+  // Memoize time-filtered departures and arrivals
+  const timeFilteredDepartures = useMemo(
+    () => (flights?.departures ? getFilteredFlightsByTime(flights.departures) : []),
+    [flights?.departures, getFilteredFlightsByTime]
+  );
+  const timeFilteredArrivals = useMemo(
+    () => (flights?.arrivals ? getFilteredFlightsByTime(flights.arrivals) : []),
+    [flights?.arrivals, getFilteredFlightsByTime]
+  );
 
-    return flightNumberMatch || iataCodeMatch || destinationMatch || destinationCodeMatch;
-  });
+  // Memoize the final filtered flights based on search query and active tab
+  const filteredFlights = useMemo(() => {
+    const currentFlights = activeTab === 'departures' ? timeFilteredDepartures : timeFilteredArrivals;
+    if (!debouncedSearchQuery) {
+      return currentFlights;
+    }
+    const lowerCaseSearchQuery = debouncedSearchQuery.toLowerCase();
+    return currentFlights.filter(flight => {
+      const flightNumberMatch = flight.ident.toLowerCase().includes(lowerCaseSearchQuery);
+      const iataCodeMatch = flight.Kompanija?.toLowerCase().includes(lowerCaseSearchQuery);
+      const destinationMatch = flight.grad?.toLowerCase().includes(lowerCaseSearchQuery);
+      const destinationCodeMatch = flight.destination.code?.toLowerCase().includes(lowerCaseSearchQuery);
+      return flightNumberMatch || iataCodeMatch || destinationMatch || destinationCodeMatch;
+    });
+  }, [activeTab, timeFilteredDepartures, timeFilteredArrivals, debouncedSearchQuery]);
 
-  // Combine all flights for airline distribution (both departures and arrivals)
-  const allFlights = [...(flights?.departures || []), ...(flights?.arrivals || [])];
+  // Memoize all flights for airline distribution
+  const allFlights = useMemo(
+    () => [...(flights?.departures || []), ...(flights?.arrivals || [])],
+    [flights?.departures, flights?.arrivals]
+  );
 
   return (
     <div className="container mx-auto p-4 bg-white dark:bg-gray-800">
+      {/* FlightAnnouncementsProvider should wrap the entire app or a significant portion */}
       <FlightAnnouncementsProvider />
 
       <h1 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">
         Flight Information
       </h1>
-   <div className="mb-6">
-      <BackgroundVolume />
-    </div>
+      <div className="mb-6">
+        <BackgroundVolume />
+      </div>
       {/* Airline Distribution Card */}
       <div className="mb-6">
         <AirlineDistributionCard flights={allFlights} />
