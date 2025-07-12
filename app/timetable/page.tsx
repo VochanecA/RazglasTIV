@@ -10,6 +10,7 @@ import Skeleton from '@/components/ui/skeleton';
 import { PlaneTakeoff, PlaneLanding, Lock, ListFilter, List } from 'lucide-react'; // Added ListFilter and List icons
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/lib/auth';
+import BackgroundVolume from '@/components/ui/BackgroundVolume';
 
 
 const Tab = ({ label, isActive, onClick, icon }: { label: string; isActive: boolean; onClick: () => void; icon: React.ReactNode }) => (
@@ -144,7 +145,9 @@ export default function Page() {
       <h1 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">
         Flight Information
       </h1>
-
+   <div className="mb-6">
+      <BackgroundVolume />
+    </div>
       {/* Airline Distribution Card */}
       <div className="mb-6">
         <AirlineDistributionCard flights={allFlights} />

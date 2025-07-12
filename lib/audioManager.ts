@@ -5,6 +5,7 @@ let gongAudio: HTMLAudioElement | null = null;
 let musicControlInterval: NodeJS.Timeout | null = null;
 let cancelledFlightInterval: NodeJS.Timeout | null = null;
 
+
 interface FlightMP3Info {
   type: 'ARR' | 'DEP' | 'I' | 'O' | 'General';
   airline: string;
@@ -563,7 +564,7 @@ export const setupBackgroundMusic = () => {
   const streamUrl = process.env.NEXT_PUBLIC_STREAM_URL || 'https://jking.cdnstream1.com/b22139_128mp3';
   backgroundAudio = new Audio(streamUrl);
   backgroundAudio.loop = true;
-  backgroundAudio.volume = 0.3;
+  backgroundAudio.volume = 0.2;
 
   // Crucial for mobile: Add an event listener to play the music ONLY after a user interaction.
   // For example, when the component mounts or a "Play Music" button is clicked.
@@ -582,6 +583,9 @@ export const setupBackgroundMusic = () => {
 
   // Preload gong sound on music setup
   preloadGongSound();
+
+  // Initialize the audio manager interface
+  initializeAudioManagerInterface();
 };
 
 // New export for playing background music after user interaction
@@ -592,7 +596,6 @@ export const playBackgroundMusic = () => {
     });
   }
 };
-
 
 export const fadeOutBackgroundMusic = (): Promise<void> => {
   if (!backgroundAudio) return Promise.resolve(); // Initial check covers the overall function call
@@ -636,7 +639,7 @@ export const stopBackgroundMusic = () => {
     backgroundAudio.pause();
     backgroundAudio.currentTime = 0;
     // backgroundAudio.src = ''; // This might not be necessary and could prevent re-use
-    backgroundAudio.volume = 0.3; // Reset volume
+    backgroundAudio.volume = 0.2; // Reset volume
   }
 
   if (musicControlInterval) {
@@ -673,7 +676,7 @@ export const fadeInBackgroundMusic = (): Promise<void> => {
   }
 
   // If already playing and at target volume, resolve.
-  if (!backgroundAudio.paused && backgroundAudio.volume >= 0.3) {
+  if (!backgroundAudio.paused && backgroundAudio.volume >= 0.2) {
       return Promise.resolve();
   }
 
@@ -686,8 +689,8 @@ export const fadeInBackgroundMusic = (): Promise<void> => {
     });
 
     const fadeInInterval = setInterval(() => {
-      if (backgroundAudio && backgroundAudio.volume < 0.3) {
-        backgroundAudio.volume = Math.min(0.3, backgroundAudio.volume + 0.05); // Slower, smoother fade in
+      if (backgroundAudio && backgroundAudio.volume < 0.2) {
+        backgroundAudio.volume = Math.min(0.2, backgroundAudio.volume + 0.05); // Slower, smoother fade in
       } else {
         clearInterval(fadeInInterval);
         resolve();
@@ -754,4 +757,43 @@ export const isGongPlaying = () => {
 
 export const isBackgroundMusicPlaying = () => {
   return backgroundAudio && !backgroundAudio.paused && !backgroundAudio.ended;
+};
+
+// Get current background music volume
+export const getBackgroundMusicVolume = (): number => {
+  if (!backgroundAudio) return 0.2; // Default volume
+  return backgroundAudio.volume;
+};
+
+// Set background music volume
+export const setBackgroundMusicVolume = (volume: number): void => {
+  if (!backgroundAudio) return;
+  
+  // Clamp volume between 0 and 1
+  const clampedVolume = Math.max(0, Math.min(1, volume));
+  backgroundAudio.volume = clampedVolume;
+  
+  console.log(`Background music volume set to: ${clampedVolume}`);
+};
+
+// Initialize audio manager interface for the component
+export const initializeAudioManagerInterface = () => {
+  if (typeof window !== 'undefined') {
+    window.audioManager = {
+      getBackgroundMusicVolume,
+      setBackgroundMusicVolume,
+      isBackgroundMusicPlaying: () => {
+        const playing = isBackgroundMusicPlaying();
+        return playing !== null ? playing : false;
+      },
+      playBackgroundMusic,
+      stopBackgroundMusic,
+    };
+  }
+};
+
+// Modified setupBackgroundMusic function (alternative approach)
+export const setupBackgroundMusicWithInterface = () => {
+  setupBackgroundMusic();
+  initializeAudioManagerInterface();
 };
