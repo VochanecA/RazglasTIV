@@ -904,7 +904,8 @@ export const manageCancelledFlights = {
       status: 'cancelled',
       gate: '',
       checkIn: '',
-      TipLeta: 'D'
+      TipLeta: 'D',
+      delay: undefined
     };
     
     const text = `Flight ${flightNumber} to ${destination} has been cancelled. Passengers should contact their airline for rebooking assistance.`;
