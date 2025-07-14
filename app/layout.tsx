@@ -8,6 +8,7 @@ import { NotificationCenter } from '@/components/ui/NotificationCenter'; // Use 
 import ThemeProvider from '@/components/ui/ThemeProvider'; // Assuming default export for ThemeProvider
 import { ScreenWakeManager } from '@/components/ScreenWakeManager'; // Import the screen wake manager
 import type { Metadata } from 'next';
+import React, { ReactNode } from 'react'; // Import React and ReactNode
 
 // Define the primary font with a CSS variable for easy use in Tailwind
 const fontSans = FontSans({
@@ -48,11 +49,15 @@ export const metadata: Metadata = {
     creator: '@yourtwitterhandle', // Replace with your Twitter handle
     images: ['https://aerovoice.com/twitter-image.jpg'], // Replace with a compelling Twitter image
   },
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-  },
+  // Removed viewport from here
+};
+
+// Export the viewport separately as recommended by Next.js
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false, // Added for consistency with page.tsx
 };
 
 export default async function RootLayout({
@@ -61,7 +66,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const userPromise = getUser();
-  
+
   return (
     // suppressHydrationWarning is used here because ThemeProvider will modify the 'class' attribute on the client
     <html lang="en" suppressHydrationWarning>

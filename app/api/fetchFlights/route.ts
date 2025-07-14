@@ -319,7 +319,7 @@ export async function GET() {
           KompanijaICAO: flight.KompanijaICAO,
           KompanijaNaziv: flight.KompanijaNaziv,
           checkIn: flight.CheckIn,
-          gate: '2,3',
+          gate: flight.Gate,
           TipLeta: flight.TipLeta,
         })),
       arrivals: rawData
