@@ -352,14 +352,19 @@ const parseCheckInOrGateNumbers = (input: string): string => {
 };
 
 const parseFlightNumber = (flightNumber: string): string => {
+  // Remove any non-alphanumeric characters and trim whitespace
+  const cleanedFlightNumber = flightNumber.replace(/[^a-zA-Z0-9]/g, '').trim();
+
   const numberToWords: Record<string, string> = {
     '0': 'zero', '1': 'one', '2': 'two', '3': 'three',
     '4': 'four', '5': 'five', '6': 'six', '7': 'seven',
     '8': 'eight', '9': 'nine'
   };
 
-  return flightNumber.split('').map(digit => numberToWords[digit] || digit).join(' ');
+  // Convert each character in the cleaned flight number to its word equivalent
+  return cleanedFlightNumber.split('').map(char => numberToWords[char] || char).join(' ');
 };
+
 
 const getAnnouncementSuffix = (type: AnnouncementTypeExtended): string => {
   const suffixMap: Record<AnnouncementTypeExtended, string> = {
@@ -746,6 +751,7 @@ const processFlightAnnouncement = async (
     priority: getPriorityForAnnouncementType(type)
   };
 };
+
 
 const getPriorityForAnnouncementType = (type: AnnouncementTypeExtended): number => {
   const priorityMap: Record<AnnouncementTypeExtended, number> = {
