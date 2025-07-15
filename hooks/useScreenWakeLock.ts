@@ -1,4 +1,3 @@
-// hooks/useScreenWakeLock.ts
 import { useEffect, useRef, useState } from 'react';
 
 export const useScreenWakeLock = () => {
@@ -17,10 +16,16 @@ export const useScreenWakeLock = () => {
       return false;
     }
 
+    // Check if the document is visible
+    if (document.visibilityState !== 'visible') {
+      console.warn('Screen Wake Lock can only be requested when the page is visible');
+      return false;
+    }
+
     try {
       wakeLockRef.current = await navigator.wakeLock.request('screen');
       setIsActive(true);
-      
+
       // Listen for wake lock release
       wakeLockRef.current.addEventListener('release', () => {
         console.log('Screen Wake Lock was released');
@@ -52,10 +57,10 @@ export const useScreenWakeLock = () => {
     };
   }, []);
 
-  // Handle visibility change (important for mobile)
+  // Handle visibility change
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && isActive && !wakeLockRef.current) {
+      if (document.visibilityState === 'visible' && isSupported && !isActive) {
         // Re-request wake lock when page becomes visible again
         requestWakeLock();
       }
