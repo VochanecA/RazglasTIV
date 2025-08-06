@@ -17,4 +17,6 @@ const FlightsPage = () => {
   );
 };
 
+
+
 export default FlightsPage;
