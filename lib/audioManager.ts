@@ -1,10 +1,5 @@
 'use client';
 
-let backgroundAudio: HTMLAudioElement | null = null;
-let gongAudio: HTMLAudioElement | null = null;
-let musicControlInterval: NodeJS.Timeout | null = null;
-let cancelledFlightInterval: NodeJS.Timeout | null = null;
-
 interface FlightMP3Info {
   type: 'ARR' | 'DEP' | 'I' | 'O' | 'General';
   airline: string;
@@ -17,13 +12,24 @@ interface CancelledFlightInfo {
   text: string;
   flightInfo?: FlightMP3Info;
   startTime: Date;
-  endTime: Date; // 21:00 on the same day
+  endTime: Date;
 }
+
+// Global variables
+let backgroundAudio: HTMLAudioElement | null = null;
+let gongAudio: HTMLAudioElement | null = null;
+let musicControlInterval: NodeJS.Timeout | null = null;
+let cancelledFlightInterval: NodeJS.Timeout | null = null;
+let dailyMusicInterval: NodeJS.Timeout | null = null;
 
 // Queue management
 let isProcessingQueue = false;
 let announcementQueue: Array<{ text: string; flightInfo?: FlightMP3Info }> = [];
 let cancelledFlights: CancelledFlightInfo[] = [];
+
+// Flight status tracking
+let hasActiveFlightsToday = false;
+let lastFlightCheckTime: Date | null = null;
 
 // Helper function to check if MP3 file exists
 const checkMP3Exists = async (path: string): Promise<boolean> => {
@@ -76,7 +82,7 @@ const getMP3Path = (flightInfo: FlightMP3Info): string => {
 };
 
 // Pre-load the gong sound to eliminate delay
-const preloadGongSound = () => {
+const preloadGongSound = (): void => {
   // Ensure Audio object is available (i.e., running in browser)
   if (typeof window !== 'undefined' && !gongAudio) {
     gongAudio = new Audio('/mp3/Gong_pojacan.mp3');
@@ -101,10 +107,66 @@ const isBeforeEndTime = (): boolean => {
   return now < endTime;
 };
 
+// Function to check if current time is after 07:00
+const isAfterStartTime = (): boolean => {
+  const now = new Date();
+  const startTime = new Date();
+  startTime.setHours(7, 0, 0, 0); // Set to 07:00 today
+  return now >= startTime;
+};
+
+// Function to check if we should play background music based on time and flight status
+const shouldPlayBackgroundMusic = (): boolean => {
+  const now = new Date();
+  const currentHour = now.getHours();
+  
+  // Only play between 07:00 and 21:00
+  if (currentHour < 7 || currentHour >= 21) {
+    return false;
+  }
+  
+  // Only play if there are active flights today
+  return hasActiveFlightsToday;
+};
+
+// Function to update flight status
+export const updateFlightStatus = (hasFlights: boolean): void => {
+  hasActiveFlightsToday = hasFlights;
+  lastFlightCheckTime = new Date();
+  
+  console.log(`Flight status updated: ${hasFlights ? 'Active flights today' : 'No active flights today'}`);
+  
+  // Auto-manage background music based on flight status
+  manageBackgroundMusicBasedOnFlights();
+};
+
+// Function to auto-manage background music based on flight status
+const manageBackgroundMusicBasedOnFlights = (): void => {
+  if (!backgroundAudio) return;
+  
+  const shouldPlay = shouldPlayBackgroundMusic();
+  const isPlaying = !backgroundAudio.paused;
+  
+  if (shouldPlay && !isPlaying) {
+    // Start background music if we should play and it's not playing
+    console.log('Auto-starting background music (active flights + correct time)');
+    playBackgroundMusic();
+  } else if (!shouldPlay && isPlaying) {
+    // Stop background music if we shouldn't play and it is playing
+    console.log('Auto-stopping background music (no active flights or outside hours)');
+    stopBackgroundMusic();
+  }
+};
+
+// Function to check if we should play gong (only if there are active flights)
+const shouldPlayGong = (): boolean => {
+  return hasActiveFlightsToday;
+};
+
 // Function to play cancelled flight announcements
-const playCancelledFlightAnnouncements = async () => {
-  if (!isBeforeEndTime()) {
-    console.log('Past 21:00, stopping cancelled flight announcements');
+const playCancelledFlightAnnouncements = async (): Promise<void> => {
+  if (!isBeforeEndTime() || !hasActiveFlightsToday) {
+    console.log('Past 21:00 or no active flights, stopping cancelled flight announcements');
     stopCancelledFlightAnnouncements();
     return;
   }
@@ -131,26 +193,26 @@ const playCancelledFlightAnnouncements = async () => {
 };
 
 // Function to start cancelled flight announcement schedule
-const startCancelledFlightAnnouncements = () => {
+const startCancelledFlightAnnouncements = (): void => {
   if (cancelledFlightInterval) {
     clearInterval(cancelledFlightInterval);
   }
 
-  // Play immediately if we have cancelled flights and it's before 21:00
-  if (cancelledFlights.length > 0 && isBeforeEndTime()) {
-    playCancelledFlightAnnouncements();
+  // Play immediately if we have cancelled flights and conditions are met
+  if (cancelledFlights.length > 0 && isBeforeEndTime() && hasActiveFlightsToday) {
+    void playCancelledFlightAnnouncements();
   }
 
   // Set up interval to play every 30 minutes (30 * 60 * 1000 = 1800000ms)
   cancelledFlightInterval = setInterval(() => {
-    playCancelledFlightAnnouncements();
+    void playCancelledFlightAnnouncements();
   }, 30 * 60 * 1000);
 
   console.log('Started cancelled flight announcements (every 30 minutes until 21:00)');
 };
 
 // Function to stop cancelled flight announcement schedule
-const stopCancelledFlightAnnouncements = () => {
+const stopCancelledFlightAnnouncements = (): void => {
   if (cancelledFlightInterval) {
     clearInterval(cancelledFlightInterval);
     cancelledFlightInterval = null;
@@ -159,7 +221,7 @@ const stopCancelledFlightAnnouncements = () => {
 };
 
 // Function to add a cancelled flight
-export const addCancelledFlight = (text: string, flightInfo?: FlightMP3Info) => {
+export const addCancelledFlight = (text: string, flightInfo?: FlightMP3Info): void => {
   const now = new Date();
   const endTime = new Date();
   endTime.setHours(21, 0, 0, 0); // Set to 21:00 today
@@ -179,14 +241,14 @@ export const addCancelledFlight = (text: string, flightInfo?: FlightMP3Info) => 
   cancelledFlights.push(cancelledFlight);
   console.log('Added cancelled flight:', text);
 
-  // Start the announcement schedule if not already running
-  if (!cancelledFlightInterval) {
+  // Start the announcement schedule if not already running and conditions are met
+  if (!cancelledFlightInterval && hasActiveFlightsToday) {
     startCancelledFlightAnnouncements();
   }
 };
 
 // Function to remove a cancelled flight
-export const removeCancelledFlight = (text: string) => {
+export const removeCancelledFlight = (text: string): void => {
   const initialLength = cancelledFlights.length;
   cancelledFlights = cancelledFlights.filter(flight => flight.text !== text);
 
@@ -206,7 +268,7 @@ export const getCancelledFlights = (): CancelledFlightInfo[] => {
 };
 
 // Function to clear all cancelled flights
-export const clearCancelledFlights = () => {
+export const clearCancelledFlights = (): void => {
   cancelledFlights = [];
   stopCancelledFlightAnnouncements();
   console.log('Cleared all cancelled flights');
@@ -222,14 +284,15 @@ const playMP3Announcement = async (mp3Path: string): Promise<void> => {
       // Ensure Audio object is available before creating a new instance
       if (typeof window === 'undefined') {
         console.error('Audio object not available, cannot play MP3.');
-        return reject(new Error('Audio object not available'));
+        reject(new Error('Audio object not available'));
+        return;
       }
       const audio = new Audio(path);
 
       // Preload the audio file to reduce delay
       audio.load();
 
-      const cleanup = () => {
+      const cleanup = (): void => {
         audio.onloadeddata = null;
         audio.onended = null;
         audio.onerror = null;
@@ -288,7 +351,8 @@ const playTTSAnnouncementWithoutGong = async (text: string): Promise<void> => {
   return new Promise<void>((resolve) => {
     if (typeof window === 'undefined' || !window.speechSynthesis) {
       console.warn('Speech synthesis not supported or not in browser environment');
-      return resolve();
+      resolve();
+      return;
     }
 
     const utterance = new SpeechSynthesisUtterance(text);
@@ -306,9 +370,10 @@ const playTTSAnnouncementWithoutGong = async (text: string): Promise<void> => {
       resolve();
     };
 
-    utterance.onerror = (event) => {
+    utterance.onerror = () => {
       clearTimeout(timeoutId);
-      console.error('Speech synthesis error:', event);
+      // SILENT ERROR HANDLING - don't log to console.error to avoid browser errors
+      console.log('Speech synthesis completed with issues');
       resolve();
     };
 
@@ -321,6 +386,12 @@ const playGongAndTTS = async (text: string): Promise<void> => {
   if (typeof window === 'undefined') {
     console.error('Not in browser environment, cannot play gong and TTS.');
     return Promise.resolve();
+  }
+
+  // Check if we should play gong (only if there are active flights)
+  if (!shouldPlayGong()) {
+    console.log('No active flights today, skipping gong and playing TTS only');
+    return playTTSAnnouncementWithoutGong(text);
   }
 
   // MODIFICATION: Pause background music immediately
@@ -362,11 +433,11 @@ const playGongAndTTS = async (text: string): Promise<void> => {
       }
     };
 
-    gongAudio!.onerror = (error) => {
-      console.error('Gong playback error:', error);
+    gongAudio!.onerror = () => {
+      console.error('Gong playback error');
       clearTimeout(timeoutId);
       // If gong fails, still try to play the TTS
-      playTTSAnnouncementWithoutGong(text).then(resolve);
+      void playTTSAnnouncementWithoutGong(text).then(resolve);
     };
 
     // Play the gong
@@ -374,7 +445,7 @@ const playGongAndTTS = async (text: string): Promise<void> => {
       console.error('Failed to play gong sound:', error);
       clearTimeout(timeoutId);
       // If gong fails, still try to play the TTS
-      playTTSAnnouncementWithoutGong(text).then(resolve);
+      void playTTSAnnouncementWithoutGong(text).then(resolve);
     });
   });
 };
@@ -384,6 +455,12 @@ const playGongAndMP3 = async (mp3Path: string): Promise<void> => {
   if (typeof window === 'undefined') {
     console.error('Not in browser environment, cannot play gong and MP3.');
     return Promise.resolve();
+  }
+
+  // Check if we should play gong (only if there are active flights)
+  if (!shouldPlayGong()) {
+    console.log('No active flights today, skipping gong and playing MP3 only');
+    return playMP3Announcement(mp3Path);
   }
 
   // MODIFICATION: Pause background music immediately
@@ -425,11 +502,11 @@ const playGongAndMP3 = async (mp3Path: string): Promise<void> => {
       }
     };
 
-    gongAudio!.onerror = (error) => {
-      console.error('Gong playback error:', error);
+    gongAudio!.onerror = () => {
+      console.error('Gong playback error');
       clearTimeout(timeoutId);
       // If gong fails, still try to play the MP3
-      playMP3Announcement(mp3Path).then(resolve);
+      void playMP3Announcement(mp3Path).then(resolve);
     };
 
     // Play the gong
@@ -437,12 +514,12 @@ const playGongAndMP3 = async (mp3Path: string): Promise<void> => {
       console.error('Failed to play gong sound:', error);
       clearTimeout(timeoutId);
       // If gong fails, still try to play the MP3
-      playMP3Announcement(mp3Path).then(resolve);
+      void playMP3Announcement(mp3Path).then(resolve);
     });
   });
 };
 
-const processAnnouncementQueue = async () => {
+const processAnnouncementQueue = async (): Promise<void> => {
   if (isProcessingQueue || announcementQueue.length === 0) return;
 
   isProcessingQueue = true;
@@ -517,27 +594,57 @@ const processAnnouncementQueue = async () => {
   }
 };
 
-export const addAnnouncement = async (text: string, flightInfo?: FlightMP3Info) => {
+export const addAnnouncement = async (text: string, flightInfo?: FlightMP3Info): Promise<void> => {
+  // Only add announcement if there are active flights today
+  if (!hasActiveFlightsToday) {
+    console.log('No active flights today, skipping announcement:', text);
+    return;
+  }
+  
   announcementQueue.push({ text, flightInfo });
-  processAnnouncementQueue();
+  void processAnnouncementQueue();
 };
 
-export const addAnnouncements = async (announcements: Array<{ text: string; flightInfo?: FlightMP3Info }>) => {
-  announcementQueue.push(...announcements);
-  processAnnouncementQueue();
+export const addAnnouncements = async (announcements: Array<{ text: string; flightInfo?: FlightMP3Info }>): Promise<void> => {
+  // Filter out announcements if no active flights
+  const filteredAnnouncements = hasActiveFlightsToday 
+    ? announcements 
+    : [];
+  
+  if (filteredAnnouncements.length === 0) {
+    console.log('No active flights today, skipping all announcements');
+    return;
+  }
+  
+  announcementQueue.push(...filteredAnnouncements);
+  void processAnnouncementQueue();
 };
 
 // Export to get the current announcement queue
-export const getAnnouncementQueue = () => {
+export const getAnnouncementQueue = (): Array<{ text: string; flightInfo?: FlightMP3Info }> => {
   return [...announcementQueue]; // Return a copy to prevent external modification
 };
 
 // Export to check if the announcement queue is empty
-export const isAnnouncementQueueEmpty = () => {
+export const isAnnouncementQueueEmpty = (): boolean => {
   return announcementQueue.length === 0;
 };
 
-export const setupBackgroundMusic = () => {
+// Function to start daily music schedule
+const startDailyMusicSchedule = (): void => {
+  if (dailyMusicInterval) {
+    clearInterval(dailyMusicInterval);
+  }
+
+  // Check every minute if we should start/stop background music
+  dailyMusicInterval = setInterval(() => {
+    manageBackgroundMusicBasedOnFlights();
+  }, 60 * 1000); // Check every minute
+
+  console.log('Started daily music schedule');
+};
+
+export const setupBackgroundMusic = (): void => {
   // Ensure Audio object is available and we are on the client side
   if (typeof window === 'undefined' || backgroundAudio) return;
 
@@ -558,6 +665,9 @@ export const setupBackgroundMusic = () => {
     }
   }, 1000);
 
+  // Start daily music schedule
+  startDailyMusicSchedule();
+
   // Preload gong sound on music setup
   preloadGongSound();
 
@@ -566,8 +676,8 @@ export const setupBackgroundMusic = () => {
 };
 
 // New export for playing background music after user interaction
-export const playBackgroundMusic = () => {
-  if (backgroundAudio && backgroundAudio.paused) {
+export const playBackgroundMusic = (): void => {
+  if (backgroundAudio && backgroundAudio.paused && shouldPlayBackgroundMusic()) {
     backgroundAudio.play().catch(error => {
       console.error('Failed to play background music on user interaction:', error);
     });
@@ -600,12 +710,14 @@ export const fadeOutBackgroundMusic = (): Promise<void> => {
     // MODIFIED: Add a null check here before accessing properties like 'paused'
     if (backgroundAudio === null) {
       console.warn('backgroundAudio is null inside fadeOutBackgroundMusic promise.');
-      return resolve(); // Should not happen if initial check works, but defensive coding
+      resolve(); // Should not happen if initial check works, but defensive coding
+      return;
     }
 
     // If background music isn't currently playing, no need to fade out, just resolve.
     if (backgroundAudio.paused) {
-      return resolve();
+      resolve();
+      return;
     }
 
     const initialVolume = backgroundAudio.volume; // Store current volume to restore later
@@ -615,7 +727,8 @@ export const fadeOutBackgroundMusic = (): Promise<void> => {
       if (backgroundAudio === null) {
         clearInterval(fadeOutInterval);
         console.warn('backgroundAudio became null during fadeOutInterval.');
-        return resolve();
+        resolve();
+        return;
       }
 
       if (backgroundAudio.volume > 0.01) { // Fade to near zero
@@ -630,7 +743,7 @@ export const fadeOutBackgroundMusic = (): Promise<void> => {
   });
 };
 
-export const stopBackgroundMusic = () => {
+export const stopBackgroundMusic = (): void => {
   if (backgroundAudio) {
     backgroundAudio.pause();
     backgroundAudio.currentTime = 0;
@@ -641,9 +754,14 @@ export const stopBackgroundMusic = () => {
     clearInterval(musicControlInterval);
     musicControlInterval = null;
   }
+
+  if (dailyMusicInterval) {
+    clearInterval(dailyMusicInterval);
+    dailyMusicInterval = null;
+  }
 };
 
-export const cleanupAudioResources = () => {
+export const cleanupAudioResources = (): void => {
   stopBackgroundMusic();
   clearAnnouncementQueue();
   stopCancelledFlightAnnouncements();
@@ -670,14 +788,24 @@ export const fadeInBackgroundMusic = (): Promise<void> => {
     return Promise.resolve();
   }
 
+  // Only fade in if we should play background music
+  if (!shouldPlayBackgroundMusic()) {
+    return Promise.resolve();
+  }
+
   // If already playing and at target volume, resolve.
   if (!backgroundAudio.paused && backgroundAudio.volume >= 0.2) {
       return Promise.resolve();
   }
 
   return new Promise<void>((resolve) => {
-    backgroundAudio!.volume = backgroundAudio!.volume > 0 ? backgroundAudio!.volume : 0; // Start from current or 0
-    backgroundAudio!.play().catch(error => {
+    if (!backgroundAudio) {
+      resolve();
+      return;
+    }
+
+    backgroundAudio.volume = backgroundAudio.volume > 0 ? backgroundAudio.volume : 0; // Start from current or 0
+    backgroundAudio.play().catch(error => {
       console.error('Failed to resume background music:', error);
       resolve();
       return;
@@ -697,6 +825,12 @@ export const fadeInBackgroundMusic = (): Promise<void> => {
 export const playGongSound = (): Promise<void> => {
   if (typeof window === 'undefined') {
     console.error('Not in browser environment, cannot play gong sound.');
+    return Promise.resolve();
+  }
+
+  // Only play gong if there are active flights
+  if (!shouldPlayGong()) {
+    console.log('No active flights today, skipping gong sound');
     return Promise.resolve();
   }
 
@@ -724,9 +858,9 @@ export const playGongSound = (): Promise<void> => {
       resolve();
     };
 
-    gongAudio!.onerror = (error) => {
+    gongAudio!.onerror = () => {
       clearTimeout(timeoutId);
-      console.error('Failed to play gong sound:', error);
+      console.error('Failed to play gong sound');
       resolve();
     };
 
@@ -738,7 +872,7 @@ export const playGongSound = (): Promise<void> => {
   });
 };
 
-export const clearAnnouncementQueue = () => {
+export const clearAnnouncementQueue = (): void => {
   announcementQueue = [];
   isProcessingQueue = false;
   if (typeof window !== 'undefined' && window.speechSynthesis) {
@@ -746,12 +880,12 @@ export const clearAnnouncementQueue = () => {
   }
 };
 
-export const isGongPlaying = () => {
-  return gongAudio && !gongAudio.paused && !gongAudio.ended;
+export const isGongPlaying = (): boolean => {
+  return !!(gongAudio && !gongAudio.paused && !gongAudio.ended);
 };
 
-export const isBackgroundMusicPlaying = () => {
-  return backgroundAudio && !backgroundAudio.paused && !backgroundAudio.ended;
+export const isBackgroundMusicPlaying = (): boolean => {
+  return !!(backgroundAudio && !backgroundAudio.paused && !backgroundAudio.ended);
 };
 
 // Get current background music volume
@@ -771,6 +905,14 @@ export const setBackgroundMusicVolume = (volume: number): void => {
   console.log(`Background music volume set to: ${clampedVolume}`);
 };
 
+// Get current flight status
+export const getFlightStatus = (): { hasActiveFlights: boolean; lastCheck: Date | null } => {
+  return {
+    hasActiveFlights: hasActiveFlightsToday,
+    lastCheck: lastFlightCheckTime
+  };
+};
+
 // KIOSK MOD FUNCTIONS
 
 // Funkcija za kiosk mod koja pokušava zaobići autoplay restrictions
@@ -784,7 +926,7 @@ export const initializeKioskAudio = (): Promise<boolean> => {
     console.log('Initializing kiosk audio...');
 
     // Strategy 1: Try to play a silent audio to unlock audio context
-    const trySilentAudio = () => {
+    const trySilentAudio = (): void => {
       const silentAudio = new Audio();
       silentAudio.src = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgYZrXp8sVvIAUfZqzh57trFgUZX6fb5rVlEAUYWqTZ5bNjDgUXVqHX5LBhDAUWVZ/Y465fCgUVVJ7X4q1dCAUUU53W4axbCAUTUpzW4KtaCAUSUZvV36pZCAURUJrU3qlYCAUQUJnT3ahXCAUPUJjS3KdWCAUOUJfR26ZVCAUNUJbQ2qVUCAUMUJXP2aRTCAULUJTO2KNSCAUKUJPN16JRCAUJUJLM1qFQCAUIUJHL1aBPCAAFAgEEAAIBAQIB';
       silentAudio.volume = 0.001;
@@ -799,11 +941,11 @@ export const initializeKioskAudio = (): Promise<boolean> => {
           resolve(true);
         }).catch(() => {
           console.log('Silent audio failed, trying user gesture simulation');
-          tryUserGestureSimulation().then(resolve);
+          void tryUserGestureSimulation().then(resolve);
         });
       } else {
         console.log('Play promise not supported, trying user gesture simulation');
-        tryUserGestureSimulation().then(resolve);
+        void tryUserGestureSimulation().then(resolve);
       }
     };
 
@@ -870,7 +1012,6 @@ export const initializeKioskAudio = (): Promise<boolean> => {
   });
 };
 
-// Modifikovana setup funkcija za kiosk
 // Modifikovana setup funkcija za kiosk sa silent error handling
 export const setupBackgroundMusicForKiosk = async (): Promise<boolean> => {
   if (typeof window === 'undefined') {
@@ -897,6 +1038,9 @@ export const setupBackgroundMusicForKiosk = async (): Promise<boolean> => {
     backgroundAudio = new Audio(streamUrl);
     backgroundAudio.loop = true;
     backgroundAudio.volume = 0.2;
+
+    // Start daily music schedule
+    startDailyMusicSchedule();
 
     // SILENT AUTOPLAY ATTEMPT - catch all errors
     try {
@@ -946,6 +1090,12 @@ export const playBackgroundMusicForKiosk = async (): Promise<boolean> => {
     return true;
   }
 
+  // Only play if conditions are met
+  if (!shouldPlayBackgroundMusic()) {
+    console.log('Background music conditions not met (time or flight status)');
+    return false;
+  }
+
   try {
     // Strategy 1: Direct play with silent error handling
     const playPromise = backgroundAudio.play();
@@ -967,8 +1117,6 @@ export const playBackgroundMusicForKiosk = async (): Promise<boolean> => {
   }
 };
 
-
-// Funkcija za automatski start kiosk audio sa retry logikom
 // Funkcija za automatski start kiosk audio sa silent retry logikom
 export const startKioskAudioWithRetry = async (maxRetries = 2): Promise<boolean> => {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -1002,7 +1150,7 @@ export const startKioskAudioWithRetry = async (maxRetries = 2): Promise<boolean>
 };
 
 // Initialize audio manager interface for the component
-export const initializeAudioManagerInterface = () => {
+export const initializeAudioManagerInterface = (): void => {
   if (typeof window !== 'undefined') {
     window.audioManager = {
       getBackgroundMusicVolume,
@@ -1015,6 +1163,8 @@ export const initializeAudioManagerInterface = () => {
       pauseBackgroundMusic,
       toggleBackgroundMusic,
       stopBackgroundMusic,
+      getFlightStatus,
+      updateFlightStatus,
       // Kiosk functions
       setupBackgroundMusicForKiosk,
       playBackgroundMusicForKiosk,
@@ -1024,7 +1174,7 @@ export const initializeAudioManagerInterface = () => {
 };
 
 // Modified setupBackgroundMusic function (alternative approach)
-export const setupBackgroundMusicWithInterface = () => {
+export const setupBackgroundMusicWithInterface = (): void => {
   setupBackgroundMusic();
   initializeAudioManagerInterface();
 };
@@ -1040,10 +1190,11 @@ declare global {
       pauseBackgroundMusic: () => void;
       toggleBackgroundMusic: () => void;
       stopBackgroundMusic: () => void;
+      getFlightStatus: () => { hasActiveFlights: boolean; lastCheck: Date | null };
+      updateFlightStatus: (hasFlights: boolean) => void;
       setupBackgroundMusicForKiosk: () => Promise<boolean>;
       playBackgroundMusicForKiosk: () => Promise<boolean>;
       startKioskAudioWithRetry: (maxRetries?: number) => Promise<boolean>;
     };
   }
 }
-

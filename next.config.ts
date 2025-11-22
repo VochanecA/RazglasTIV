@@ -1,9 +1,9 @@
 import type { NextConfig } from 'next';
 
 const nextConfig = {
-  experimental: {
-    ppr: true,
-  },
+  // experimental: {
+  //   ppr: true,
+  // },
   images: {
     domains: ['www.flightaware.com', 'via.placeholder.com'],
     unoptimized: true,

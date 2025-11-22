@@ -1,4 +1,4 @@
-// app/api/announcements/[id]/route.ts
+// app/api/announcements/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db/drizzle';
 import { announcementTemplates, AnnouncementType } from '@/lib/db/schema';
@@ -8,11 +8,29 @@ import { eq } from 'drizzle-orm';
 const jsonResponse = (status: string, data: any, statusCode = 200) =>
   NextResponse.json({ status, data }, { status: statusCode });
 
-// GET: Fetch all announcement templates
-export async function GET(): Promise<NextResponse> {
+// GET: Fetch all announcement templates or single by ID
+export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    const templates = await db.select().from(announcementTemplates);
-    return jsonResponse('success', templates);
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    
+    if (id) {
+      // Get single template
+      const [template] = await db
+        .select()
+        .from(announcementTemplates)
+        .where(eq(announcementTemplates.id, Number(id)));
+      
+      if (!template) {
+        return jsonResponse('error', 'Template not found', 404);
+      }
+      
+      return jsonResponse('success', template);
+    } else {
+      // Get all templates
+      const templates = await db.select().from(announcementTemplates);
+      return jsonResponse('success', templates);
+    }
   } catch (error) {
     console.error('Error fetching announcement templates:', error);
     return jsonResponse('error', 'Failed to fetch templates', 500);
@@ -40,13 +58,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 }
 
-// PUT: Update an existing announcement template
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> } // Correctly typed as Promise
-): Promise<NextResponse> {
+// PUT: Update an existing announcement template (using query param)
+export async function PUT(request: NextRequest): Promise<NextResponse> {
   try {
-    const { id } = await params; // Await params to resolve it
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
 
     // Validate ID
     if (!id || isNaN(Number(id))) {
@@ -88,13 +104,11 @@ export async function PUT(
   }
 }
 
-// DELETE: Delete an announcement template
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> } // Correctly typed as Promise
-): Promise<NextResponse> {
+// DELETE: Delete an announcement template (using query param)
+export async function DELETE(request: NextRequest): Promise<NextResponse> {
   try {
-    const { id } = await params; // Await params to resolve it
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
 
     // Validate ID
     if (!id || isNaN(Number(id))) {

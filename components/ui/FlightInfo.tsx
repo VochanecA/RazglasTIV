@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 import { fetchFlightData } from '@/app/api/flightData';
 import BaggageAnnouncement from '@/components/ui/BaggageAnnouncement';
+import { updateFlightStatus } from '@/lib/audioManager'; // DODAJ OVO
 
 interface Flight {
   ident: string;
@@ -56,7 +57,7 @@ const ANNOUNCEMENT_SCHEDULE = {
   '2nd': -40,
   'Boarding': -30,
   'LastCall': -15,
-    'Close': -5
+  'Close': -5
 };
 
 const FlightInfo = () => {
@@ -74,8 +75,36 @@ const FlightInfo = () => {
   const scheduledTimers = useRef<NodeJS.Timeout[]>([]);
   const fetchInterval = useRef<NodeJS.Timeout | null>(null);
 
- 
-  
+  // Funkcija za provjeru aktivnih letova
+  const checkActiveFlights = (flights: Flight[], departures: Departure[]): boolean => {
+    const now = new Date();
+    const currentHour = now.getHours();
+    
+    // Provjeri da li je između 07:00 i 21:00
+    if (currentHour < 7 || currentHour >= 21) {
+      return false;
+    }
+
+    // Provjeri da li ima aktivnih letova danas
+    const allFlights = [...flights, ...departures];
+    
+    // Aktivni letovi su oni koji nisu završeni (status nije "Arrived", "Landed", "Departed")
+    const activeStatuses = ['Scheduled', 'Check In', 'Check-In', 'Processing', 'Boarding', 'Delayed', 'On Time'];
+    const hasActiveFlights = allFlights.some(flight => 
+      activeStatuses.includes(flight.status)
+    );
+
+    console.log(`Active flights check: ${hasActiveFlights ? 'YES' : 'NO'}, Total flights: ${allFlights.length}`);
+    
+    return hasActiveFlights;
+  };
+
+  // Funkcija za ažuriranje statusa letova u audio manageru
+  const updateAudioManagerFlightStatus = (flights: Flight[], departures: Departure[]): void => {
+    const hasActiveFlights = checkActiveFlights(flights, departures);
+    updateFlightStatus(hasActiveFlights);
+  };
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -84,9 +113,16 @@ const FlightInfo = () => {
       setDepartures(data.departures);
       setLastFetchTimestamp(data.timestamp);
       setError(null);
+
+      // AŽURIRAJ STATUS LETOVA NAKON FETCHA
+      updateAudioManagerFlightStatus(data.flights, data.departures);
+      
     } catch (err) {
       setError('Failed to fetch flight data');
       console.error('Error fetching data:', err);
+      
+      // Ako fetch faila, pretpostavi da nema letova
+      updateFlightStatus(false);
     } finally {
       setLoading(false);
     }
@@ -222,19 +258,14 @@ const FlightInfo = () => {
     fetchInterval.current = interval;
     return () => clearInterval(interval);
   }, [isPlaying]);
-/* 
-  const handleManualAnnouncementClick = (flight: Flight | Departure, callType: string) => {
-    if (!hasAnnouncementBeenPlayed(flight.ident, callType)) {
-      const audioPath = getAudioFilePath(flight, callType);
-      audioQueue.current.push({
-        audioPath,
-        flight,
-        callType,
-        scheduledTime: new Date().toISOString()
-      });
-      if (!isPlaying) processAudioQueue();
-    }
-  }; */
+
+  // Dodaj useEffect za automatsko ažuriranje statusa kada se komponenta unmount
+  useEffect(() => {
+    return () => {
+      // Kada se komponenta zatvori, označi da nema aktivnih letova
+      updateFlightStatus(false);
+    };
+  }, []);
 
   const handleManualAnnouncementClick = (flight: Flight | Departure, callType: string) => {
     // Check conditions for playing announcements
@@ -257,22 +288,25 @@ const FlightInfo = () => {
     } else {
         console.log(`Announcement for ${flight.ident} - ${callType} not played due to status: ${flight.status}`);
     }
-};
+  };
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-8">
-    {/* Status Bar */}
-    <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg shadow flex justify-between items-center">
-      <div>
-        <p className="text-gray-700 dark:text-gray-300">
-          Last Updated: {lastFetchTimestamp ? new Date(lastFetchTimestamp).toLocaleString() : 'Never'}
-        </p>
-      
+      {/* Status Bar */}
+      <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg shadow flex justify-between items-center">
+        <div>
+          <p className="text-gray-700 dark:text-gray-300">
+            Last Updated: {lastFetchTimestamp ? new Date(lastFetchTimestamp).toLocaleString() : 'Never'}
+          </p>
+          {/* DODAJ PRIKAZ STATUSA LETOVA */}
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Active flights today: {checkActiveFlights(flights, departures) ? 'Yes' : 'No'}
+          </p>
+        </div>
+        <div className="text-sm text-gray-500 dark:text-gray-400">
+          <BaggageAnnouncement isFlightPlaying={isPlaying} />
+        </div>
       </div>
-      <div className="text-sm text-gray-500 dark:text-gray-400">
-      <BaggageAnnouncement isFlightPlaying={isPlaying} />
-      </div>
-    </div>
 
       {/* Search Field */}
       <div className="relative">

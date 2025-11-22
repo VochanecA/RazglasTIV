@@ -9,13 +9,13 @@ export type MenuItem = {
 };
 
 export const menuData: MenuItem[] = [
-  {
-    id: 1,
-    title: "Pricing",
-    path: "/pricing",
-    newTab: false,
-    icon: PackageIcon, // Just reference the icon component
-  },
+  // {
+  //   id: 1,
+  //   title: "Pricing",
+  //   path: "/pricing",
+  //   newTab: false,
+  //   icon: PackageIcon, // Just reference the icon component
+  // },
   {
     id: 2,
     title: "About",
