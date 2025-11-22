@@ -5,7 +5,6 @@ let gongAudio: HTMLAudioElement | null = null;
 let musicControlInterval: NodeJS.Timeout | null = null;
 let cancelledFlightInterval: NodeJS.Timeout | null = null;
 
-
 interface FlightMP3Info {
   type: 'ARR' | 'DEP' | 'I' | 'O' | 'General';
   airline: string;
@@ -330,15 +329,6 @@ const playGongAndTTS = async (text: string): Promise<void> => {
     console.log('Background music paused for TTS.');
   }
 
-  // MODIFICATION: Prevent gong if TTS is already speaking - This logic might need re-evaluation
-  // If a TTS is already speaking, we still want to play the gong for the *new* announcement.
-  // The original problem was background music not stopping, not gong not playing.
-  // Let's ensure gong always plays first, then TTS.
-  // if (window.speechSynthesis.speaking) {
-  //   console.log('TTS is already speaking, skipping gong and playing TTS directly.');
-  //   return playTTSAnnouncementWithoutGong(text);
-  // }
-
   if (!gongAudio) {
     preloadGongSound();
   }
@@ -402,12 +392,6 @@ const playGongAndMP3 = async (mp3Path: string): Promise<void> => {
     console.log('Background music paused for MP3.');
   }
 
-  // MODIFICATION: Prevent gong if TTS is already speaking - Same re-evaluation as above
-  // if (window.speechSynthesis.speaking) {
-  //   console.log('TTS is already speaking, skipping gong and playing MP3 directly.');
-  //   return playMP3Announcement(mp3Path);
-  // }
-
   if (!gongAudio) {
     preloadGongSound();
   }
@@ -462,7 +446,6 @@ const processAnnouncementQueue = async () => {
   if (isProcessingQueue || announcementQueue.length === 0) return;
 
   isProcessingQueue = true;
-  // let isFirstAnnouncement = true; // This flag is no longer strictly needed for fadeOut
 
   try {
     // MODIFICATION: Move fadeOutBackgroundMusic here, before starting any announcement
@@ -566,13 +549,7 @@ export const setupBackgroundMusic = () => {
   backgroundAudio.loop = true;
   backgroundAudio.volume = 0.2;
 
-  // Crucial for mobile: Add an event listener to play the music ONLY after a user interaction.
-  // For example, when the component mounts or a "Play Music" button is clicked.
-  // This example assumes you'll trigger playBackgroundMusic() from your UI.
   console.log('Background music setup. Remember to call playBackgroundMusic() from a user interaction.');
-  // backgroundAudio.play().catch(error => { // Remove this direct play() call
-  //   console.error('Failed to start background music:', error);
-  // });
 
   // Setup interval to check if we're still on timetable page
   musicControlInterval = setInterval(() => {
@@ -594,6 +571,25 @@ export const playBackgroundMusic = () => {
     backgroundAudio.play().catch(error => {
       console.error('Failed to play background music on user interaction:', error);
     });
+  }
+};
+
+// Add this function to your audioManager.ts file
+export const pauseBackgroundMusic = (): void => {
+  if (backgroundAudio && !backgroundAudio.paused) {
+    backgroundAudio.pause();
+    console.log('Background music paused');
+  }
+};
+
+// Optional: Add toggle function for easier control
+export const toggleBackgroundMusic = (): void => {
+  if (!backgroundAudio) return;
+  
+  if (backgroundAudio.paused) {
+    playBackgroundMusic();
+  } else {
+    pauseBackgroundMusic();
   }
 };
 
@@ -638,7 +634,6 @@ export const stopBackgroundMusic = () => {
   if (backgroundAudio) {
     backgroundAudio.pause();
     backgroundAudio.currentTime = 0;
-    // backgroundAudio.src = ''; // This might not be necessary and could prevent re-use
     backgroundAudio.volume = 0.2; // Reset volume
   }
 
@@ -776,6 +771,236 @@ export const setBackgroundMusicVolume = (volume: number): void => {
   console.log(`Background music volume set to: ${clampedVolume}`);
 };
 
+// KIOSK MOD FUNCTIONS
+
+// Funkcija za kiosk mod koja pokušava zaobići autoplay restrictions
+export const initializeKioskAudio = (): Promise<boolean> => {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined') {
+      resolve(false);
+      return;
+    }
+
+    console.log('Initializing kiosk audio...');
+
+    // Strategy 1: Try to play a silent audio to unlock audio context
+    const trySilentAudio = () => {
+      const silentAudio = new Audio();
+      silentAudio.src = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgYZrXp8sVvIAUfZqzh57trFgUZX6fb5rVlEAUYWqTZ5bNjDgUXVqHX5LBhDAUWVZ/Y465fCgUVVJ7X4q1dCAUUU53W4axbCAUTUpzW4KtaCAUSUZvV36pZCAURUJrU3qlYCAUQUJnT3ahXCAUPUJjS3KdWCAUOUJfR26ZVCAUNUJbQ2qVUCAUMUJXP2aRTCAULUJTO2KNSCAUKUJPN16JRCAUJUJLM1qFQCAUIUJHL1aBPCAAFAgEEAAIBAQIB';
+      silentAudio.volume = 0.001;
+      
+      const playPromise = silentAudio.play();
+      
+      if (playPromise !== undefined) {
+        playPromise.then(() => {
+          console.log('Kiosk audio unlocked with silent audio');
+          silentAudio.pause();
+          silentAudio.remove();
+          resolve(true);
+        }).catch(() => {
+          console.log('Silent audio failed, trying user gesture simulation');
+          tryUserGestureSimulation().then(resolve);
+        });
+      } else {
+        console.log('Play promise not supported, trying user gesture simulation');
+        tryUserGestureSimulation().then(resolve);
+      }
+    };
+
+    // Strategy 2: Simulate user gesture through programmatic interaction
+    const tryUserGestureSimulation = (): Promise<boolean> => {
+      return new Promise((gestureResolve) => {
+        try {
+          // Create a virtually invisible button and programmatically click it
+          const button = document.createElement('button');
+          button.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 1px;
+            height: 1px;
+            opacity: 0.001;
+            pointer-events: none;
+            z-index: -1;
+          `;
+          button.textContent = 'audio unlock';
+          
+          let clicked = false;
+          
+          button.onclick = () => {
+            clicked = true;
+            console.log('Programmatic click executed for audio unlock');
+            setTimeout(() => {
+              button.remove();
+              gestureResolve(true);
+            }, 100);
+          };
+
+          document.body.appendChild(button);
+          
+          // Try to click programmatically
+          setTimeout(() => {
+            try {
+              button.click();
+              console.log('Programmatic click attempted');
+            } catch (error) {
+              console.error('Programmatic click error:', error);
+            }
+            
+            // Fallback: if not clicked within 2 seconds, remove and resolve false
+            setTimeout(() => {
+              if (!clicked && document.body.contains(button)) {
+                button.remove();
+                console.log('Programmatic click timeout');
+                gestureResolve(false);
+              }
+            }, 2000);
+            
+          }, 100);
+          
+        } catch (error) {
+          console.error('User gesture simulation failed:', error);
+          gestureResolve(false);
+        }
+      });
+    };
+
+    // Start with silent audio strategy
+    trySilentAudio();
+  });
+};
+
+// Modifikovana setup funkcija za kiosk
+// Modifikovana setup funkcija za kiosk sa silent error handling
+export const setupBackgroundMusicForKiosk = async (): Promise<boolean> => {
+  if (typeof window === 'undefined') {
+    console.log('Cannot setup kiosk audio: not in browser environment');
+    return false;
+  }
+
+  // Only setup if on timetable page
+  if (window.location.pathname !== '/timetable') {
+    console.log('Not on timetable page, skipping kiosk audio setup');
+    return false;
+  }
+
+  if (backgroundAudio) {
+    console.log('Background audio already setup');
+    return true;
+  }
+
+  try {
+    console.log('Setting up kiosk audio...');
+    
+    // Setup background music
+    const streamUrl = process.env.NEXT_PUBLIC_STREAM_URL || 'https://jking.cdnstream1.com/b22139_128mp3';
+    backgroundAudio = new Audio(streamUrl);
+    backgroundAudio.loop = true;
+    backgroundAudio.volume = 0.2;
+
+    // SILENT AUTOPLAY ATTEMPT - catch all errors
+    try {
+      const playPromise = backgroundAudio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          // Silent catch - this is expected for autoplay restrictions
+          console.log('Autoplay blocked (expected), will start on user interaction');
+        });
+      }
+    } catch (error) {
+      // Silent catch for sync errors
+      console.log('Sync autoplay error caught silently');
+    }
+
+    // Setup interval to check if we're still on timetable page
+    musicControlInterval = setInterval(() => {
+      if (window.location.pathname !== '/timetable' && backgroundAudio) {
+        stopBackgroundMusic();
+      }
+    }, 1000);
+
+    // Preload gong sound
+    preloadGongSound();
+
+    // Initialize the audio manager interface
+    initializeAudioManagerInterface();
+
+    console.log('Kiosk audio setup completed (audio ready for user interaction)');
+    return true;
+
+  } catch (error) {
+    console.log('Kiosk audio setup failed silently');
+    return false;
+  }
+};
+
+// Enhanced play function for kiosk that tries multiple strategies
+export const playBackgroundMusicForKiosk = async (): Promise<boolean> => {
+  if (!backgroundAudio) {
+    console.log('No background audio, setting up kiosk audio first');
+    return await setupBackgroundMusicForKiosk();
+  }
+
+  if (!backgroundAudio.paused) {
+    console.log('Background music already playing');
+    return true;
+  }
+
+  try {
+    // Strategy 1: Direct play with silent error handling
+    const playPromise = backgroundAudio.play();
+    
+    if (playPromise !== undefined) {
+      await playPromise;
+      console.log('Kiosk background music started');
+      return true;
+    } else {
+      // Fallback for browsers that don't return promise
+      backgroundAudio.play();
+      console.log('Kiosk background music started (fallback)');
+      return true;
+    }
+  } catch (error) {
+    // SILENT ERROR HANDLING - don't throw, just return false
+    console.log('Kiosk play failed silently (autoplay restrictions)');
+    return false;
+  }
+};
+
+
+// Funkcija za automatski start kiosk audio sa retry logikom
+// Funkcija za automatski start kiosk audio sa silent retry logikom
+export const startKioskAudioWithRetry = async (maxRetries = 2): Promise<boolean> => {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    console.log(`Kiosk audio start attempt ${attempt}/${maxRetries}`);
+    
+    try {
+      const success = await playBackgroundMusicForKiosk();
+      
+      if (success) {
+        console.log(`Kiosk audio started successfully on attempt ${attempt}`);
+        return true;
+      }
+      
+      // Wait before retry
+      if (attempt < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+      }
+      
+    } catch (error) {
+      // SILENT CATCH - don't throw errors to the UI
+      console.log(`Kiosk audio attempt ${attempt} failed silently`);
+      
+      if (attempt < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+      }
+    }
+  }
+  
+  console.log(`All ${maxRetries} kiosk audio attempts completed (audio will start on user interaction)`);
+  return false;
+};
+
 // Initialize audio manager interface for the component
 export const initializeAudioManagerInterface = () => {
   if (typeof window !== 'undefined') {
@@ -787,7 +1012,13 @@ export const initializeAudioManagerInterface = () => {
         return playing !== null ? playing : false;
       },
       playBackgroundMusic,
+      pauseBackgroundMusic,
+      toggleBackgroundMusic,
       stopBackgroundMusic,
+      // Kiosk functions
+      setupBackgroundMusicForKiosk,
+      playBackgroundMusicForKiosk,
+      startKioskAudioWithRetry
     };
   }
 };
@@ -797,3 +1028,22 @@ export const setupBackgroundMusicWithInterface = () => {
   setupBackgroundMusic();
   initializeAudioManagerInterface();
 };
+
+// Type declarations for window.audioManager
+declare global {
+  interface Window {
+    audioManager: {
+      getBackgroundMusicVolume: () => number;
+      setBackgroundMusicVolume: (volume: number) => void;
+      isBackgroundMusicPlaying: () => boolean;
+      playBackgroundMusic: () => void;
+      pauseBackgroundMusic: () => void;
+      toggleBackgroundMusic: () => void;
+      stopBackgroundMusic: () => void;
+      setupBackgroundMusicForKiosk: () => Promise<boolean>;
+      playBackgroundMusicForKiosk: () => Promise<boolean>;
+      startKioskAudioWithRetry: (maxRetries?: number) => Promise<boolean>;
+    };
+  }
+}
+

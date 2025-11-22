@@ -6,12 +6,20 @@ import { useFlightAnnouncements } from '@/lib/flightTTS';
 import FlightCard from '@/components/ui/FlightCard';
 import AirlineDistributionCard from '@/components/ui/AirlineDistributionCard';
 import Skeleton from '@/components/ui/skeleton';
-import { PlaneTakeoff, PlaneLanding, Lock, ListFilter, List } from 'lucide-react';
+import { PlaneTakeoff, PlaneLanding, Lock, ListFilter, List, Volume2, VolumeX, Volume1, Volume } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/lib/auth';
-import BackgroundVolume from '@/components/ui/BackgroundVolume';
-import { setupBackgroundMusic, playBackgroundMusic, cleanupAudioResources } from '@/lib/audioManager'; // Import audio functions
-import { FlightData, Flight } from '@/types/flight'; // Ensure FlightData and Flight are imported from the correct source
+import { 
+  setupBackgroundMusicForKiosk, 
+  playBackgroundMusicForKiosk, 
+  startKioskAudioWithRetry,
+  cleanupAudioResources, 
+  pauseBackgroundMusic, 
+  setBackgroundMusicVolume, 
+  getBackgroundMusicVolume 
+} from '@/lib/audioManager';
+import { FlightData, Flight } from '@/types/flight';
+import { ScreenWakeManager } from '@/components/ScreenWakeManager';
 
 // Custom hook for debouncing a value
 function useDebounce<T>(value: T, delay: number): T {
@@ -40,6 +48,78 @@ const Tab = ({ label, isActive, onClick, icon }: { label: string; isActive: bool
   </button>
 );
 
+// Volume Control Card Component
+const VolumeControlCard = ({ 
+  volume, 
+  onVolumeChange, 
+  isPlaying, 
+  onToggle 
+}: { 
+  volume: number;
+  onVolumeChange: (volume: number) => void;
+  isPlaying: boolean;
+  onToggle: () => void;
+}) => (
+  <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6 mb-6 border border-gray-200 dark:border-gray-700">
+    <div className="flex items-center justify-between mb-4">
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+        <Volume2 className="text-blue-500" size={20} />
+        Background Music Control
+      </h3>
+      <button
+        onClick={onToggle}
+        className={`flex items-center gap-2 py-2 px-4 rounded-full font-semibold transition-colors duration-200 ease-in-out ${
+          isPlaying 
+            ? 'bg-green-600 text-white hover:bg-green-700' 
+            : 'bg-red-600 text-white hover:bg-red-700'
+        }`}
+      >
+        {isPlaying ? <Volume2 size={18} /> : <VolumeX size={18} />}
+        <span>{isPlaying ? 'Music On' : 'Music Off'}</span>
+      </button>
+    </div>
+    
+    <div className="flex items-center gap-4">
+      <VolumeX className="text-gray-500" size={20} />
+      <input
+        type="range"
+        min="0"
+        max="1"
+        step="0.1"
+        value={volume}
+        onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
+        className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 slider"
+      />
+      <Volume className="text-gray-500" size={20} />
+      <span className="text-sm font-medium text-gray-600 dark:text-gray-300 w-12">
+        {Math.round(volume * 100)}%
+      </span>
+    </div>
+    
+    <style jsx>{`
+      .slider::-webkit-slider-thumb {
+        appearance: none;
+        height: 20px;
+        width: 20px;
+        border-radius: 50%;
+        background: #3b82f6;
+        cursor: pointer;
+        border: 2px solid #ffffff;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      }
+      .slider::-moz-range-thumb {
+        height: 20px;
+        width: 20px;
+        border-radius: 50%;
+        background: #3b82f6;
+        cursor: pointer;
+        border: 2px solid #ffffff;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      }
+    `}</style>
+  </div>
+);
+
 export default function Page() {
   const { user } = useUser();
   const router = useRouter();
@@ -48,32 +128,163 @@ export default function Page() {
   const [lastFetchedTime, setLastFetchedTime] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAllFlights, setShowAllFlights] = useState(false);
+  const [audioInitialized, setAudioInitialized] = useState(false);
+  const [isAudioPlaying, setIsAudioPlaying] = useState(true); // Default to true for kiosk
+  const [volume, setVolume] = useState<number>(0.2); // Default volume
 
   // Debounce the search query to reduce re-renders during typing
-  const debouncedSearchQuery = useDebounce(searchQuery, 300); // 300ms debounce delay
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   // Always call the hook unconditionally
-  // Explicitly cast the return type to resolve type mismatch errors
   const flightData = useFlightAnnouncements() as FlightData | null | undefined;
 
   // Conditionally handle flights based on user
   const flights = user ? flightData : null;
 
-  // Effect for setting up and cleaning up background music
+  // Global error handler for audio and wake lock errors
   useEffect(() => {
-    setupBackgroundMusic();
+    const handleAudioError = (event: ErrorEvent) => {
+      if (event.error && event.error.message && 
+          (event.error.message.includes('play()') || 
+           event.error.message.includes('WakeLock') ||
+           event.error.message.includes('wake lock'))) {
+        event.preventDefault();
+        console.log('Audio/WakeLock error handled silently:', event.error.message);
+        return false;
+      }
+    };
 
-    // IMPORTANT: playBackgroundMusic needs to be triggered by a user interaction.
-    // For a real application, you'd typically have a "Start Experience" button
-    // or similar that the user clicks, which then calls playBackgroundMusic().
-    // For development/testing, you might temporarily uncomment the line below
-    // but be aware of browser autoplay policies.
-    // playBackgroundMusic(); // Uncomment this ONLY if you have a user gesture that triggers it.
+    const handleRejection = (event: PromiseRejectionEvent) => {
+      if (event.reason && event.reason.message && 
+          (event.reason.message.includes('play()') || 
+           event.reason.message.includes('WakeLock') ||
+           event.reason.message.includes('wake lock'))) {
+        event.preventDefault();
+        console.log('Audio/WakeLock promise rejection handled silently:', event.reason.message);
+        return false;
+      }
+    };
+
+    window.addEventListener('error', handleAudioError);
+    window.addEventListener('unhandledrejection', handleRejection);
 
     return () => {
-      cleanupAudioResources(); // Clean up all audio resources on component unmount
+      window.removeEventListener('error', handleAudioError);
+      window.removeEventListener('unhandledrejection', handleRejection);
     };
-  }, []); // Empty dependency array ensures this runs once on mount and cleanup on unmount
+  }, []);
+
+  // Effect for setting up and auto-playing background music for kiosk
+  useEffect(() => {
+    if (user && !audioInitialized) {
+      console.log('Kiosk mode: Setting up background music');
+      
+      const initializeKioskAudio = async () => {
+        try {
+          // Use kiosk audio setup - this won't throw errors to UI
+          const setupSuccess = await setupBackgroundMusicForKiosk();
+          
+          if (setupSuccess) {
+            setAudioInitialized(true);
+            
+            // Set initial volume
+            setBackgroundMusicVolume(volume);
+            
+            // Try to start audio with silent retry logic
+            const audioStarted = await startKioskAudioWithRetry(2);
+            
+            if (audioStarted) {
+              setIsAudioPlaying(true);
+              console.log('Kiosk mode: Background music started');
+            } else {
+              // This is normal - audio will start on first user interaction
+              console.log('Kiosk mode: Audio ready - will start on user interaction');
+            }
+          }
+        } catch (error) {
+          // SILENT CATCH - don't set any state that would cause re-render with error
+          console.log('Audio initialization completed (ready for user interaction)');
+        }
+      };
+
+      initializeKioskAudio();
+    }
+  }, [user, audioInitialized, volume]);
+
+  // Effect to sync volume with audio manager
+  useEffect(() => {
+    if (audioInitialized) {
+      setBackgroundMusicVolume(volume);
+    }
+  }, [volume, audioInitialized]);
+
+  // Effect to handle user interaction as fallback
+  useEffect(() => {
+    const handleFirstInteraction = () => {
+      if (audioInitialized && !isAudioPlaying) {
+        console.log('User interaction detected, starting audio silently...');
+        playBackgroundMusicForKiosk().then(success => {
+          if (success) {
+            setIsAudioPlaying(true);
+          }
+          // Don't show errors - this is silent
+        }).catch(() => {
+          // Silent catch - no UI updates
+          console.log('Audio start on interaction completed silently');
+        });
+      }
+    };
+
+    document.addEventListener('click', handleFirstInteraction, { once: true });
+    
+    return () => {
+      document.removeEventListener('click', handleFirstInteraction);
+    };
+  }, [audioInitialized, isAudioPlaying]);
+
+  // Cleanup effect
+  useEffect(() => {
+    return () => {
+      cleanupAudioResources();
+    };
+  }, []);
+
+  // Function to handle audio play/pause
+  const handleAudioToggle = useCallback(async () => {
+    if (!audioInitialized) {
+      console.log('Initializing audio silently');
+      const setupSuccess = await setupBackgroundMusicForKiosk();
+      if (setupSuccess) {
+        setAudioInitialized(true);
+      }
+    }
+
+    try {
+      if (isAudioPlaying) {
+        pauseBackgroundMusic();
+        setIsAudioPlaying(false);
+        console.log('Background music paused');
+      } else {
+        const success = await playBackgroundMusicForKiosk();
+        if (success) {
+          setIsAudioPlaying(true);
+          console.log('Background music started');
+        }
+        // Don't show error if failed - it will start on next user interaction
+      }
+    } catch (error) {
+      // SILENT CATCH - no UI error state
+      console.log('Audio toggle completed silently');
+    }
+  }, [audioInitialized, isAudioPlaying]);
+
+  // Function to handle volume change
+  const handleVolumeChange = useCallback((newVolume: number) => {
+    setVolume(newVolume);
+    if (audioInitialized) {
+      setBackgroundMusicVolume(newVolume);
+    }
+  }, [audioInitialized]);
 
   // Redirect to sign-in after showing message
   useEffect(() => {
@@ -99,9 +310,9 @@ export default function Page() {
   useEffect(() => {
     const interval = setInterval(() => {
       setActiveTab(prevTab => (prevTab === 'departures' ? 'arrivals' : 'departures'));
-    }, 10000); // Switch every 10 seconds
+    }, 10000);
 
-    return () => clearInterval(interval); // Cleanup on unmount
+    return () => clearInterval(interval);
   }, []);
 
   // If no user, show login prompt
@@ -134,11 +345,10 @@ export default function Page() {
   if (!user) return null;
 
   // Define a grace period for filtering out departed/arrived flights
-  const now = useMemo(() => new Date(), []); // Memoize 'now' to prevent unnecessary re-calculation
+  const now = useMemo(() => new Date(), []);
   const tenMinutesAgo = useMemo(() => new Date(now.getTime() - 10 * 60 * 1000), [now]);
 
   // Memoize the time-based filtering function
-  // Changed the type of flightsArray to Flight[]
   const getFilteredFlightsByTime = useCallback((flightsArray: Flight[]) => {
     if (showAllFlights) {
       return flightsArray;
@@ -150,7 +360,6 @@ export default function Page() {
       return scheduledTime > tenMinutesAgo;
     });
   }, [showAllFlights, now, tenMinutesAgo]);
-
 
   // Memoize time-filtered departures and arrivals
   const timeFilteredDepartures = useMemo(
@@ -186,15 +395,23 @@ export default function Page() {
 
   return (
     <div className="container mx-auto p-4 bg-white dark:bg-gray-800">
-      {/* FlightAnnouncementsProvider should wrap the entire app or a significant portion */}
+      {/* Silent screen wake manager - no UI, just functionality */}
+      <ScreenWakeManager enabled={true} autoStart={true} retryDelay={3000} />
+      
       <FlightAnnouncementsProvider />
 
       <h1 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">
         Flight Information
       </h1>
-      <div className="mb-6">
-        <BackgroundVolume />
-      </div>
+      
+      {/* Volume Control Card */}
+      <VolumeControlCard
+        volume={volume}
+        onVolumeChange={handleVolumeChange}
+        isPlaying={isAudioPlaying}
+        onToggle={handleAudioToggle}
+      />
+      
       {/* Airline Distribution Card */}
       <div className="mb-6">
         <AirlineDistributionCard flights={allFlights} />
@@ -253,9 +470,17 @@ export default function Page() {
       {flights ? (
         <div className="flex flex-col gap-4">
           {filteredFlights.length > 0 ? (
-            filteredFlights.map((flight) => (
-              <FlightCard key={`${flight.ident}-${flight.Kompanija}`} flight={flight} type={activeTab === 'departures' ? 'departure' : 'arrival'} />
-            ))
+            filteredFlights.map((flight) => {
+              // KREIRAJTE JEDINSTVENI KLJUČ KOMBINACIJOM VIŠE POLJA
+              const uniqueKey = `${flight.ident}-${flight.TipLeta}-${flight.scheduled_out}-${flight.destination?.code || 'UNK'}-${flight.origin?.code || 'UNK'}`;
+              return (
+                <FlightCard 
+                  key={uniqueKey}
+                  flight={flight}
+                  type={activeTab === 'departures' ? 'departure' : 'arrival'}
+                />
+              );
+            })
           ) : (
             <p className="text-gray-500">No flights found</p>
           )}
@@ -272,7 +497,6 @@ export default function Page() {
           ))}
         </div>
       )}
-
 
       {/* Last Fetched Time */}
       {lastFetchedTime && (

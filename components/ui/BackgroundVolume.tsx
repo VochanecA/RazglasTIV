@@ -3,15 +3,21 @@
 import React, { useState, useEffect } from 'react';
 import { Volume2, VolumeX, Volume1 } from 'lucide-react';
 
-// Import the audio manager functions
+// Ažurirani TypeScript interfejs za window.audioManager
 declare global {
   interface Window {
-    audioManager?: {
+    audioManager: {
       getBackgroundMusicVolume: () => number;
       setBackgroundMusicVolume: (volume: number) => void;
       isBackgroundMusicPlaying: () => boolean;
       playBackgroundMusic: () => void;
+      pauseBackgroundMusic: () => void;
+      toggleBackgroundMusic: () => void;
       stopBackgroundMusic: () => void;
+      // Kiosk funkcije
+      setupBackgroundMusicForKiosk: () => Promise<boolean>;
+      playBackgroundMusicForKiosk: () => Promise<boolean>;
+      startKioskAudioWithRetry: (maxRetries?: number) => Promise<boolean>;
     };
   }
 }
@@ -28,15 +34,15 @@ const BackgroundVolume: React.FC = () => {
   useEffect(() => {
     // Initialize volume from audioManager if available
     if (hasAudioManager) {
-      const currentVolume = window.audioManager!.getBackgroundMusicVolume();
+      const currentVolume = window.audioManager.getBackgroundMusicVolume();
       setVolume(currentVolume);
-      setIsPlaying(window.audioManager!.isBackgroundMusicPlaying());
+      setIsPlaying(window.audioManager.isBackgroundMusicPlaying());
     }
 
     // Set up interval to check playing status
     const interval = setInterval(() => {
       if (hasAudioManager) {
-        setIsPlaying(window.audioManager!.isBackgroundMusicPlaying());
+        setIsPlaying(window.audioManager.isBackgroundMusicPlaying());
       }
     }, 1000);
 
@@ -47,7 +53,7 @@ const BackgroundVolume: React.FC = () => {
     setVolume(newVolume);
     
     if (hasAudioManager) {
-      window.audioManager!.setBackgroundMusicVolume(newVolume);
+      window.audioManager.setBackgroundMusicVolume(newVolume);
     }
 
     // If volume is set to 0, consider it muted
@@ -75,10 +81,10 @@ const BackgroundVolume: React.FC = () => {
   const togglePlayback = () => {
     if (hasAudioManager) {
       if (isPlaying) {
-        window.audioManager!.stopBackgroundMusic();
+        window.audioManager.pauseBackgroundMusic();
         setIsPlaying(false);
       } else {
-        window.audioManager!.playBackgroundMusic();
+        window.audioManager.playBackgroundMusic();
         setIsPlaying(true);
       }
     }
@@ -107,7 +113,7 @@ const BackgroundVolume: React.FC = () => {
   };
 
   return (
-  <div className="bg-teal-100/20 dark:bg-gray-800 rounded-2xl shadow-sm border border-slate-200 dark:border-teal-200/20 p-4 transition-colors duration-200">
+    <div className="bg-teal-100/20 dark:bg-gray-800 rounded-2xl shadow-sm border border-slate-200 dark:border-teal-200/20 p-4 transition-colors duration-200">
       <div className="flex items-center space-x-3">
         <div className="flex items-center space-x-2">
           <span className="text-sm font-bold text-blue-700 dark:text-yellow-600">Background Music</span>

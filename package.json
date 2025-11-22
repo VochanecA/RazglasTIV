@@ -34,6 +34,7 @@
     "jose": "^5.9.6",
     "lucide-react": "^0.454.0",
     "next": "15.0.3-canary.3",
+    "node-fetch": "^2.7.0",
     "openmeteo": "^1.2.0",
     "postcss": "^8.4.47",
     "postgres": "^3.4.5",
@@ -48,5 +49,8 @@
     "tailwindcss-react-aria-components": "1.1.6",
     "typescript": "^5.6.3",
     "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node-fetch": "^2.6.13"
   }
 }

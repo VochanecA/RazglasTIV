@@ -1,6 +1,6 @@
 'use client';
 
-import { startTransition, useActionState } from 'react';
+import { useState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,22 +16,24 @@ type ActionState = {
 
 export default function GeneralPage() {
   const { user } = useUser();
-  const [state, formAction, isPending] = useActionState<ActionState, FormData>(
-    updateAccount,
-    { error: '', success: '' }
-  );
+  const [state, setState] = useState<ActionState>({ error: '', success: '' });
+  const [isPending, startTransition] = useTransition();
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    // If you call the Server Action directly, it will automatically
-    // reset the form. We don't want that here, because we want to keep the
-    // client-side values in the inputs. So instead, we use an event handler
-    // which calls the action. You must wrap direct calls with startTranstion.
-    // When you use the `action` prop it automatically handles that for you.
-    // Another option here is to persist the values to local storage. I might
-    // explore alternative options.
+    const formData = new FormData(event.currentTarget);
+    
     startTransition(() => {
-      formAction(new FormData(event.currentTarget));
+      // Wrap the async operation in an immediately invoked function
+      (async () => {
+        try {
+          // Pass the current state as the first parameter
+          const result = await updateAccount(state, formData);
+          setState(result);
+        } catch (error) {
+          setState({ error: 'Something went wrong' });
+        }
+      })();
     });
   };
 

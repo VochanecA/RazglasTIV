@@ -1,0 +1,346 @@
+import { NextResponse } from 'next/server';
+
+interface DBVFlight {
+  IdFlight: number;
+  Ad: string; // "D" za odlaske, "A" za dolaske
+  FlgtCode: string;
+  Cancelled: boolean;
+  AirplaneType: string;
+  AirplaneReg: string;
+  International: boolean;
+  Carrier2lCode: string;
+  Carrier3Code: string;
+  CarrierName: string;
+  FromToCode: string;
+  FromTo: string;
+  Schdate: string;
+  Schtime: string;
+  Estdate: string | null;
+  Esttime: string;
+  Actdate: string | null;
+  Acttime: string;
+  Blockdate: string | null;
+  Blocktime: string;
+  DepGate: string | null;
+  RemarkPublic: string;
+  ArrBlink: number;
+  DepBlink: number;
+  ChangeTime: string;
+  FlightCodeShare: string | null;
+  ArBaggd: string | null;
+  ViaCode: string | null;
+  Via: string | null;
+  ArBaggi: string | null;
+  ArBaggiView: string | null;
+  RemarkPublicTranslated: string;
+  Image: string;
+  HtmlStatus: string;
+  SchDateTime: string;
+  EstDateTime: string;
+  ActDateTime: string | null;
+  SchDateCro: string;
+  EstDateCro: string;
+  ActDateCro: string;
+  SchTimeCro: string;
+  EstTimeCro: string;
+  ActTimeCro: string;
+  AllowedReminders: Array<{ Value: number; DisplayName: string }>;
+}
+
+const mapStatus = (status: string): string => {
+  if (!status) return 'Scheduled';
+  
+  const statusMap: { [key: string]: string } = {
+    'Check in': 'Processing',
+    'Boarding': 'Boarding',
+    'Gate closed': 'Closed',
+    'Take off': 'Departed',
+    'Landed': 'Arrived',
+    'Final call': 'Boarding',
+    'Last call': 'Boarding',
+    'Prijava na let': 'Processing',
+    'Ukrcaj': 'Boarding',
+    'Zatvoren izlaz': 'Closed',
+    'Poletio': 'Departed',
+    'Sletio': 'Arrived',
+    'Posljednji poziv': 'Boarding',
+    'Delayed': 'Delay',
+    'Cancelled': 'Cancelled',
+    'Scheduled': 'Scheduled'
+  };
+  
+  return statusMap[status] || status;
+};
+
+const formatTime = (time: string): string => {
+  if (!time || time.trim() === '') return '';
+  return time;
+};
+
+const fetchWithRetry = async (
+  url: string,
+  options: RequestInit = {},
+  retries = 3,
+  delay = 2000
+): Promise<string> => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9,hr;q=0.8',
+          'Cache-Control': 'no-cache',
+          'Referer': 'https://www.dbv.hr/',
+          ...options.headers,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
+      return await response.text();
+    } catch (error) {
+      console.warn(`Attempt ${i + 1}/${retries} failed for ${url}:`, error);
+      if (i === retries - 1) throw error;
+      
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw new Error('All retry attempts failed');
+};
+
+const parseFlightsFromHTML = (html: string): DBVFlight[] => {
+  const flights: DBVFlight[] = [];
+  
+  const flightDataRegex = /data-item="([^"]*)"/g;
+  
+  let match;
+  while ((match = flightDataRegex.exec(html)) !== null) {
+    try {
+      const decodedJson = match[1]
+        .replace(/&quot;/g, '"')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>');
+      
+      const flightData: DBVFlight = JSON.parse(decodedJson);
+      flights.push(flightData);
+    } catch (error) {
+      console.warn('Failed to parse flight data from HTML:', error);
+    }
+  }
+  
+  return flights;
+};
+
+// Funkcija za razdvajanje letova na osnovu polja "Ad"
+const separateFlightsByType = (flights: DBVFlight[]): { departures: DBVFlight[], arrivals: DBVFlight[] } => {
+  const departures: DBVFlight[] = [];
+  const arrivals: DBVFlight[] = [];
+
+  flights.forEach(flight => {
+    if (flight.Ad === 'D') {
+      departures.push(flight);
+    } else if (flight.Ad === 'A') {
+      arrivals.push(flight);
+    } else {
+      console.warn(`Unknown flight type '${flight.Ad}' for flight ${flight.FlgtCode}`);
+    }
+  });
+
+  console.log(`Separated flights: ${departures.length} departures (Ad: 'D'), ${arrivals.length} arrivals (Ad: 'A')`);
+  
+  return { departures, arrivals };
+};
+
+// Poboljšana funkcija za uklanjanje duplikata
+const removeDuplicateFlights = (flights: DBVFlight[]): DBVFlight[] => {
+  const uniqueFlights = new Map<string, DBVFlight>();
+  
+  flights.forEach(flight => {
+    const uniqueKey = `${flight.FlgtCode}-${flight.SchDateTime}-${flight.Ad}`;
+    
+    if (!uniqueFlights.has(uniqueKey)) {
+      uniqueFlights.set(uniqueKey, flight);
+    }
+  });
+  
+  return Array.from(uniqueFlights.values());
+};
+
+export async function GET() {
+  try {
+    console.log('Starting DBV flight data fetch...');
+
+    // Fetch both URLs - oba URL-a sadrže i odlaske i dolaske, razdvojene po polju "Ad"
+    const [flightsHtml1, flightsHtml2] = await Promise.all([
+      fetchWithRetry('https://www.dbv.hr/hr/odlazni-letovi/42', { method: 'GET' }),
+      fetchWithRetry('https://www.dbv.hr/hr/dolazni-letovi/40', { method: 'GET' })
+    ]);
+
+    console.log('Successfully fetched HTML content from both URLs');
+
+    // Parse flights from HTML
+    const allFlights1 = parseFlightsFromHTML(flightsHtml1);
+    const allFlights2 = parseFlightsFromHTML(flightsHtml2);
+
+    // Combine all flights
+    const combinedFlights = [...allFlights1, ...allFlights2];
+    
+    console.log(`Parsed ${allFlights1.length} flights from URL 42`);
+    console.log(`Parsed ${allFlights2.length} flights from URL 40`);
+    console.log(`Total combined flights: ${combinedFlights.length}`);
+
+    // Remove duplicates
+    const uniqueFlights = removeDuplicateFlights(combinedFlights);
+    console.log(`Unique flights after deduplication: ${uniqueFlights.length}`);
+
+    // Separate flights by type (Ad: 'D' for departures, 'A' for arrivals)
+    const { departures, arrivals } = separateFlightsByType(uniqueFlights);
+
+    // Debug: Ispiši prvih nekoliko letova za svaku kategoriju
+    if (departures.length > 0) {
+      console.log('Sample departure:', {
+        flgtCode: departures[0].FlgtCode,
+        Ad: departures[0].Ad,
+        fromTo: departures[0].FromTo,
+        schTime: departures[0].SchTimeCro,
+        status: departures[0].RemarkPublic
+      });
+    }
+    
+    if (arrivals.length > 0) {
+      console.log('Sample arrival:', {
+        flgtCode: arrivals[0].FlgtCode,
+        Ad: arrivals[0].Ad,
+        fromTo: arrivals[0].FromTo,
+        schTime: arrivals[0].SchTimeCro,
+        status: arrivals[0].RemarkPublic
+      });
+    }
+
+    // Konvertuj letove u format koji FlightCard očekuje
+    const processedData = {
+      departures: departures.map((flight, index) => ({
+        // Osnovne informacije o letu
+        ident: flight.FlgtCode || 'N/A',
+        status: mapStatus(flight.RemarkPublicTranslated || flight.RemarkPublic || 'Scheduled'),
+        scheduled_out: formatTime(flight.SchTimeCro || ''),
+        estimated_out: formatTime(flight.EstTimeCro || ''),
+        actual_out: formatTime(flight.ActTimeCro || ''),
+        
+        // Lokacije - ODLAZAK: polazi iz DBV, ide ka FromTo
+        origin: { code: 'DBV' },
+        destination: { code: flight.FromToCode || 'UNK' },
+        grad: flight.FromTo || 'Unknown Destination',
+        
+        // Informacije o kompaniji
+        Kompanija: flight.Carrier2lCode || '',
+        KompanijaICAO: flight.Carrier3Code || '',
+        KompanijaNaziv: flight.CarrierName || 'Unknown Airline',
+        
+        // Airport informacije
+        checkIn: flight.DepGate || 'TBA',
+        gate: flight.DepGate || 'TBA',
+        
+        // Tip leta - ODLAZAK
+        TipLeta: 'O',
+        
+        // Dodatne informacije
+        airplaneType: flight.AirplaneType || 'Unknown',
+        airplaneReg: flight.AirplaneReg || '',
+        international: flight.International || false,
+        cancelled: flight.Cancelled || false,
+        
+        // Jedinstveni ključ za React
+        uniqueKey: `dbv-dep-${flight.IdFlight}-${flight.FlgtCode}-${index}`
+      })),
+      
+      arrivals: arrivals.map((flight, index) => ({
+        // Osnovne informacije o letu
+        ident: flight.FlgtCode || 'N/A',
+        status: mapStatus(flight.RemarkPublicTranslated || flight.RemarkPublic || 'Scheduled'),
+        scheduled_out: formatTime(flight.SchTimeCro || ''),
+        estimated_out: formatTime(flight.EstTimeCro || ''),
+        actual_out: formatTime(flight.ActTimeCro || ''),
+        
+        // Lokacije - DOLAZAK: dolazi iz FromTo, ide ka DBV
+        origin: { code: flight.FromToCode || 'UNK' },
+        destination: { code: 'DBV' },
+        grad: flight.FromTo || 'Unknown Origin',
+        
+        // Informacije o kompaniji
+        Kompanija: flight.Carrier2lCode || '',
+        KompanijaICAO: flight.Carrier3Code || '',
+        KompanijaNaziv: flight.CarrierName || 'Unknown Airline',
+        
+        // Airport informacije
+        checkIn: flight.DepGate || 'TBA',
+        gate: flight.DepGate || 'TBA',
+        
+        // Tip leta - DOLAZAK
+        TipLeta: 'I',
+        
+        // Dodatne informacije
+        airplaneType: flight.AirplaneType || 'Unknown',
+        airplaneReg: flight.AirplaneReg || '',
+        international: flight.International || false,
+        cancelled: flight.Cancelled || false,
+        baggage: flight.ArBaggiView || '',
+        
+        // Jedinstveni ključ za React
+        uniqueKey: `dbv-arr-${flight.IdFlight}-${flight.FlgtCode}-${index}`
+      })),
+      
+      metadata: {
+        lastUpdated: new Date().toISOString(),
+        source: 'DBV',
+        urls: [
+          'https://www.dbv.hr/hr/odlazni-letovi/42',
+          'https://www.dbv.hr/hr/dolazni-letovi/40'
+        ],
+        totalFlights: uniqueFlights.length,
+        totalDepartures: departures.length,
+        totalArrivals: arrivals.length,
+        flightsFrom42: allFlights1.length,
+        flightsFrom40: allFlights2.length,
+        note: "Flights separated by 'Ad' field: 'D' = Departure, 'A' = Arrival"
+      }
+    };
+
+    return NextResponse.json(processedData, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+      }
+    });
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Error fetching DBV flight data:', errorMessage);
+    
+    return NextResponse.json(
+      { 
+        departures: [],
+        arrivals: [],
+        metadata: {
+          lastUpdated: new Date().toISOString(),
+          source: 'DBV',
+          error: 'Failed to fetch flight data',
+          details: errorMessage
+        }
+      },
+      { 
+        status: 200,
+        headers: {
+          'Cache-Control': 'no-store'
+        }
+      }
+    );
+  }
+}
+
+export const dynamic = 'force-dynamic';
