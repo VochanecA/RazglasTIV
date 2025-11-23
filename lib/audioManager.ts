@@ -31,6 +31,27 @@ let cancelledFlights: CancelledFlightInfo[] = [];
 let hasActiveFlightsToday = false;
 let lastFlightCheckTime: Date | null = null;
 
+// Kiosk mode tracking
+let isKioskMode = false;
+let audioContextUnlocked = false;
+
+// Debug function to check audio status
+export const debugAudioStatus = (): void => {
+  console.log('=== AUDIO DEBUG INFO ===');
+  console.log('Background audio instance:', backgroundAudio);
+  console.log('Is background audio playing:', isBackgroundMusicPlaying());
+  console.log('Has active flights today:', hasActiveFlightsToday);
+  console.log('Should play background music:', shouldPlayBackgroundMusic());
+  console.log('Current time:', new Date().toLocaleTimeString());
+  console.log('Current hour:', new Date().getHours());
+  console.log('Is after start time (7:00):', isAfterStartTime());
+  console.log('Is before end time (21:00):', isBeforeEndTime());
+  console.log('Last flight check time:', lastFlightCheckTime);
+  console.log('Audio context unlocked:', audioContextUnlocked);
+  console.log('Kiosk mode:', isKioskMode);
+  console.log('========================');
+};
+
 // Helper function to check if MP3 file exists
 const checkMP3Exists = async (path: string): Promise<boolean> => {
   try {
@@ -59,13 +80,11 @@ const getMP3Path = (flightInfo: FlightMP3Info): string => {
 
   // For departure flights with multiple gates
   if (announcement.includes('Gate') && announcement.includes(',')) {
-    // Extract gate numbers (e.g., "2,3" from "2nd_Gate2,3")
     const gatePart = announcement.split('Gate')[1];
     if (gatePart) {
       const individualGates = gatePart.split(',');
 
       const paths = individualGates.map(gate => {
-        // Construct base announcement without gate numbers
         const baseAnnouncement = announcement.split('Gate')[0];
         return `/sounds/DEP/${airline}/${flightNumber}/${originCODE}${type}_${baseAnnouncement}Gate${gate.trim()}_sr_en.mp3`;
       }).join('|');
@@ -83,10 +102,8 @@ const getMP3Path = (flightInfo: FlightMP3Info): string => {
 
 // Pre-load the gong sound to eliminate delay
 const preloadGongSound = (): void => {
-  // Ensure Audio object is available (i.e., running in browser)
   if (typeof window !== 'undefined' && !gongAudio) {
     gongAudio = new Audio('/mp3/Gong_pojacan.mp3');
-    // Pre-load the audio file
     gongAudio.load();
     gongAudio.onerror = (error) => {
       console.error('Failed to preload gong sound:', error);
@@ -94,7 +111,6 @@ const preloadGongSound = (): void => {
   }
 };
 
-// Call this function only if window is defined (client-side)
 if (typeof window !== 'undefined') {
   preloadGongSound();
 }
@@ -103,7 +119,7 @@ if (typeof window !== 'undefined') {
 const isBeforeEndTime = (): boolean => {
   const now = new Date();
   const endTime = new Date();
-  endTime.setHours(21, 0, 0, 0); // Set to 21:00 today
+  endTime.setHours(21, 0, 0, 0);
   return now < endTime;
 };
 
@@ -111,7 +127,7 @@ const isBeforeEndTime = (): boolean => {
 const isAfterStartTime = (): boolean => {
   const now = new Date();
   const startTime = new Date();
-  startTime.setHours(7, 0, 0, 0); // Set to 07:00 today
+  startTime.setHours(7, 0, 0, 0);
   return now >= startTime;
 };
 
@@ -120,13 +136,20 @@ const shouldPlayBackgroundMusic = (): boolean => {
   const now = new Date();
   const currentHour = now.getHours();
   
-  // Only play between 07:00 and 21:00
+  console.log(`Background music check - Hour: ${currentHour}, Has flights: ${hasActiveFlightsToday}`);
+  
   if (currentHour < 7 || currentHour >= 21) {
+    console.log('Background music: Outside allowed hours (7:00-21:00)');
     return false;
   }
   
-  // Only play if there are active flights today
-  return hasActiveFlightsToday;
+  if (!hasActiveFlightsToday) {
+    console.log('Background music: No active flights today');
+    return false;
+  }
+  
+  console.log('Background music: Conditions met - should play');
+  return true;
 };
 
 // Function to update flight status
@@ -136,7 +159,6 @@ export const updateFlightStatus = (hasFlights: boolean): void => {
   
   console.log(`Flight status updated: ${hasFlights ? 'Active flights today' : 'No active flights today'}`);
   
-  // Auto-manage background music based on flight status
   manageBackgroundMusicBasedOnFlights();
 };
 
@@ -148,11 +170,9 @@ const manageBackgroundMusicBasedOnFlights = (): void => {
   const isPlaying = !backgroundAudio.paused;
   
   if (shouldPlay && !isPlaying) {
-    // Start background music if we should play and it's not playing
     console.log('Auto-starting background music (active flights + correct time)');
     playBackgroundMusic();
   } else if (!shouldPlay && isPlaying) {
-    // Stop background music if we shouldn't play and it is playing
     console.log('Auto-stopping background music (no active flights or outside hours)');
     stopBackgroundMusic();
   }
@@ -183,7 +203,6 @@ const playCancelledFlightAnnouncements = async (): Promise<void> => {
 
   console.log(`Playing ${activeCancelledFlights.length} cancelled flight announcements`);
 
-  // Add all cancelled flight announcements to the queue
   const cancelledAnnouncements = activeCancelledFlights.map(flight => ({
     text: flight.text,
     flightInfo: flight.flightInfo
@@ -198,12 +217,10 @@ const startCancelledFlightAnnouncements = (): void => {
     clearInterval(cancelledFlightInterval);
   }
 
-  // Play immediately if we have cancelled flights and conditions are met
   if (cancelledFlights.length > 0 && isBeforeEndTime() && hasActiveFlightsToday) {
     void playCancelledFlightAnnouncements();
   }
 
-  // Set up interval to play every 30 minutes (30 * 60 * 1000 = 1800000ms)
   cancelledFlightInterval = setInterval(() => {
     void playCancelledFlightAnnouncements();
   }, 30 * 60 * 1000);
@@ -224,9 +241,8 @@ const stopCancelledFlightAnnouncements = (): void => {
 export const addCancelledFlight = (text: string, flightInfo?: FlightMP3Info): void => {
   const now = new Date();
   const endTime = new Date();
-  endTime.setHours(21, 0, 0, 0); // Set to 21:00 today
+  endTime.setHours(21, 0, 0, 0);
 
-  // If it's already past 21:00, set end time to 21:00 tomorrow
   if (now > endTime) {
     endTime.setDate(endTime.getDate() + 1);
   }
@@ -241,7 +257,6 @@ export const addCancelledFlight = (text: string, flightInfo?: FlightMP3Info): vo
   cancelledFlights.push(cancelledFlight);
   console.log('Added cancelled flight:', text);
 
-  // Start the announcement schedule if not already running and conditions are met
   if (!cancelledFlightInterval && hasActiveFlightsToday) {
     startCancelledFlightAnnouncements();
   }
@@ -256,7 +271,6 @@ export const removeCancelledFlight = (text: string): void => {
     console.log('Removed cancelled flight:', text);
   }
 
-  // Stop announcements if no cancelled flights remain
   if (cancelledFlights.length === 0) {
     stopCancelledFlightAnnouncements();
   }
@@ -281,7 +295,6 @@ const playMP3Announcement = async (mp3Path: string): Promise<void> => {
   for (const path of paths) {
     await new Promise<void>((resolve, reject) => {
       console.log('Starting MP3 playback:', path);
-      // Ensure Audio object is available before creating a new instance
       if (typeof window === 'undefined') {
         console.error('Audio object not available, cannot play MP3.');
         reject(new Error('Audio object not available'));
@@ -289,7 +302,6 @@ const playMP3Announcement = async (mp3Path: string): Promise<void> => {
       }
       const audio = new Audio(path);
 
-      // Preload the audio file to reduce delay
       audio.load();
 
       const cleanup = (): void => {
@@ -316,12 +328,11 @@ const playMP3Announcement = async (mp3Path: string): Promise<void> => {
         reject(error);
       };
 
-      // Add timeout to prevent hanging
       const timeoutId = setTimeout(() => {
         console.error('MP3 playback timeout');
         cleanup();
         reject(new Error('MP3 playback timeout'));
-      }, 30000); // 30 second timeout
+      }, 30000);
 
       audio.onended = () => {
         clearTimeout(timeoutId);
@@ -359,11 +370,10 @@ const playTTSAnnouncementWithoutGong = async (text: string): Promise<void> => {
     utterance.lang = 'en-US';
     utterance.rate = 0.9;
 
-    // Add timeout to prevent hanging
     const timeoutId = setTimeout(() => {
       console.warn('TTS timeout, resolving anyway');
       resolve();
-    }, 30000); // 30 second timeout
+    }, 30000);
 
     utterance.onend = () => {
       clearTimeout(timeoutId);
@@ -372,7 +382,6 @@ const playTTSAnnouncementWithoutGong = async (text: string): Promise<void> => {
 
     utterance.onerror = () => {
       clearTimeout(timeoutId);
-      // SILENT ERROR HANDLING - don't log to console.error to avoid browser errors
       console.log('Speech synthesis completed with issues');
       resolve();
     };
@@ -388,13 +397,11 @@ const playGongAndTTS = async (text: string): Promise<void> => {
     return Promise.resolve();
   }
 
-  // Check if we should play gong (only if there are active flights)
   if (!shouldPlayGong()) {
     console.log('No active flights today, skipping gong and playing TTS only');
     return playTTSAnnouncementWithoutGong(text);
   }
 
-  // MODIFICATION: Pause background music immediately
   if (backgroundAudio) {
     backgroundAudio.pause();
     console.log('Background music paused for TTS.');
@@ -404,26 +411,21 @@ const playGongAndTTS = async (text: string): Promise<void> => {
     preloadGongSound();
   }
 
-  // Ensure gongAudio is initialized before proceeding
   if (!gongAudio) {
     console.error('Gong audio not initialized.');
-    return playTTSAnnouncementWithoutGong(text); // Fallback to just TTS
+    return playTTSAnnouncementWithoutGong(text);
   }
 
   return new Promise<void>((resolve) => {
-    // Reset gong to start position
     gongAudio!.currentTime = 0;
 
-    // Add timeout to prevent hanging
     const timeoutId = setTimeout(() => {
       console.warn('Gong and TTS timeout, resolving anyway');
       resolve();
-    }, 35000); // 35 second timeout
+    }, 35000);
 
-    // Set up the onended callback before playing
     gongAudio!.onended = async () => {
       try {
-        // Play TTS immediately after gong ends
         await playTTSAnnouncementWithoutGong(text);
       } catch (error) {
         console.error('Error playing TTS after gong:', error);
@@ -436,15 +438,12 @@ const playGongAndTTS = async (text: string): Promise<void> => {
     gongAudio!.onerror = () => {
       console.error('Gong playback error');
       clearTimeout(timeoutId);
-      // If gong fails, still try to play the TTS
       void playTTSAnnouncementWithoutGong(text).then(resolve);
     };
 
-    // Play the gong
     gongAudio!.play().catch(error => {
       console.error('Failed to play gong sound:', error);
       clearTimeout(timeoutId);
-      // If gong fails, still try to play the TTS
       void playTTSAnnouncementWithoutGong(text).then(resolve);
     });
   });
@@ -457,13 +456,11 @@ const playGongAndMP3 = async (mp3Path: string): Promise<void> => {
     return Promise.resolve();
   }
 
-  // Check if we should play gong (only if there are active flights)
   if (!shouldPlayGong()) {
     console.log('No active flights today, skipping gong and playing MP3 only');
     return playMP3Announcement(mp3Path);
   }
 
-  // MODIFICATION: Pause background music immediately
   if (backgroundAudio) {
     backgroundAudio.pause();
     console.log('Background music paused for MP3.');
@@ -473,26 +470,21 @@ const playGongAndMP3 = async (mp3Path: string): Promise<void> => {
     preloadGongSound();
   }
 
-  // Ensure gongAudio is initialized before proceeding
   if (!gongAudio) {
     console.error('Gong audio not initialized.');
-    return playMP3Announcement(mp3Path); // Fallback to just MP3
+    return playMP3Announcement(mp3Path);
   }
 
   return new Promise<void>((resolve) => {
-    // Reset gong to start position
     gongAudio!.currentTime = 0;
 
-    // Add timeout to prevent hanging
     const timeoutId = setTimeout(() => {
       console.warn('Gong and MP3 timeout, resolving anyway');
       resolve();
-    }, 35000); // 35 second timeout
+    }, 35000);
 
-    // Set up the onended callback before playing
     gongAudio!.onended = async () => {
       try {
-        // Play MP3 immediately after gong ends
         await playMP3Announcement(mp3Path);
       } catch (error) {
         console.error('Error playing MP3 after gong:', error);
@@ -505,15 +497,12 @@ const playGongAndMP3 = async (mp3Path: string): Promise<void> => {
     gongAudio!.onerror = () => {
       console.error('Gong playback error');
       clearTimeout(timeoutId);
-      // If gong fails, still try to play the MP3
       void playMP3Announcement(mp3Path).then(resolve);
     };
 
-    // Play the gong
     gongAudio!.play().catch(error => {
       console.error('Failed to play gong sound:', error);
       clearTimeout(timeoutId);
-      // If gong fails, still try to play the MP3
       void playMP3Announcement(mp3Path).then(resolve);
     });
   });
@@ -525,9 +514,7 @@ const processAnnouncementQueue = async (): Promise<void> => {
   isProcessingQueue = true;
 
   try {
-    // MODIFICATION: Move fadeOutBackgroundMusic here, before starting any announcement
-    // This ensures it attempts to fade out/pause BEFORE the gong or TTS starts.
-    await fadeOutBackgroundMusic(); // This will pause if volume reaches 0.1
+    await fadeOutBackgroundMusic();
 
     while (announcementQueue.length > 0) {
       try {
@@ -538,7 +525,6 @@ const processAnnouncementQueue = async (): Promise<void> => {
           console.log('Processing announcement with path:', mp3Path);
 
           try {
-            // For multiple paths, check if any exist
             const paths = mp3Path.split('|');
             let mp3Exists = false;
 
@@ -567,27 +553,23 @@ const processAnnouncementQueue = async (): Promise<void> => {
 
         announcementQueue.shift();
 
-        // Add delay between announcements if there are more
         if (announcementQueue.length > 0) {
           await new Promise(resolve => setTimeout(resolve, 500));
         }
       } catch (error) {
         console.error('Error processing single announcement:', error);
-        // Remove the problematic announcement and continue
         if (announcementQueue.length > 0) {
           announcementQueue.shift();
         }
       }
     }
 
-    // Fade in background music after all announcements are done
     await fadeInBackgroundMusic();
   } catch (error) {
     console.error('Error in queue processing:', error);
   } finally {
     isProcessingQueue = false;
 
-    // If more announcements were added while processing, restart the queue
     if (announcementQueue.length > 0) {
       setTimeout(processAnnouncementQueue, 1000);
     }
@@ -595,7 +577,6 @@ const processAnnouncementQueue = async (): Promise<void> => {
 };
 
 export const addAnnouncement = async (text: string, flightInfo?: FlightMP3Info): Promise<void> => {
-  // Only add announcement if there are active flights today
   if (!hasActiveFlightsToday) {
     console.log('No active flights today, skipping announcement:', text);
     return;
@@ -606,7 +587,6 @@ export const addAnnouncement = async (text: string, flightInfo?: FlightMP3Info):
 };
 
 export const addAnnouncements = async (announcements: Array<{ text: string; flightInfo?: FlightMP3Info }>): Promise<void> => {
-  // Filter out announcements if no active flights
   const filteredAnnouncements = hasActiveFlightsToday 
     ? announcements 
     : [];
@@ -622,7 +602,7 @@ export const addAnnouncements = async (announcements: Array<{ text: string; flig
 
 // Export to get the current announcement queue
 export const getAnnouncementQueue = (): Array<{ text: string; flightInfo?: FlightMP3Info }> => {
-  return [...announcementQueue]; // Return a copy to prevent external modification
+  return [...announcementQueue];
 };
 
 // Export to check if the announcement queue is empty
@@ -636,52 +616,219 @@ const startDailyMusicSchedule = (): void => {
     clearInterval(dailyMusicInterval);
   }
 
-  // Check every minute if we should start/stop background music
   dailyMusicInterval = setInterval(() => {
     manageBackgroundMusicBasedOnFlights();
-  }, 60 * 1000); // Check every minute
+  }, 60 * 1000);
 
   console.log('Started daily music schedule');
 };
 
-export const setupBackgroundMusic = (): void => {
-  // Ensure Audio object is available and we are on the client side
-  if (typeof window === 'undefined' || backgroundAudio) return;
+// KIOSK MODE FUNCTIONS
 
-  // Only setup if on timetable page
-  if (window.location.pathname !== '/timetable') return;
+// Function to unlock audio context for kiosk mode
+const unlockAudioContextForKiosk = async (): Promise<boolean> => {
+  if (audioContextUnlocked) return true;
 
-  const streamUrl = process.env.NEXT_PUBLIC_STREAM_URL || 'https://jking.cdnstream1.com/b22139_128mp3';
-  backgroundAudio = new Audio(streamUrl);
-  backgroundAudio.loop = true;
-  backgroundAudio.volume = 0.2;
-
-  console.log('Background music setup. Remember to call playBackgroundMusic() from a user interaction.');
-
-  // Setup interval to check if we're still on timetable page
-  musicControlInterval = setInterval(() => {
-    if (window.location.pathname !== '/timetable' && backgroundAudio) {
-      stopBackgroundMusic();
-    }
-  }, 1000);
-
-  // Start daily music schedule
-  startDailyMusicSchedule();
-
-  // Preload gong sound on music setup
-  preloadGongSound();
-
-  // Initialize the audio manager interface
-  initializeAudioManagerInterface();
+  try {
+    // Strategy 1: Create and play silent audio
+    const silentAudio = new Audio();
+    silentAudio.src = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgYZrXp8sVvIAUfZqzh57trFgUZX6fb5rVlEAUYWqTZ5bNjDgUXVqHX5LBhDAUWVZ/Y465fCgUVVJ7X4q1dCAUUU53W4axbCAUTUpzW4KtaCAUSUZvV36pZCAURUJrU3qlYCAUQUJnT3ahXCAUPUJjS3KdWCAUOUJfR26ZVCAUNUJbQ2qVUCAUMUJXP2aRTCAULUJTO2KNSCAUKUJPN16JRCAUJUJLM1qFQCAUIUJHL1aBPCAAFAgEEAAIBAQIB';
+    silentAudio.volume = 0.001;
+    
+    await silentAudio.play();
+    await new Promise(resolve => setTimeout(resolve, 100));
+    silentAudio.pause();
+    silentAudio.remove();
+    
+    audioContextUnlocked = true;
+    console.log('Kiosk audio context unlocked successfully');
+    return true;
+  } catch (error) {
+    console.log('Kiosk audio context unlock failed:', error);
+    return false;
+  }
 };
 
-// New export for playing background music after user interaction
-export const playBackgroundMusic = (): void => {
-  if (backgroundAudio && backgroundAudio.paused && shouldPlayBackgroundMusic()) {
-    backgroundAudio.play().catch(error => {
-      console.error('Failed to play background music on user interaction:', error);
-    });
+// Enhanced kiosk audio setup
+export const setupBackgroundMusicForKiosk = async (): Promise<boolean> => {
+  if (typeof window === 'undefined') {
+    console.log('Cannot setup kiosk audio: not in browser environment');
+    return false;
   }
+
+  if (window.location.pathname !== '/timetable') {
+    console.log('Not on timetable page, skipping kiosk audio setup');
+    return false;
+  }
+
+  if (backgroundAudio) {
+    console.log('Background audio already setup');
+    return true;
+  }
+
+  try {
+    console.log('Setting up kiosk audio...');
+    isKioskMode = true;
+    
+    const streamUrl = process.env.NEXT_PUBLIC_STREAM_URL || 'https://jking.cdnstream1.com/b22139_128mp3';
+    console.log('Kiosk stream URL:', streamUrl);
+    
+    backgroundAudio = new Audio(streamUrl);
+    backgroundAudio.loop = true;
+    backgroundAudio.volume = 0.2;
+    backgroundAudio.preload = 'auto';
+
+    // Try to unlock audio context
+    await unlockAudioContextForKiosk();
+
+    // Start daily music schedule
+    startDailyMusicSchedule();
+
+    // Setup interval to check if we're still on timetable page
+    musicControlInterval = setInterval(() => {
+      if (window.location.pathname !== '/timetable' && backgroundAudio) {
+        stopBackgroundMusic();
+      }
+    }, 1000);
+
+    // Preload gong sound
+    preloadGongSound();
+
+    // Initialize the audio manager interface
+    initializeAudioManagerInterface();
+
+    console.log('Kiosk audio setup completed');
+    return true;
+
+  } catch (error) {
+    console.log('Kiosk audio setup failed:', error);
+    return false;
+  }
+};
+
+// Enhanced kiosk play function with multiple strategies
+export const playBackgroundMusicForKiosk = async (): Promise<boolean> => {
+  if (!backgroundAudio) {
+    console.log('No background audio, setting up kiosk audio first');
+    return await setupBackgroundMusicForKiosk();
+  }
+
+  if (!backgroundAudio.paused) {
+    console.log('Background music already playing');
+    return true;
+  }
+
+  if (!shouldPlayBackgroundMusic()) {
+    console.log('Background music conditions not met (time or flight status)');
+    return false;
+  }
+
+  try {
+    // Strategy 1: Direct play
+    console.log('Kiosk: Attempting to play background music directly...');
+    const playPromise = backgroundAudio.play();
+    
+    if (playPromise !== undefined) {
+      await playPromise;
+      console.log('Kiosk background music started successfully');
+      return true;
+    } else {
+      // Fallback for older browsers
+      backgroundAudio.play();
+      console.log('Kiosk background music started (fallback)');
+      return true;
+    }
+  } catch (error) {
+    console.log('Kiosk direct play failed, trying silent unlock...');
+    
+    // Strategy 2: Try silent unlock and retry
+    try {
+      await unlockAudioContextForKiosk();
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const retryPromise = backgroundAudio.play();
+      if (retryPromise !== undefined) {
+        await retryPromise;
+        console.log('Kiosk background music started after unlock');
+        return true;
+      } else {
+        backgroundAudio.play();
+        console.log('Kiosk background music started after unlock (fallback)');
+        return true;
+      }
+    } catch (retryError) {
+      console.log('Kiosk audio start failed completely:', retryError);
+      return false;
+    }
+  }
+};
+
+// Function to automatically start kiosk audio with progressive retry
+export const startKioskAudioWithRetry = async (maxRetries = 3): Promise<boolean> => {
+  console.log(`Starting kiosk audio with ${maxRetries} retries...`);
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    console.log(`Kiosk audio attempt ${attempt}/${maxRetries}`);
+    
+    try {
+      // Increase delay between retries
+      if (attempt > 1) {
+        const delay = attempt * 1000; // 1s, 2s, 3s...
+        console.log(`Waiting ${delay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+      
+      const success = await playBackgroundMusicForKiosk();
+      
+      if (success) {
+        console.log(`Kiosk audio started successfully on attempt ${attempt}`);
+        return true;
+      }
+      
+    } catch (error) {
+      console.log(`Kiosk audio attempt ${attempt} failed:`, error);
+    }
+  }
+  
+  console.log(`All ${maxRetries} kiosk audio attempts failed`);
+  return false;
+};
+
+// Auto-start kiosk audio when conditions are met
+export const autoStartKioskAudio = async (): Promise<void> => {
+  if (!shouldPlayBackgroundMusic()) {
+    console.log('Auto-start: Conditions not met for background music');
+    return;
+  }
+
+  console.log('Auto-start: Attempting to start kiosk audio...');
+  
+  // Setup first
+  const setupSuccess = await setupBackgroundMusicForKiosk();
+  if (!setupSuccess) {
+    console.log('Auto-start: Setup failed');
+    return;
+  }
+
+  // Then try to play with retry
+  const playSuccess = await startKioskAudioWithRetry(3);
+  
+  if (playSuccess) {
+    console.log('Auto-start: Kiosk audio started successfully');
+  } else {
+    console.log('Auto-start: Kiosk audio failed to start automatically');
+  }
+};
+
+// Modified setupBackgroundMusic for kiosk mode
+export const setupBackgroundMusic = async (): Promise<boolean> => {
+  // For kiosk mode, use the kiosk setup
+  return await setupBackgroundMusicForKiosk();
+};
+
+// Modified playBackgroundMusic for kiosk mode
+export const playBackgroundMusic = async (): Promise<boolean> => {
+  return await playBackgroundMusicForKiosk();
 };
 
 // Add this function to your audioManager.ts file
@@ -693,37 +840,35 @@ export const pauseBackgroundMusic = (): void => {
 };
 
 // Optional: Add toggle function for easier control
-export const toggleBackgroundMusic = (): void => {
-  if (!backgroundAudio) return;
+export const toggleBackgroundMusic = async (): Promise<boolean> => {
+  if (!backgroundAudio) return false;
   
   if (backgroundAudio.paused) {
-    playBackgroundMusic();
+    return await playBackgroundMusic();
   } else {
     pauseBackgroundMusic();
+    return true;
   }
 };
 
 export const fadeOutBackgroundMusic = (): Promise<void> => {
-  if (!backgroundAudio) return Promise.resolve(); // Initial check covers the overall function call
+  if (!backgroundAudio) return Promise.resolve();
 
   return new Promise<void>((resolve) => {
-    // MODIFIED: Add a null check here before accessing properties like 'paused'
     if (backgroundAudio === null) {
       console.warn('backgroundAudio is null inside fadeOutBackgroundMusic promise.');
-      resolve(); // Should not happen if initial check works, but defensive coding
+      resolve();
       return;
     }
 
-    // If background music isn't currently playing, no need to fade out, just resolve.
     if (backgroundAudio.paused) {
       resolve();
       return;
     }
 
-    const initialVolume = backgroundAudio.volume; // Store current volume to restore later
+    const initialVolume = backgroundAudio.volume;
 
     const fadeOutInterval = setInterval(() => {
-      // MODIFIED: Add null check for backgroundAudio inside the interval callback as well
       if (backgroundAudio === null) {
         clearInterval(fadeOutInterval);
         console.warn('backgroundAudio became null during fadeOutInterval.');
@@ -731,15 +876,15 @@ export const fadeOutBackgroundMusic = (): Promise<void> => {
         return;
       }
 
-      if (backgroundAudio.volume > 0.01) { // Fade to near zero
-        backgroundAudio.volume = Math.max(0, backgroundAudio.volume - 0.05); // Faster fade out
+      if (backgroundAudio.volume > 0.01) {
+        backgroundAudio.volume = Math.max(0, backgroundAudio.volume - 0.05);
       } else {
         clearInterval(fadeOutInterval);
-        backgroundAudio.pause(); // Ensure it's paused after fading
-        backgroundAudio.volume = initialVolume; // Reset volume for next fade-in
+        backgroundAudio.pause();
+        backgroundAudio.volume = initialVolume;
         resolve();
       }
-    }, 50); // Faster interval for smoother and quicker fade
+    }, 50);
   });
 };
 
@@ -747,7 +892,7 @@ export const stopBackgroundMusic = (): void => {
   if (backgroundAudio) {
     backgroundAudio.pause();
     backgroundAudio.currentTime = 0;
-    backgroundAudio.volume = 0.2; // Reset volume
+    backgroundAudio.volume = 0.2;
   }
 
   if (musicControlInterval) {
@@ -779,8 +924,8 @@ export const cleanupAudioResources = (): void => {
     gongAudio = null;
   }
 
-  // Reset processing flag
   isProcessingQueue = false;
+  isKioskMode = false;
 };
 
 export const fadeInBackgroundMusic = (): Promise<void> => {
@@ -788,12 +933,10 @@ export const fadeInBackgroundMusic = (): Promise<void> => {
     return Promise.resolve();
   }
 
-  // Only fade in if we should play background music
   if (!shouldPlayBackgroundMusic()) {
     return Promise.resolve();
   }
 
-  // If already playing and at target volume, resolve.
   if (!backgroundAudio.paused && backgroundAudio.volume >= 0.2) {
       return Promise.resolve();
   }
@@ -804,21 +947,24 @@ export const fadeInBackgroundMusic = (): Promise<void> => {
       return;
     }
 
-    backgroundAudio.volume = backgroundAudio.volume > 0 ? backgroundAudio.volume : 0; // Start from current or 0
-    backgroundAudio.play().catch(error => {
-      console.error('Failed to resume background music:', error);
-      resolve();
-      return;
-    });
+    backgroundAudio.volume = backgroundAudio.volume > 0 ? backgroundAudio.volume : 0;
+    
+    if (backgroundAudio.paused) {
+      backgroundAudio.play().catch(error => {
+        console.error('Failed to resume background music:', error);
+        resolve();
+        return;
+      });
+    }
 
     const fadeInInterval = setInterval(() => {
       if (backgroundAudio && backgroundAudio.volume < 0.2) {
-        backgroundAudio.volume = Math.min(0.2, backgroundAudio.volume + 0.05); // Slower, smoother fade in
+        backgroundAudio.volume = Math.min(0.2, backgroundAudio.volume + 0.05);
       } else {
         clearInterval(fadeInInterval);
         resolve();
       }
-    }, 100); // Slower interval for smoother fade
+    }, 100);
   });
 };
 
@@ -828,7 +974,6 @@ export const playGongSound = (): Promise<void> => {
     return Promise.resolve();
   }
 
-  // Only play gong if there are active flights
   if (!shouldPlayGong()) {
     console.log('No active flights today, skipping gong sound');
     return Promise.resolve();
@@ -838,7 +983,6 @@ export const playGongSound = (): Promise<void> => {
     preloadGongSound();
   }
 
-  // Ensure gongAudio is initialized before proceeding
   if (!gongAudio) {
     console.error('Gong audio not initialized.');
     return Promise.resolve();
@@ -847,11 +991,10 @@ export const playGongSound = (): Promise<void> => {
   return new Promise<void>((resolve) => {
     gongAudio!.currentTime = 0;
 
-    // Add timeout to prevent hanging
     const timeoutId = setTimeout(() => {
       console.warn('Gong sound timeout');
       resolve();
-    }, 5000); // 5 second timeout
+    }, 5000);
 
     gongAudio!.onended = () => {
       clearTimeout(timeoutId);
@@ -890,7 +1033,7 @@ export const isBackgroundMusicPlaying = (): boolean => {
 
 // Get current background music volume
 export const getBackgroundMusicVolume = (): number => {
-  if (!backgroundAudio) return 0.2; // Default volume
+  if (!backgroundAudio) return 0.2;
   return backgroundAudio.volume;
 };
 
@@ -898,7 +1041,6 @@ export const getBackgroundMusicVolume = (): number => {
 export const setBackgroundMusicVolume = (volume: number): void => {
   if (!backgroundAudio) return;
   
-  // Clamp volume between 0 and 1
   const clampedVolume = Math.max(0, Math.min(1, volume));
   backgroundAudio.volume = clampedVolume;
   
@@ -911,242 +1053,6 @@ export const getFlightStatus = (): { hasActiveFlights: boolean; lastCheck: Date 
     hasActiveFlights: hasActiveFlightsToday,
     lastCheck: lastFlightCheckTime
   };
-};
-
-// KIOSK MOD FUNCTIONS
-
-// Funkcija za kiosk mod koja pokušava zaobići autoplay restrictions
-export const initializeKioskAudio = (): Promise<boolean> => {
-  return new Promise((resolve) => {
-    if (typeof window === 'undefined') {
-      resolve(false);
-      return;
-    }
-
-    console.log('Initializing kiosk audio...');
-
-    // Strategy 1: Try to play a silent audio to unlock audio context
-    const trySilentAudio = (): void => {
-      const silentAudio = new Audio();
-      silentAudio.src = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgYZrXp8sVvIAUfZqzh57trFgUZX6fb5rVlEAUYWqTZ5bNjDgUXVqHX5LBhDAUWVZ/Y465fCgUVVJ7X4q1dCAUUU53W4axbCAUTUpzW4KtaCAUSUZvV36pZCAURUJrU3qlYCAUQUJnT3ahXCAUPUJjS3KdWCAUOUJfR26ZVCAUNUJbQ2qVUCAUMUJXP2aRTCAULUJTO2KNSCAUKUJPN16JRCAUJUJLM1qFQCAUIUJHL1aBPCAAFAgEEAAIBAQIB';
-      silentAudio.volume = 0.001;
-      
-      const playPromise = silentAudio.play();
-      
-      if (playPromise !== undefined) {
-        playPromise.then(() => {
-          console.log('Kiosk audio unlocked with silent audio');
-          silentAudio.pause();
-          silentAudio.remove();
-          resolve(true);
-        }).catch(() => {
-          console.log('Silent audio failed, trying user gesture simulation');
-          void tryUserGestureSimulation().then(resolve);
-        });
-      } else {
-        console.log('Play promise not supported, trying user gesture simulation');
-        void tryUserGestureSimulation().then(resolve);
-      }
-    };
-
-    // Strategy 2: Simulate user gesture through programmatic interaction
-    const tryUserGestureSimulation = (): Promise<boolean> => {
-      return new Promise((gestureResolve) => {
-        try {
-          // Create a virtually invisible button and programmatically click it
-          const button = document.createElement('button');
-          button.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 1px;
-            height: 1px;
-            opacity: 0.001;
-            pointer-events: none;
-            z-index: -1;
-          `;
-          button.textContent = 'audio unlock';
-          
-          let clicked = false;
-          
-          button.onclick = () => {
-            clicked = true;
-            console.log('Programmatic click executed for audio unlock');
-            setTimeout(() => {
-              button.remove();
-              gestureResolve(true);
-            }, 100);
-          };
-
-          document.body.appendChild(button);
-          
-          // Try to click programmatically
-          setTimeout(() => {
-            try {
-              button.click();
-              console.log('Programmatic click attempted');
-            } catch (error) {
-              console.error('Programmatic click error:', error);
-            }
-            
-            // Fallback: if not clicked within 2 seconds, remove and resolve false
-            setTimeout(() => {
-              if (!clicked && document.body.contains(button)) {
-                button.remove();
-                console.log('Programmatic click timeout');
-                gestureResolve(false);
-              }
-            }, 2000);
-            
-          }, 100);
-          
-        } catch (error) {
-          console.error('User gesture simulation failed:', error);
-          gestureResolve(false);
-        }
-      });
-    };
-
-    // Start with silent audio strategy
-    trySilentAudio();
-  });
-};
-
-// Modifikovana setup funkcija za kiosk sa silent error handling
-export const setupBackgroundMusicForKiosk = async (): Promise<boolean> => {
-  if (typeof window === 'undefined') {
-    console.log('Cannot setup kiosk audio: not in browser environment');
-    return false;
-  }
-
-  // Only setup if on timetable page
-  if (window.location.pathname !== '/timetable') {
-    console.log('Not on timetable page, skipping kiosk audio setup');
-    return false;
-  }
-
-  if (backgroundAudio) {
-    console.log('Background audio already setup');
-    return true;
-  }
-
-  try {
-    console.log('Setting up kiosk audio...');
-    
-    // Setup background music
-    const streamUrl = process.env.NEXT_PUBLIC_STREAM_URL || 'https://jking.cdnstream1.com/b22139_128mp3';
-    backgroundAudio = new Audio(streamUrl);
-    backgroundAudio.loop = true;
-    backgroundAudio.volume = 0.2;
-
-    // Start daily music schedule
-    startDailyMusicSchedule();
-
-    // SILENT AUTOPLAY ATTEMPT - catch all errors
-    try {
-      const playPromise = backgroundAudio.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(() => {
-          // Silent catch - this is expected for autoplay restrictions
-          console.log('Autoplay blocked (expected), will start on user interaction');
-        });
-      }
-    } catch (error) {
-      // Silent catch for sync errors
-      console.log('Sync autoplay error caught silently');
-    }
-
-    // Setup interval to check if we're still on timetable page
-    musicControlInterval = setInterval(() => {
-      if (window.location.pathname !== '/timetable' && backgroundAudio) {
-        stopBackgroundMusic();
-      }
-    }, 1000);
-
-    // Preload gong sound
-    preloadGongSound();
-
-    // Initialize the audio manager interface
-    initializeAudioManagerInterface();
-
-    console.log('Kiosk audio setup completed (audio ready for user interaction)');
-    return true;
-
-  } catch (error) {
-    console.log('Kiosk audio setup failed silently');
-    return false;
-  }
-};
-
-// Enhanced play function for kiosk that tries multiple strategies
-export const playBackgroundMusicForKiosk = async (): Promise<boolean> => {
-  if (!backgroundAudio) {
-    console.log('No background audio, setting up kiosk audio first');
-    return await setupBackgroundMusicForKiosk();
-  }
-
-  if (!backgroundAudio.paused) {
-    console.log('Background music already playing');
-    return true;
-  }
-
-  // Only play if conditions are met
-  if (!shouldPlayBackgroundMusic()) {
-    console.log('Background music conditions not met (time or flight status)');
-    return false;
-  }
-
-  try {
-    // Strategy 1: Direct play with silent error handling
-    const playPromise = backgroundAudio.play();
-    
-    if (playPromise !== undefined) {
-      await playPromise;
-      console.log('Kiosk background music started');
-      return true;
-    } else {
-      // Fallback for browsers that don't return promise
-      backgroundAudio.play();
-      console.log('Kiosk background music started (fallback)');
-      return true;
-    }
-  } catch (error) {
-    // SILENT ERROR HANDLING - don't throw, just return false
-    console.log('Kiosk play failed silently (autoplay restrictions)');
-    return false;
-  }
-};
-
-// Funkcija za automatski start kiosk audio sa silent retry logikom
-export const startKioskAudioWithRetry = async (maxRetries = 2): Promise<boolean> => {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    console.log(`Kiosk audio start attempt ${attempt}/${maxRetries}`);
-    
-    try {
-      const success = await playBackgroundMusicForKiosk();
-      
-      if (success) {
-        console.log(`Kiosk audio started successfully on attempt ${attempt}`);
-        return true;
-      }
-      
-      // Wait before retry
-      if (attempt < maxRetries) {
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-      }
-      
-    } catch (error) {
-      // SILENT CATCH - don't throw errors to the UI
-      console.log(`Kiosk audio attempt ${attempt} failed silently`);
-      
-      if (attempt < maxRetries) {
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-      }
-    }
-  }
-  
-  console.log(`All ${maxRetries} kiosk audio attempts completed (audio will start on user interaction)`);
-  return false;
 };
 
 // Initialize audio manager interface for the component
@@ -1165,18 +1071,27 @@ export const initializeAudioManagerInterface = (): void => {
       stopBackgroundMusic,
       getFlightStatus,
       updateFlightStatus,
+      debugAudioStatus,
       // Kiosk functions
       setupBackgroundMusicForKiosk,
       playBackgroundMusicForKiosk,
-      startKioskAudioWithRetry
+      startKioskAudioWithRetry,
+      autoStartKioskAudio
     };
   }
 };
 
-// Modified setupBackgroundMusic function (alternative approach)
-export const setupBackgroundMusicWithInterface = (): void => {
-  setupBackgroundMusic();
-  initializeAudioManagerInterface();
+// Test stream URL function
+export const testStreamUrl = async (): Promise<boolean> => {
+  try {
+    const streamUrl = process.env.NEXT_PUBLIC_STREAM_URL || 'https://jking.cdnstream1.com/b22139_128mp3';
+    const response = await fetch(streamUrl, { method: 'HEAD' });
+    console.log('Stream URL test result:', response.ok);
+    return response.ok;
+  } catch (error) {
+    console.error('Stream URL test failed:', error);
+    return false;
+  }
 };
 
 // Type declarations for window.audioManager
@@ -1186,15 +1101,17 @@ declare global {
       getBackgroundMusicVolume: () => number;
       setBackgroundMusicVolume: (volume: number) => void;
       isBackgroundMusicPlaying: () => boolean;
-      playBackgroundMusic: () => void;
+      playBackgroundMusic: () => Promise<boolean>;
       pauseBackgroundMusic: () => void;
-      toggleBackgroundMusic: () => void;
+      toggleBackgroundMusic: () => Promise<boolean>;
       stopBackgroundMusic: () => void;
       getFlightStatus: () => { hasActiveFlights: boolean; lastCheck: Date | null };
       updateFlightStatus: (hasFlights: boolean) => void;
+      debugAudioStatus: () => void;
       setupBackgroundMusicForKiosk: () => Promise<boolean>;
       playBackgroundMusicForKiosk: () => Promise<boolean>;
       startKioskAudioWithRetry: (maxRetries?: number) => Promise<boolean>;
+      autoStartKioskAudio: () => Promise<void>;
     };
   }
 }

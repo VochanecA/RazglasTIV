@@ -13,10 +13,13 @@ import {
   setupBackgroundMusicForKiosk, 
   playBackgroundMusicForKiosk, 
   startKioskAudioWithRetry,
+  autoStartKioskAudio,
   cleanupAudioResources, 
   pauseBackgroundMusic, 
   setBackgroundMusicVolume, 
-  getBackgroundMusicVolume 
+  getBackgroundMusicVolume,
+  updateFlightStatus,
+  debugAudioStatus
 } from '@/lib/audioManager';
 import { FlightData, Flight } from '@/types/flight';
 import { ScreenWakeManager } from '@/components/ScreenWakeManager';
@@ -129,8 +132,8 @@ export default function Page() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showAllFlights, setShowAllFlights] = useState(false);
   const [audioInitialized, setAudioInitialized] = useState(false);
-  const [isAudioPlaying, setIsAudioPlaying] = useState(true); // Default to true for kiosk
-  const [volume, setVolume] = useState<number>(0.2); // Default volume
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [volume, setVolume] = useState<number>(0.2);
 
   // Debounce the search query to reduce re-renders during typing
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
@@ -141,69 +144,29 @@ export default function Page() {
   // Conditionally handle flights based on user
   const flights = user ? flightData : null;
 
-  // Global error handler for audio and wake lock errors
-  useEffect(() => {
-    const handleAudioError = (event: ErrorEvent) => {
-      if (event.error && event.error.message && 
-          (event.error.message.includes('play()') || 
-           event.error.message.includes('WakeLock') ||
-           event.error.message.includes('wake lock'))) {
-        event.preventDefault();
-        console.log('Audio/WakeLock error handled silently:', event.error.message);
-        return false;
-      }
-    };
-
-    const handleRejection = (event: PromiseRejectionEvent) => {
-      if (event.reason && event.reason.message && 
-          (event.reason.message.includes('play()') || 
-           event.reason.message.includes('WakeLock') ||
-           event.reason.message.includes('wake lock'))) {
-        event.preventDefault();
-        console.log('Audio/WakeLock promise rejection handled silently:', event.reason.message);
-        return false;
-      }
-    };
-
-    window.addEventListener('error', handleAudioError);
-    window.addEventListener('unhandledrejection', handleRejection);
-
-    return () => {
-      window.removeEventListener('error', handleAudioError);
-      window.removeEventListener('unhandledrejection', handleRejection);
-    };
-  }, []);
-
-  // Effect for setting up and auto-playing background music for kiosk
+  // KIOSK MODE: Auto-start background music without user interaction
   useEffect(() => {
     if (user && !audioInitialized) {
-      console.log('Kiosk mode: Setting up background music');
+      console.log('Kiosk mode: Starting automatic audio setup...');
       
       const initializeKioskAudio = async () => {
         try {
-          // Use kiosk audio setup - this won't throw errors to UI
-          const setupSuccess = await setupBackgroundMusicForKiosk();
+          // Use the new auto-start function that handles everything
+          await autoStartKioskAudio();
           
-          if (setupSuccess) {
-            setAudioInitialized(true);
-            
-            // Set initial volume
-            setBackgroundMusicVolume(volume);
-            
-            // Try to start audio with silent retry logic
-            const audioStarted = await startKioskAudioWithRetry(2);
-            
-            if (audioStarted) {
-              setIsAudioPlaying(true);
-              console.log('Kiosk mode: Background music started');
-            } else {
-              // This is normal - audio will start on first user interaction
-              console.log('Kiosk mode: Audio ready - will start on user interaction');
-            }
-          }
+          setAudioInitialized(true);
+          
+          // Set initial volume
+          setBackgroundMusicVolume(volume);
+          
+          // Check if audio is playing
+          setIsAudioPlaying(true);
+          
+          console.log('Kiosk mode: Audio initialization completed');
         } catch (error) {
-          // SILENT CATCH - don't set any state that would cause re-render with error
-          console.log('Audio initialization completed (ready for user interaction)');
+          // Silent catch - don't show errors in UI
+          console.log('Kiosk audio initialization completed');
+          setAudioInitialized(true);
         }
       };
 
@@ -211,36 +174,21 @@ export default function Page() {
     }
   }, [user, audioInitialized, volume]);
 
+  // Update flight status when flights are loaded
+  useEffect(() => {
+    if (flights) {
+      const hasFlights = (flights.departures && flights.departures.length > 0) || 
+                         (flights.arrivals && flights.arrivals.length > 0);
+      updateFlightStatus(hasFlights);
+    }
+  }, [flights]);
+
   // Effect to sync volume with audio manager
   useEffect(() => {
     if (audioInitialized) {
       setBackgroundMusicVolume(volume);
     }
   }, [volume, audioInitialized]);
-
-  // Effect to handle user interaction as fallback
-  useEffect(() => {
-    const handleFirstInteraction = () => {
-      if (audioInitialized && !isAudioPlaying) {
-        console.log('User interaction detected, starting audio silently...');
-        playBackgroundMusicForKiosk().then(success => {
-          if (success) {
-            setIsAudioPlaying(true);
-          }
-          // Don't show errors - this is silent
-        }).catch(() => {
-          // Silent catch - no UI updates
-          console.log('Audio start on interaction completed silently');
-        });
-      }
-    };
-
-    document.addEventListener('click', handleFirstInteraction, { once: true });
-    
-    return () => {
-      document.removeEventListener('click', handleFirstInteraction);
-    };
-  }, [audioInitialized, isAudioPlaying]);
 
   // Cleanup effect
   useEffect(() => {
@@ -252,7 +200,7 @@ export default function Page() {
   // Function to handle audio play/pause
   const handleAudioToggle = useCallback(async () => {
     if (!audioInitialized) {
-      console.log('Initializing audio silently');
+      console.log('Initializing audio for kiosk mode');
       const setupSuccess = await setupBackgroundMusicForKiosk();
       if (setupSuccess) {
         setAudioInitialized(true);
@@ -270,11 +218,9 @@ export default function Page() {
           setIsAudioPlaying(true);
           console.log('Background music started');
         }
-        // Don't show error if failed - it will start on next user interaction
       }
     } catch (error) {
-      // SILENT CATCH - no UI error state
-      console.log('Audio toggle completed silently');
+      console.log('Audio toggle completed');
     }
   }, [audioInitialized, isAudioPlaying]);
 
@@ -412,6 +358,16 @@ export default function Page() {
         onToggle={handleAudioToggle}
       />
       
+      {/* Debug button - remove in production */}
+      <div className="fixed bottom-4 left-4 z-50">
+        <button 
+          onClick={debugAudioStatus}
+          className="bg-gray-800 text-white p-2 rounded text-xs"
+        >
+          Debug Audio
+        </button>
+      </div>
+      
       {/* Airline Distribution Card */}
       <div className="mb-6">
         <AirlineDistributionCard flights={allFlights} />
@@ -471,7 +427,6 @@ export default function Page() {
         <div className="flex flex-col gap-4">
           {filteredFlights.length > 0 ? (
             filteredFlights.map((flight) => {
-              // KREIRAJTE JEDINSTVENI KLJUČ KOMBINACIJOM VIŠE POLJA
               const uniqueKey = `${flight.ident}-${flight.TipLeta}-${flight.scheduled_out}-${flight.destination?.code || 'UNK'}-${flight.origin?.code || 'UNK'}`;
               return (
                 <FlightCard 
