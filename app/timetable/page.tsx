@@ -5,8 +5,9 @@ import { FlightAnnouncementsProvider } from '@/components/ui/FlightAnnouncements
 import { useFlightAnnouncements } from '@/lib/flightTTS';
 import FlightCard from '@/components/ui/FlightCard';
 import AirlineDistributionCard from '@/components/ui/AirlineDistributionCard';
+import FlightDelayCalculator from '@/components/ui/FlightDelayCalculator';
 import Skeleton from '@/components/ui/skeleton';
-import { PlaneTakeoff, PlaneLanding, Lock, ListFilter, List, Volume2, VolumeX, Volume1, Volume } from 'lucide-react';
+import { PlaneTakeoff, PlaneLanding, Lock, ListFilter, List, Volume2, VolumeX, Volume1, Volume, Search, Settings } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/lib/auth';
 import { 
@@ -43,7 +44,11 @@ function useDebounce<T>(value: T, delay: number): T {
 
 const Tab = ({ label, isActive, onClick, icon }: { label: string; isActive: boolean; onClick: () => void; icon: React.ReactNode }) => (
   <button
-    className={`flex items-center py-2 px-4 font-semibold ${isActive ? 'border-b-2 border-blue-600' : 'text-gray-500 hover:text-blue-600'}`}
+    className={`flex items-center py-2 px-4 font-semibold transition-colors duration-200 ${
+      isActive 
+        ? 'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400' 
+        : 'text-gray-500 hover:text-blue-600 dark:hover:text-blue-400'
+    }`}
     onClick={onClick}
   >
     {icon}
@@ -51,8 +56,8 @@ const Tab = ({ label, isActive, onClick, icon }: { label: string; isActive: bool
   </button>
 );
 
-// Volume Control Card Component
-const VolumeControlCard = ({ 
+// Volume Control Component za sidebar
+const VolumeControl = ({ 
   volume, 
   onVolumeChange, 
   isPlaying, 
@@ -63,27 +68,27 @@ const VolumeControlCard = ({
   isPlaying: boolean;
   onToggle: () => void;
 }) => (
-  <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6 mb-6 border border-gray-200 dark:border-gray-700">
-    <div className="flex items-center justify-between mb-4">
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-        <Volume2 className="text-blue-500" size={20} />
-        Background Music Control
+  <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+    <div className="flex items-center justify-between mb-3">
+      <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+        <Volume2 className="text-blue-500" size={16} />
+        Background Music
       </h3>
       <button
         onClick={onToggle}
-        className={`flex items-center gap-2 py-2 px-4 rounded-full font-semibold transition-colors duration-200 ease-in-out ${
+        className={`flex items-center gap-1 py-1 px-3 rounded-full text-xs font-semibold transition-colors duration-200 ease-in-out ${
           isPlaying 
             ? 'bg-green-600 text-white hover:bg-green-700' 
             : 'bg-red-600 text-white hover:bg-red-700'
         }`}
       >
-        {isPlaying ? <Volume2 size={18} /> : <VolumeX size={18} />}
-        <span>{isPlaying ? 'Music On' : 'Music Off'}</span>
+        {isPlaying ? <Volume2 size={14} /> : <VolumeX size={14} />}
+        <span>{isPlaying ? 'On' : 'Off'}</span>
       </button>
     </div>
     
-    <div className="flex items-center gap-4">
-      <VolumeX className="text-gray-500" size={20} />
+    <div className="flex items-center gap-3">
+      <VolumeX className="text-gray-500 flex-shrink-0" size={16} />
       <input
         type="range"
         min="0"
@@ -93,8 +98,8 @@ const VolumeControlCard = ({
         onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
         className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 slider"
       />
-      <Volume className="text-gray-500" size={20} />
-      <span className="text-sm font-medium text-gray-600 dark:text-gray-300 w-12">
+      <Volume className="text-gray-500 flex-shrink-0" size={16} />
+      <span className="text-xs font-medium text-gray-600 dark:text-gray-300 w-8 text-right">
         {Math.round(volume * 100)}%
       </span>
     </div>
@@ -102,24 +107,50 @@ const VolumeControlCard = ({
     <style jsx>{`
       .slider::-webkit-slider-thumb {
         appearance: none;
-        height: 20px;
-        width: 20px;
+        height: 16px;
+        width: 16px;
         border-radius: 50%;
         background: #3b82f6;
         cursor: pointer;
         border: 2px solid #ffffff;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
       }
       .slider::-moz-range-thumb {
-        height: 20px;
-        width: 20px;
+        height: 16px;
+        width: 16px;
         border-radius: 50%;
         background: #3b82f6;
         cursor: pointer;
         border: 2px solid #ffffff;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
       }
     `}</style>
+  </div>
+);
+
+// Search Component za sidebar
+const SearchControl = ({ 
+  searchQuery, 
+  onSearchChange 
+}: { 
+  searchQuery: string;
+  onSearchChange: (value: string) => void;
+}) => (
+  <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+    <div className="flex items-center gap-2 mb-2">
+      <Search className="text-blue-500" size={16} />
+      <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+        Search Flights
+      </h3>
+    </div>
+    
+    <input
+      type="text"
+      placeholder="Flight, airline, destination..."
+      value={searchQuery}
+      onChange={(e) => onSearchChange(e.target.value)}
+      className="w-full p-2 text-sm border rounded-lg bg-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-600"
+    />
   </div>
 );
 
@@ -340,125 +371,233 @@ export default function Page() {
   );
 
   return (
-    <div className="container mx-auto p-4 bg-white dark:bg-gray-800">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 overflow-x-hidden">
       {/* Silent screen wake manager - no UI, just functionality */}
       <ScreenWakeManager enabled={true} autoStart={true} retryDelay={3000} />
       
       <FlightAnnouncementsProvider />
 
-      <h1 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">
-        Flight Information
-      </h1>
-      
-      {/* Volume Control Card */}
-      <VolumeControlCard
-        volume={volume}
-        onVolumeChange={handleVolumeChange}
-        isPlaying={isAudioPlaying}
-        onToggle={handleAudioToggle}
-      />
-      
-      {/* Debug button - remove in production */}
-      <div className="fixed bottom-4 left-4 z-50">
-        <button 
-          onClick={debugAudioStatus}
-          className="bg-gray-800 text-white p-2 rounded text-xs"
-        >
-          Debug Audio
-        </button>
-      </div>
-      
-      {/* Airline Distribution Card */}
-      <div className="mb-6">
-        <AirlineDistributionCard flights={allFlights} />
-      </div>
-
-      {/* Search Input Field */}
-      <input
-        type="text"
-        placeholder="Search Flights, airlines, destination, IATA code of origin/destination..."
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        className="mb-4 p-2 border rounded-full bg-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 border-gray-300 dark:border-gray-600 focus:outline-none focus:ring focus:ring-blue-300 w-full"
-      />
-
-      {/* Tabs and Show All Flights Toggle */}
-      <div className="flex justify-between items-center mb-4">
-        <div className="flex space-x-4">
-          <Tab
-            label="Departures"
-            isActive={activeTab === 'departures'}
-            onClick={() => setActiveTab('departures')}
-            icon={<PlaneTakeoff color="lightblue" size={20} />}
-          />
-          <Tab
-            label="Arrivals"
-            isActive={activeTab === 'arrivals'}
-            onClick={() => setActiveTab('arrivals')}
-            icon={<PlaneLanding color="lightblue" size={20} />}
-          />
-        </div>
-
-        {/* Show All Flights Toggle Button */}
-        <button
-          onClick={() => setShowAllFlights(!showAllFlights)}
-          className={`flex items-center justify-center gap-2 py-2 px-4 rounded-full font-semibold transition-colors duration-200 ease-in-out
-            ${showAllFlights
-              ? 'bg-blue-600 text-white shadow-md hover:bg-blue-700'
-              : 'bg-blue-200 text-blue-800 shadow-md hover:bg-blue-300 dark:bg-blue-800 dark:text-blue-200 dark:hover:bg-blue-700'
-            }`}
-        >
-          {showAllFlights ? (
-            <>
-              <ListFilter size={18} />
-              <span>Hide</span>
-            </>
-          ) : (
-            <>
-              <List size={18} />
-              <span>All</span>
-            </>
-          )}
-        </button>
-      </div>
-
-      {/* Show skeletons while loading flights */}
-      {flights ? (
-        <div className="flex flex-col gap-4">
-          {filteredFlights.length > 0 ? (
-            filteredFlights.map((flight) => {
-              const uniqueKey = `${flight.ident}-${flight.TipLeta}-${flight.scheduled_out}-${flight.destination?.code || 'UNK'}-${flight.origin?.code || 'UNK'}`;
-              return (
-                <FlightCard 
-                  key={uniqueKey}
-                  flight={flight}
-                  type={activeTab === 'departures' ? 'departure' : 'arrival'}
-                />
-              );
-            })
-          ) : (
-            <p className="text-gray-500">No flights found</p>
-          )}
-        </div>
-      ) : (
-        // Display skeletons while loading
-        <div className="flex flex-col gap-4">
-          {[...Array(4)].map((_, index) => (
-            <div key={index}>
-              <Skeleton className="h-24 mb-2" />
-              <Skeleton className="h-6 w-full mb-1" />
-              <Skeleton className="h-6 w-full" />
+      {/* Main Grid Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-4 max-w-8xl mx-auto">
+        
+        {/* Main content area (center) - zauzima 2/3 ili 3/4 širine */}
+        <div className="lg:col-span-2 xl:col-span-3">
+          {/* Header */}
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+              Flight Information
+            </h1>
+            
+            {/* Flight View Tabs - MAIN CONTENT AREA */}
+            <div className="flex space-x-4 mb-4">
+              <Tab
+                label="Departures"
+                isActive={activeTab === 'departures'}
+                onClick={() => setActiveTab('departures')}
+                icon={<PlaneTakeoff color="lightblue" size={20} />}
+              />
+              <Tab
+                label="Arrivals"
+                isActive={activeTab === 'arrivals'}
+                onClick={() => setActiveTab('arrivals')}
+                icon={<PlaneLanding color="lightblue" size={20} />}
+              />
             </div>
-          ))}
-        </div>
-      )}
 
-      {/* Last Fetched Time */}
-      {lastFetchedTime && (
-        <div className="mt-4 text-sm text-gray-500 dark:text-gray-400 text-center">
-          Last fetched at: {lastFetchedTime}
+            {/* Show All Flights Toggle Button - MAIN CONTENT AREA */}
+            <div className="mb-4">
+              <button
+                onClick={() => setShowAllFlights(!showAllFlights)}
+                className={`flex items-center justify-center gap-2 py-2 px-4 rounded-full font-semibold transition-colors duration-200 ease-in-out
+                  ${showAllFlights
+                    ? 'bg-blue-600 text-white shadow-md hover:bg-blue-700'
+                    : 'bg-blue-200 text-blue-800 shadow-md hover:bg-blue-300 dark:bg-blue-800 dark:text-blue-200 dark:hover:bg-blue-700'
+                  }`}
+              >
+                {showAllFlights ? (
+                  <>
+                    <ListFilter size={18} />
+                    <span>Hide Past Flights</span>
+                  </>
+                ) : (
+                  <>
+                    <List size={18} />
+                    <span>Show All Flights</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Search Input Field - MOBILE VIEW */}
+            <div className="lg:hidden mb-4">
+              <input
+                type="text"
+                placeholder="Search Flights, airlines, destination..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full p-3 border rounded-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-600"
+              />
+            </div>
+
+            {/* Volume Control - MOBILE VIEW */}
+            <div className="lg:hidden mb-6">
+              <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    <Volume2 className="text-blue-500" size={16} />
+                    Background Music
+                  </h3>
+                  <button
+                    onClick={handleAudioToggle}
+                    className={`flex items-center gap-1 py-1 px-3 rounded-full text-xs font-semibold transition-colors duration-200 ease-in-out ${
+                      isAudioPlaying 
+                        ? 'bg-green-600 text-white hover:bg-green-700' 
+                        : 'bg-red-600 text-white hover:bg-red-700'
+                    }`}
+                  >
+                    {isAudioPlaying ? <Volume2 size={14} /> : <VolumeX size={14} />}
+                    <span>{isAudioPlaying ? 'On' : 'Off'}</span>
+                  </button>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  <VolumeX className="text-gray-500 flex-shrink-0" size={16} />
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    value={volume}
+                    onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
+                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 slider"
+                  />
+                  <Volume className="text-gray-500 flex-shrink-0" size={16} />
+                  <span className="text-xs font-medium text-gray-600 dark:text-gray-300 w-8 text-right">
+                    {Math.round(volume * 100)}%
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Airline Distribution Card - MOBILE VIEW */}
+          <div className="lg:hidden mb-6">
+            <AirlineDistributionCard flights={allFlights} />
+          </div>
+
+          {/* Flight Cards */}
+          {flights ? (
+            <div className="flex flex-col gap-4">
+              {filteredFlights.length > 0 ? (
+                filteredFlights.map((flight) => {
+                  const uniqueKey = `${flight.ident}-${flight.TipLeta}-${flight.scheduled_out}-${flight.destination?.code || 'UNK'}-${flight.origin?.code || 'UNK'}`;
+                  return (
+                    <FlightCard 
+                      key={uniqueKey}
+                      flight={flight}
+                      type={activeTab === 'departures' ? 'departure' : 'arrival'}
+                    />
+                  );
+                })
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-500 dark:text-gray-400">No flights found</p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
+                    Try adjusting your search or filter settings
+                  </p>
+                </div>
+              )}
+            </div>
+          ) : (
+            // Display skeletons while loading
+            <div className="flex flex-col gap-4">
+              {[...Array(4)].map((_, index) => (
+                <div key={index}>
+                  <Skeleton className="h-24 mb-2" />
+                  <Skeleton className="h-6 w-full mb-1" />
+                  <Skeleton className="h-6 w-full" />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Last Fetched Time */}
+          {lastFetchedTime && (
+            <div className="mt-6 text-sm text-gray-500 dark:text-gray-400 text-center">
+              Last updated: {lastFetchedTime}
+            </div>
+          )}
         </div>
-      )}
+
+        {/* Right sidebar - DESKTOP VIEW - zauzima 1/3 ili 1/4 širine */}
+        <div className="lg:col-span-1 space-y-6">
+          
+          {/* Controls Section */}
+          <div className="space-y-6">
+            {/* Search Control - DESKTOP */}
+            <SearchControl 
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+            />
+
+            {/* Show All Flights Toggle - DESKTOP */}
+            <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                <Settings className="text-blue-500" size={16} />
+                View Options
+              </h3>
+              <button
+                onClick={() => setShowAllFlights(!showAllFlights)}
+                className={`flex items-center justify-center gap-2 py-2 px-4 rounded-full w-full text-sm font-semibold transition-colors duration-200 ease-in-out
+                  ${showAllFlights
+                    ? 'bg-blue-600 text-white shadow-md hover:bg-blue-700'
+                    : 'bg-blue-200 text-blue-800 shadow-md hover:bg-blue-300 dark:bg-blue-800 dark:text-blue-200 dark:hover:bg-blue-700'
+                  }`}
+              >
+                {showAllFlights ? (
+                  <>
+                    <ListFilter size={16} />
+                    <span>Hide Past Flights</span>
+                  </>
+                ) : (
+                  <>
+                    <List size={16} />
+                    <span>Show All Flights</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Volume Control - DESKTOP */}
+            <VolumeControl
+              volume={volume}
+              onVolumeChange={handleVolumeChange}
+              isPlaying={isAudioPlaying}
+              onToggle={handleAudioToggle}
+            />
+
+            {/* Airline Distribution Card - DESKTOP */}
+            <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg border border-gray-200 dark:border-gray-700">
+              <AirlineDistributionCard flights={allFlights} compact={true} />
+            </div>
+          </div>
+
+          {/* Flight Delay Calculator - DESKTOP */}
+          <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg border border-gray-200 dark:border-gray-700">
+            <FlightDelayCalculator />
+          </div>
+
+          {/* Debug button */}
+          <div className="text-center">
+            <button 
+              onClick={debugAudioStatus}
+              className="bg-gray-800 text-white p-2 rounded text-xs hover:bg-gray-700 transition-colors"
+            >
+              Debug Audio
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

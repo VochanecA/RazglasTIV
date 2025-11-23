@@ -1,0 +1,296 @@
+import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
+import Tooltip from '@/components/ui/ToolTip';
+import {
+  ClockArrowUp, PlaneTakeoff, TicketsPlane, Info,
+  Clock, CalendarDays, Hourglass, UserCheck, MapPin,
+  CheckCircle, AlertTriangle, Loader, Users, XCircle,
+  CircleDotDashed, ChevronDown, ChevronUp, Navigation,
+  Shield, Luggage, Eye
+} from 'lucide-react';
+import { Flight } from '@/types/flight';
+
+const FlightCard = ({ flight, type }: { flight: Flight; type: 'departure' | 'arrival' }) => {
+  const [logoError, setLogoError] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isDarkTheme, setIsDarkTheme] = useState(false);
+
+  const logoUrl = `https://www.flightaware.com/images/airline_logos/180px/${flight.KompanijaICAO}.png`;
+  const placeholderUrl = 'https://placehold.co/180x120/E0E0E0/333333?text=No+Logo';
+
+  useEffect(() => {
+    const checkDarkMode = () => {
+      setIsDarkTheme(document.documentElement.classList.contains("dark"));
+    };
+
+    checkDarkMode();
+    const observer = new MutationObserver(() => checkDarkMode());
+    observer.observe(document.documentElement, { attributes: true });
+    return () => observer.disconnect();
+  }, []);
+
+  // Status configuration with modern styling
+  const statusConfig = {
+    'Departed': {
+      bg: 'bg-emerald-500/20 border-emerald-500',
+      text: 'text-emerald-600 dark:text-emerald-400',
+      icon: CheckCircle,
+      blink: false
+    },
+    'Arrived': {
+      bg: 'bg-emerald-500/20 border-emerald-500',
+      text: 'text-emerald-600 dark:text-emerald-400',
+      icon: CheckCircle,
+      blink: false
+    },
+    'Delay': {
+      bg: 'bg-rose-500/20 border-rose-500',
+      text: 'text-rose-600 dark:text-rose-400',
+      icon: AlertTriangle,
+      blink: true
+    },
+    'Processing': {
+      bg: 'bg-blue-500/20 border-blue-500',
+      text: 'text-blue-600 dark:text-blue-400',
+      icon: Loader,
+      blink: false
+    },
+    'Boarding': {
+      bg: 'bg-amber-500/20 border-amber-500',
+      text: 'text-amber-600 dark:text-amber-400',
+      icon: Users,
+      blink: true
+    },
+    'Closed': {
+      bg: 'bg-gray-500/20 border-gray-500',
+      text: 'text-gray-600 dark:text-gray-400',
+      icon: XCircle,
+      blink: false
+    },
+    'On time': {
+      bg: 'bg-lime-500/20 border-lime-500',
+      text: 'text-lime-600 dark:text-lime-400',
+      icon: CircleDotDashed,
+      blink: false
+    },
+    'Scheduled': {
+      bg: 'bg-sky-500/20 border-sky-500',
+      text: 'text-sky-600 dark:text-sky-400',
+      icon: Clock,
+      blink: false
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.Scheduled;
+    const IconComponent = config.icon;
+    const displayText = status === 'Processing' ? 'Check In' : status;
+
+    return (
+      <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border-2 ${config.bg} ${config.text} ${config.blink ? 'animate-pulse' : ''}`}>
+        <IconComponent size={16} />
+        <span className="font-semibold text-sm">{displayText}</span>
+      </div>
+    );
+  };
+
+  return (
+    <div className="group bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 dark:border-gray-700/50 shadow-lg hover:shadow-xl transition-all duration-300 ease-out hover:scale-[1.02]">
+      {/* Main Card Content */}
+      <div className="p-6">
+        {/* Header Section */}
+        <div className="flex items-start justify-between mb-6">
+          <div className="flex items-center gap-4 flex-1">
+            {/* Airline Logo */}
+            <div className="relative w-16 h-16 bg-white dark:bg-gray-900 rounded-xl shadow-md border border-gray-100 dark:border-gray-700 p-2">
+              <Image
+                src={logoError ? placeholderUrl : logoUrl}
+                alt={`${flight.KompanijaNaziv} logo`}
+                fill
+                className="object-contain"
+                onError={() => setLogoError(true)}
+                loading="eager"
+                priority={true}
+              />
+            </div>
+
+            {/* Flight Info */}
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <a
+                  href={`https://www.flightaware.com/live/flight/${flight.KompanijaICAO}${flight.ident}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group"
+                >
+                  <Tooltip text={`Track ${flight.KompanijaICAO} ${flight.ident} on FlightAware`}>
+                    <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent group-hover:from-blue-700 group-hover:to-purple-700 transition-all">
+                      {flight.Kompanija} {flight.ident}
+                    </span>
+                  </Tooltip>
+                </a>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <PlaneTakeoff size={18} className="text-blue-500" />
+                <span className="text-xl font-bold text-gray-900 dark:text-white">
+                  {flight.grad}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Status Badge */}
+          <div className="flex flex-col items-end gap-3">
+            {getStatusBadge(flight.status)}
+            
+            {/* Expand Button */}
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="flex items-center gap-1 px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+            >
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {isExpanded ? 'Less' : 'More'}
+              </span>
+              {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </button>
+          </div>
+        </div>
+
+        {/* Timeline Section */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+            <div className="flex items-center gap-2">
+              <CalendarDays size={18} className="text-blue-500" />
+              <span className="font-semibold text-gray-700 dark:text-gray-300">Scheduled</span>
+            </div>
+            <span className="text-lg font-bold text-gray-900 dark:text-white">
+              {flight.scheduled_out || '-'}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-200 dark:border-purple-800">
+            <div className="flex items-center gap-2">
+              <Hourglass size={18} className="text-purple-500" />
+              <span className="font-semibold text-gray-700 dark:text-gray-300">Estimated</span>
+            </div>
+            <span className="text-lg font-bold text-gray-900 dark:text-white">
+              {flight.estimated_out || '-'}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
+            <div className="flex items-center gap-2">
+              <PlaneTakeoff size={18} className="text-green-500" />
+              <span className="font-semibold text-gray-700 dark:text-gray-300">Actual</span>
+            </div>
+            <span className="text-lg font-bold text-gray-900 dark:text-white">
+              {flight.actual_out || '-'}
+            </span>
+          </div>
+        </div>
+
+        {/* Passenger Information - Always visible for departures */}
+        {type === 'departure' && (
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 mb-4">
+            <div className="flex items-start gap-3">
+              <Info size={18} className="text-blue-500 mt-0.5 flex-shrink-0" />
+              <div className="text-sm text-gray-700 dark:text-gray-300">
+                <p className="mb-2">Passengers should arrive at the airport at least two hours before departure. Verify your travel documents and avoid packing prohibited items.</p>
+                <div className="flex items-center gap-2">
+                  <Shield size={14} className="text-green-500 flex-shrink-0" />
+                  <span>
+                    For more information on dangerous goods regulations, visit{' '}
+                    <a
+                      href="https://www.iata.org/en/programs/cargo/dgr/dgr-guidance-passengers/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                    >
+                      IATA Guidance
+                    </a>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Expanded Details */}
+        {isExpanded && (
+          <div className="space-y-4 animate-in fade-in duration-300">
+            {/* Additional Flight Information */}
+            {type === 'departure' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Check In */}
+                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                  <div className="flex items-center gap-2">
+                    <UserCheck size={18} className="text-blue-500" />
+                    <span className="font-medium text-gray-700 dark:text-gray-300">Check In</span>
+                  </div>
+                  <span className="font-semibold text-gray-900 dark:text-white">
+                    {flight.checkIn || '-'}
+                  </span>
+                </div>
+
+                {/* Gate */}
+                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                  <div className="flex items-center gap-2">
+                    <MapPin size={18} className="text-green-500" />
+                    <span className="font-medium text-gray-700 dark:text-gray-300">Gate</span>
+                  </div>
+                  <span className="font-semibold text-gray-900 dark:text-white">
+                    {flight.gate || '-'}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Flight Tracking */}
+            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl text-white">
+              <div className="flex items-center gap-3">
+                <Navigation size={20} />
+                <div>
+                  <div className="font-semibold">Live Flight Tracking</div>
+                  <div className="text-sm opacity-90">Real-time position and status</div>
+                </div>
+              </div>
+              <a
+                href={`https://www.flightaware.com/live/flight/${flight.KompanijaICAO}${flight.ident}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
+              >
+                <Eye size={16} />
+                <span className="font-medium">Track</span>
+              </a>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Progress Bar for Departures */}
+      {type === 'departure' && (
+        <div className="px-6 pb-4">
+          <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-2">
+            <span>Check-in</span>
+            <span>Boarding</span>
+            <span>Departure</span>
+          </div>
+          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+            <div 
+              className="bg-gradient-to-r from-blue-500 to-green-500 h-2 rounded-full transition-all duration-1000 ease-out"
+              style={{
+                width: flight.status === 'Departed' ? '100%' : 
+                       flight.status === 'Boarding' ? '66%' : 
+                       flight.status === 'Processing' ? '33%' : '0%'
+              }}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default FlightCard;

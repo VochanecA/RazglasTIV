@@ -4,23 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Volume2, VolumeX, Volume1 } from 'lucide-react';
 
 // Ažurirani TypeScript interfejs za window.audioManager
-declare global {
-  interface Window {
-    audioManager: {
-      getBackgroundMusicVolume: () => number;
-      setBackgroundMusicVolume: (volume: number) => void;
-      isBackgroundMusicPlaying: () => boolean;
-      playBackgroundMusic: () => void;
-      pauseBackgroundMusic: () => void;
-      toggleBackgroundMusic: () => void;
-      stopBackgroundMusic: () => void;
-      // Kiosk funkcije
-      setupBackgroundMusicForKiosk: () => Promise<boolean>;
-      playBackgroundMusicForKiosk: () => Promise<boolean>;
-      startKioskAudioWithRetry: (maxRetries?: number) => Promise<boolean>;
-    };
-  }
-}
+
 
 const BackgroundVolume: React.FC = () => {
   const [volume, setVolume] = useState(0.2); // Default volume

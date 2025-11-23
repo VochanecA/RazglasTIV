@@ -1,6 +1,5 @@
 import React, { ReactNode } from 'react';
 import { NotificationCenter } from '@/components/ui/NotificationCenter';
-import DelayCalculator from '@/components/ui/FlightDelayCalculator';
 
 const TimetableLayout: React.FC<{ children: ReactNode }> = ({ children }) => {
   // Get today's date
@@ -9,29 +8,24 @@ const TimetableLayout: React.FC<{ children: ReactNode }> = ({ children }) => {
   const formattedDate = today.toLocaleDateString(undefined, options);
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Main layout with sidebar */}
-      <div className="flex flex-col lg:flex-row gap-6">
-        {/* Main content area (left side) */}
-        <div className="flex-1">
-          {/* Header */}
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">
-              Tivat Timetable - Today: 
-              <span className="text-orange-500 ml-2">{formattedDate}</span>
-            </h1>
-          </div>
-          
-          {/* Page content */}
-          <div className="mt-6">{children}</div>
-          <NotificationCenter />
-        </div>
-
-        {/* Right sidebar */}
-        <div className="lg:w-96 xl:w-[28rem] lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)] lg:overflow-y-auto">
-          <DelayCalculator />
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 overflow-x-hidden">
+      {/* Header */}
+      <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+        <div className="max-w-8xl mx-auto px-4 py-4">
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
+            Tivat Airport - Live Timetable
+            <span className="text-orange-500 ml-2 text-lg font-normal">({formattedDate})</span>
+          </h1>
         </div>
       </div>
+
+      {/* Main content - dodajte padding-bottom za dodatni prostor */}
+      <div className="max-w-8xl mx-auto pb-8">
+        {children}
+      </div>
+
+      {/* Notification Center */}
+      <NotificationCenter />
     </div>
   );
 };

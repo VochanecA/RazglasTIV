@@ -185,8 +185,7 @@ function Navbar() {
   const userInitial = user?.name?.[0] || user?.email?.[0] || 'U';
 
   return (
-    <header className="sticky top-0 z-50 border-b border-gray-200 bg-white/80 backdrop-blur-md dark:bg-gray-900/80 shadow-sm supports-backdrop-blur:bg-white/60 dark:supports-backdrop-blur:bg-gray-900/60">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center h-16">
+<header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md dark:bg-gray-900/80 shadow-sm supports-backdrop-blur:bg-white/60 dark:supports-backdrop-blur:bg-gray-900/60">      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center h-16">
         {/* Logo */}
         <Link 
           href="/" 
