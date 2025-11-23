@@ -1,13 +1,13 @@
 // app/about/layout.tsx
 
-import '../globals.css'; // Adjusted import path based on your structure
+import '../globals.css';
 import type { Metadata } from 'next';
-import { UserProvider } from '@/lib/auth'; // Import UserProvider for authentication context
-import MyNavbar from '@/components/ui/navbar'; // Ensure the path is correct
+import { UserProvider } from '@/lib/auth';
+
 
 export const metadata: Metadata = {
-  title: 'About Us - Next.js SaaS Starter',
-  description: 'Learn more about our service and what we offer.',
+  title: 'About Us - AeroVoice Pro',
+  description: 'Learn more about AeroVoice Pro and our airport management services.',
 };
 
 export default async function AboutLayout({
@@ -16,13 +16,12 @@ export default async function AboutLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="bg-white dark:bg-gray-950 text-black dark:text-white">
-      <body className="min-h-[100dvh] bg-gray-50">
- 
-          <MyNavbar /> {/* Make sure this component is error-free */}
-          {children}
-       
-      </body>
-    </html>
+    // Uklonite html i body tagove - oni su već definirani u root layout-u
+    <div className="min-h-screen bg-white dark:bg-gray-950 text-black dark:text-white">
+      <div className="min-h-[100dvh] bg-gray-50 dark:bg-gray-900">
+
+        {children}
+      </div>
+    </div>
   );
 }
