@@ -92,7 +92,7 @@ export const signIn = validatedAction(signInSchema, async (data, formData) => {
     return createCheckoutSession({ team: foundTeam, priceId });
   }
 
-  redirect('/timetable');
+  redirect('/dashboard');
 });
 
 const signUpSchema = z.object({

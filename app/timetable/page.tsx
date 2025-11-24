@@ -157,7 +157,6 @@ const SearchControl = ({
 export default function Page() {
   const { user } = useUser();
   const router = useRouter();
-  const [showLoginMessage, setShowLoginMessage] = useState(false);
   const [activeTab, setActiveTab] = useState<'departures' | 'arrivals'>('departures');
   const [lastFetchedTime, setLastFetchedTime] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -174,6 +173,14 @@ export default function Page() {
 
   // Conditionally handle flights based on user
   const flights = user ? flightData : null;
+
+  // INSTANT REDIRECT: Ako korisnik nije logovan, odmah preusmeri na sign-in
+  useEffect(() => {
+    if (!user) {
+      console.log('User not authenticated, redirecting to sign-in...');
+      router.push('/sign-in');
+    }
+  }, [user, router]);
 
   // KIOSK MODE: Auto-start background music without user interaction
   useEffect(() => {
@@ -263,19 +270,6 @@ export default function Page() {
     }
   }, [audioInitialized]);
 
-  // Redirect to sign-in after showing message
-  useEffect(() => {
-    if (!user) {
-      setShowLoginMessage(true);
-
-      const redirectTimer = setTimeout(() => {
-        router.push('/sign-in');
-      }, 10000);
-
-      return () => clearTimeout(redirectTimer);
-    }
-  }, [user, router]);
-
   // Effect to update last fetched time when flights are fetched
   useEffect(() => {
     if (flights) {
@@ -292,34 +286,22 @@ export default function Page() {
     return () => clearInterval(interval);
   }, []);
 
-  // If no user, show login prompt
-  if (!user && showLoginMessage) {
+  // Ako korisnik nije logovan, prikaži loading ili ništa (preusmerenje će se desiti)
+  if (!user) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900 p-4">
         <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg p-8 max-w-md w-full text-center">
-          <Lock className="mx-auto mb-4 text-gray-500" size={48} />
-          <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">
-            Login Required
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <h2 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">
+            Checking Authentication...
           </h2>
-          <p className="text-gray-600 dark:text-gray-300 mb-6">
-            To view this page, you must log in to your account.
+          <p className="text-gray-600 dark:text-gray-300">
+            Redirecting to login page...
           </p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            You will be redirected to the login page in 10 seconds...
-          </p>
-          <button
-            onClick={() => router.push('/sign-in')}
-            className="mt-4 w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors"
-          >
-            Go to Login Now
-          </button>
         </div>
       </div>
     );
   }
-
-  // Render nothing if still loading or no user
-  if (!user) return null;
 
   // Define a grace period for filtering out departed/arrived flights
   const now = useMemo(() => new Date(), []);
