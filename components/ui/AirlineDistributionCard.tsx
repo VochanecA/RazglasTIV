@@ -18,7 +18,7 @@ type AirlineCount = {
 export default function AirlineDistributionCard({ flights, compact = false }: AirlineDistributionCardProps) {
   const [airlineData, setAirlineData] = useState<AirlineCount[]>([]);
   const [totalFlights, setTotalFlights] = useState(0);
-  const [isOpen, setIsOpen] = useState(!compact);
+  const [isOpen, setIsOpen] = useState(false); // Promijenjeno: false umjesto !compact
 
   const colors = [
     '#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6',

@@ -1,137 +1,184 @@
 import React from 'react';
 import { Flight } from '@/types/flight';
-
+import { PlaneTakeoff, PlaneLanding, Clock, MapPin, Users, AlertTriangle, CheckCircle } from 'lucide-react';
 
 interface FlightTableProps {
   flights: Flight[];
   type: 'departures' | 'arrivals';
-  darkMode: boolean;
 }
 
-const FlightTable: React.FC<FlightTableProps> = ({ flights, type, darkMode }) => {
-   // Limit to a maximum of 11 flights
-   const limitedFlights = flights.slice(0, 11);
+const FlightTable: React.FC<FlightTableProps> = ({ flights, type }) => {
+  const limitedFlights = flights.slice(0, 11);
+
+  const getStatusConfig = (status: string) => {
+    const statusMap: Record<string, { bg: string; text: string; icon?: any; blink?: boolean }> = {
+      'Processing': { bg: 'bg-amber-500', text: 'text-black', blink: true },
+      'processing': { bg: 'bg-amber-500', text: 'text-black', blink: true },
+      'Scheduled': { bg: 'bg-emerald-500', text: 'text-white' },
+      'Arrived': { bg: 'bg-blue-500', text: 'text-white' },
+      'Delay': { bg: 'bg-red-500', text: 'text-white', blink: true },
+      'Delayed': { bg: 'bg-red-500', text: 'text-white', blink: true },
+      'Boarding': { bg: 'bg-purple-500', text: 'text-white', blink: true },
+      'Landed': { bg: 'bg-cyan-500', text: 'text-white' },
+    };
+    return statusMap[status] || { bg: 'bg-gray-500', text: 'text-white' };
+  };
+
   return (
-    <div className={`w-full overflow-x-auto ${darkMode ? 'text-white' : 'text-black'} text-base`}>
-      <table className={`w-full border-none ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
-        <thead>
-          <tr className={`${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
-            <th className="py-3 px-4 border-b border-l-0 border-r-0 border-t-0">Airline Logo</th>
-            <th className="py-3 px-4 border-b border-l-0 border-r-0 border-t-0">Flight Number</th>
-            <th className="py-3 px-4 border-b border-l-0 border-r-0 border-t-0">Destination</th>
-            <th className="py-3 px-4 border-b border-l-0 border-r-0 border-t-0">Scheduled Time</th>
-            <th className="py-3 px-4 border-b border-l-0 border-r-0 border-t-0">Estimated Time</th>
-            <th className="py-3 px-4 border-b border-l-0 border-r-0 border-t-0">Actual Time</th>
-   {/* Conditionally render Check-In and Gate columns */}
-   {type === 'departures' && (
-              <>
-                <th className="py-3 px-4 border-b border-l-0 border-r-0 border-t-0">Check-In</th>
-                <th className="py-3 px-4 border-b border-l-0 border-r-0 border-t-0">Gate</th>
-              </>
-            )}
-            <th className="py-3 px-4 border-b border-l-0 border-r-0 border-t-0">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {limitedFlights.map((flight, index) => {
-            const logoUrl = `https://www.flightaware.com/images/airline_logos/180px/${flight.KompanijaICAO}.png`;
-            const placeholderUrl = 'https://via.placeholder.com/180x120?text=No+Logo';
+    <div className="w-full overflow-hidden">
+      {/* Table Header */}
+      <div className="grid grid-cols-12 gap-4 px-6 py-4 bg-black/50 border-b border-white/10">
+        <div className="col-span-2 text-lg font-bold text-gray-300 uppercase tracking-wider">Airline</div>
+        <div className="col-span-2 text-lg font-bold text-gray-300 uppercase tracking-wider">Flight</div>
+        <div className="col-span-2 text-lg font-bold text-gray-300 uppercase tracking-wider">
+          {type === 'departures' ? 'Destination' : 'Origin'}
+        </div>
+        <div className="text-lg font-bold text-gray-300 uppercase tracking-wider">Scheduled</div>
+        <div className="text-lg font-bold text-gray-300 uppercase tracking-wider">Estimated</div>
+        <div className="text-lg font-bold text-gray-300 uppercase tracking-wider">Actual</div>
+        {type === 'departures' && (
+          <>
+            <div className="text-lg font-bold text-gray-300 uppercase tracking-wider">Check-In</div>
+            <div className="text-lg font-bold text-gray-300 uppercase tracking-wider">Gate</div>
+          </>
+        )}
+        <div className="text-lg font-bold text-gray-300 uppercase tracking-wider">Status</div>
+      </div>
 
-            return (
-   
-<tr
-  key={flight.ident}
-  className={`
-    ${darkMode 
-      ? (index % 2 === 0 ? 'bg-gray-700' : 'bg-gray-800') 
-      : (index % 2 === 0 ? 'bg-gray-100' : 'bg-white')
-    }
-    hover:${darkMode ? 'bg-gray-600' : 'bg-gray-200'}
-    transition-colors duration-200
-  `}
->
- {/* Airline Logo */}
-                <td className="py-3 px-4 border-b border-l-0 border-r-0 border-t-0 flex items-center  justify-center">
-                <div
-  className={`w-20 h-12 flex items-center justify-center rounded-lg overflow-hidden ${
-    darkMode ? 'bg-gray-700' : 'bg-gray-100'
-  }`}
->
-  <img
-    src={flight.KompanijaICAO ? logoUrl : placeholderUrl}
-    alt={flight.Kompanija || 'No Logo'}
-    className="h-10 w-auto rounded-lg" // Added rounded-lg for rounded corners
-  />
-  
-</div>
-                </td>
-                {/* Flight Number */}
-                <td className="py-3 px-4 border-b border-l-0 border-r-0 border-t-0 text-orange-500 text-5xl text-center font-extrabold ">{flight.Kompanija} {flight.ident}</td>
-                {/* Grad */}
-                <td className="py-3 px-4 border-b border-l-0 border-r-0 border-t-0 text-sky-500 text-5xl text-center font-extrabold">{flight.grad}</td>
-                {/* Scheduled Out */}
-                <td className="py-3 px-4 border-b border-l-0 border-r-0 border-t-0 text-orange-500 text-5xl text-center font-extrabold">{flight.scheduled_out}</td>
-                {/* Estimated Out */}
-                <td className="py-3 px-4 border-b border-l-0 border-r-0 border-t-0 text-4xl text-center font-extrabold">{flight.estimated_out}</td>
-                {/* Actual Out */}
-                <td className="py-3 px-4 border-b border-l-0 border-r-0 border-t-0 text-4xl text-center font-extrabold">{flight.actual_out}</td>
- {/* Conditionally render Check-In and Gate data */}
- {type === 'departures' && (
-                  <>
-                    <td className="py-3 px-4 border-b border-l-0 border-r-0 border-t-0 text-2xl text-center font-extrabold">{flight.checkIn}</td>
-                    <td className="py-3 px-4 border-b border-l-0 border-r-0 border-t-0 text-center">
-  {flight.gate ? (
-    <div className="w-12 h-12 bg-red-500 text-white flex items-center justify-center rounded-full mx-auto font-extrabold text-2xl">
-      {flight.gate}
-    </div>
-  ) : null}
-</td>
+      {/* Flight Rows */}
+      <div className="divide-y divide-white/10">
+        {limitedFlights.map((flight, index) => {
+          const logoUrl = `https://www.flightaware.com/images/airline_logos/180px/${flight.KompanijaICAO}.png`;
+          const placeholderUrl = 'https://via.placeholder.com/180x120?text=No+Logo';
+          const statusConfig = getStatusConfig(flight.status);
 
-                  </>
-                )}
- {/* Status */}
- <td className="py-3 px-4 border-b text-center font-extrabold border-l-0">
-                  {flight.status === "Processing" || flight.status === "processing" ? (
-                    <span className="inline-block bg-yellow-500 text-black rounded-full py-2 px-4 animate-blink">
-                      {flight.status}
-                    </span>
-                  ) : flight.status === "Scheduled" ? (
-                    <span className="inline-block bg-green-500 text-white rounded-full py-2 px-4">
-                      {flight.status}
-                    </span>
-                  ) : flight.status === "Arrived" ? (
-                    <span className="inline-block bg-orange-500 text-black  rounded-full py-2 px-4">
-                      {flight.status}
-                    </span>
-                  ) : flight.status === "Delay" || flight.status === "Delayed" ? (
-                    <span className="inline-block bg-red-500 text-white rounded-full py-2 px-4 animate-blink">
-                      {flight.status}
-                    </span>
+          return (
+            <div
+              key={flight.ident}
+              className={`grid grid-cols-12 gap-4 px-6 py-6 transition-all duration-300 hover:bg-white/5 ${
+                index % 2 === 0 ? 'bg-black/20' : 'bg-black/10'
+              }`}
+            >
+              {/* Airline Logo */}
+              <div className="col-span-2 flex items-center">
+                <div className="w-20 h-12 bg-white/10 rounded-xl flex items-center justify-center p-2">
+                  <img
+                    src={flight.KompanijaICAO ? logoUrl : placeholderUrl}
+                    alt={flight.Kompanija || 'No Logo'}
+                    className="h-8 w-auto object-contain"
+                  />
+                </div>
+              </div>
+
+              {/* Flight Number */}
+              <div className="col-span-2 flex items-center">
+                <span className="text-4xl font-black text-white">
+                  {flight.Kompanija} {flight.ident}
+                </span>
+              </div>
+
+              {/* Destination/Origin */}
+              <div className="col-span-2 flex items-center">
+                <span className="text-3xl font-bold text-amber-300">
+                  {flight.grad}
+                </span>
+              </div>
+
+              {/* Scheduled Time */}
+              <div className="flex items-center">
+                <span className="text-3xl font-bold text-gray-300">
+                  {flight.scheduled_out}
+                </span>
+              </div>
+
+              {/* Estimated Time */}
+              <div className="flex items-center">
+                <span className="text-2xl font-semibold text-emerald-400">
+                  {flight.estimated_out || '-'}
+                </span>
+              </div>
+
+              {/* Actual Time */}
+              <div className="flex items-center">
+                <span className="text-2xl font-semibold text-cyan-400">
+                  {flight.actual_out || '-'}
+                </span>
+              </div>
+
+              {/* Check-In (Departures only) */}
+              {type === 'departures' && (
+                <div className="flex items-center">
+                  {flight.checkIn ? (
+                    <div className="bg-blue-500/20 text-blue-300 px-4 py-2 rounded-xl text-xl font-bold">
+                      {flight.checkIn}
+                    </div>
                   ) : (
-                    flight.status
+                    <span className="text-gray-500 text-xl">-</span>
                   )}
-                </td>
+                </div>
+              )}
 
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-  {/* Add the blinking animation style */}
- {/* Add the blinking animation style */}
- <style jsx>{`
-        @keyframes blink {
-          50% {
-            opacity: 0;
-          }
-        }
-        .animate-blink {
-          animation: blink 0.5s linear infinite;
-        }
-      `}</style>
+              {/* Gate (Departures only) */}
+              {type === 'departures' && (
+                <div className="flex items-center">
+                  {flight.gate ? (
+                    <div className="bg-red-500 text-white w-14 h-14 rounded-full flex items-center justify-center text-xl font-black shadow-lg">
+                      {flight.gate}
+                    </div>
+                  ) : (
+                    <span className="text-gray-500 text-xl">-</span>
+                  )}
+                </div>
+              )}
+
+              {/* Status */}
+              <div className="flex items-center">
+                <div
+                  className={`px-4 py-3 rounded-xl font-bold text-lg ${
+                    statusConfig.bg
+                  } ${statusConfig.text} ${
+                    statusConfig.blink ? 'animate-pulse' : ''
+                  }`}
+                >
+                  {flight.status}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Footer */}
+      {limitedFlights.length > 0 && (
+        <div className="px-6 py-4 bg-black/50 border-t border-white/10">
+          <div className="flex justify-between items-center text-sm text-gray-400">
+            <div className="flex items-center gap-2">
+              {type === 'departures' ? (
+                <PlaneTakeoff className="w-4 h-4 text-amber-400" />
+              ) : (
+                <PlaneLanding className="w-4 h-4 text-emerald-400" />
+              )}
+              <span>Showing {limitedFlights.length} flights</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                <span>On Time</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                <span>Delayed</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
+                <span>Processing</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
-
 
 export default FlightTable;

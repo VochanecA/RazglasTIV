@@ -154,9 +154,8 @@ const SearchControl = ({
   </div>
 );
 
-export default function Page() {
-  const { user } = useUser();
-  const router = useRouter();
+// Main timetable content component - izolovan od auth logike
+function TimetableContent({ user }: { user: any }) {
   const [activeTab, setActiveTab] = useState<'departures' | 'arrivals'>('departures');
   const [lastFetchedTime, setLastFetchedTime] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -174,13 +173,54 @@ export default function Page() {
   // Conditionally handle flights based on user
   const flights = user ? flightData : null;
 
-  // INSTANT REDIRECT: Ako korisnik nije logovan, odmah preusmeri na sign-in
-  useEffect(() => {
-    if (!user) {
-      console.log('User not authenticated, redirecting to sign-in...');
-      router.push('/sign-in');
+  // Define a grace period for filtering out departed/arrived flights
+  const now = useMemo(() => new Date(), []);
+  const tenMinutesAgo = useMemo(() => new Date(now.getTime() - 10 * 60 * 1000), [now]);
+
+  // Memoize the time-based filtering function
+  const getFilteredFlightsByTime = useCallback((flightsArray: Flight[]) => {
+    if (showAllFlights) {
+      return flightsArray;
     }
-  }, [user, router]);
+    return flightsArray.filter(flight => {
+      if (!flight.scheduled_out) return false;
+      const [hours, minutes] = flight.scheduled_out.split(':').map(Number);
+      const scheduledTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+      return scheduledTime > tenMinutesAgo;
+    });
+  }, [showAllFlights, now, tenMinutesAgo]);
+
+  // Memoize time-filtered departures and arrivals
+  const timeFilteredDepartures = useMemo(
+    () => (flights?.departures ? getFilteredFlightsByTime(flights.departures) : []),
+    [flights?.departures, getFilteredFlightsByTime]
+  );
+  const timeFilteredArrivals = useMemo(
+    () => (flights?.arrivals ? getFilteredFlightsByTime(flights.arrivals) : []),
+    [flights?.arrivals, getFilteredFlightsByTime]
+  );
+
+  // Memoize the final filtered flights based on search query and active tab
+  const filteredFlights = useMemo(() => {
+    const currentFlights = activeTab === 'departures' ? timeFilteredDepartures : timeFilteredArrivals;
+    if (!debouncedSearchQuery) {
+      return currentFlights;
+    }
+    const lowerCaseSearchQuery = debouncedSearchQuery.toLowerCase();
+    return currentFlights.filter(flight => {
+      const flightNumberMatch = flight.ident.toLowerCase().includes(lowerCaseSearchQuery);
+      const iataCodeMatch = flight.Kompanija?.toLowerCase().includes(lowerCaseSearchQuery);
+      const destinationMatch = flight.grad?.toLowerCase().includes(lowerCaseSearchQuery);
+      const destinationCodeMatch = flight.destination.code?.toLowerCase().includes(lowerCaseSearchQuery);
+      return flightNumberMatch || iataCodeMatch || destinationMatch || destinationCodeMatch;
+    });
+  }, [activeTab, timeFilteredDepartures, timeFilteredArrivals, debouncedSearchQuery]);
+
+  // Memoize all flights for airline distribution
+  const allFlights = useMemo(
+    () => [...(flights?.departures || []), ...(flights?.arrivals || [])],
+    [flights?.departures, flights?.arrivals]
+  );
 
   // KIOSK MODE: Auto-start background music without user interaction
   useEffect(() => {
@@ -285,72 +325,6 @@ export default function Page() {
 
     return () => clearInterval(interval);
   }, []);
-
-  // Ako korisnik nije logovan, prikaži loading ili ništa (preusmerenje će se desiti)
-  if (!user) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900 p-4">
-        <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg p-8 max-w-md w-full text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <h2 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">
-            Checking Authentication...
-          </h2>
-          <p className="text-gray-600 dark:text-gray-300">
-            Redirecting to login page...
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Define a grace period for filtering out departed/arrived flights
-  const now = useMemo(() => new Date(), []);
-  const tenMinutesAgo = useMemo(() => new Date(now.getTime() - 10 * 60 * 1000), [now]);
-
-  // Memoize the time-based filtering function
-  const getFilteredFlightsByTime = useCallback((flightsArray: Flight[]) => {
-    if (showAllFlights) {
-      return flightsArray;
-    }
-    return flightsArray.filter(flight => {
-      if (!flight.scheduled_out) return false;
-      const [hours, minutes] = flight.scheduled_out.split(':').map(Number);
-      const scheduledTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
-      return scheduledTime > tenMinutesAgo;
-    });
-  }, [showAllFlights, now, tenMinutesAgo]);
-
-  // Memoize time-filtered departures and arrivals
-  const timeFilteredDepartures = useMemo(
-    () => (flights?.departures ? getFilteredFlightsByTime(flights.departures) : []),
-    [flights?.departures, getFilteredFlightsByTime]
-  );
-  const timeFilteredArrivals = useMemo(
-    () => (flights?.arrivals ? getFilteredFlightsByTime(flights.arrivals) : []),
-    [flights?.arrivals, getFilteredFlightsByTime]
-  );
-
-  // Memoize the final filtered flights based on search query and active tab
-  const filteredFlights = useMemo(() => {
-    const currentFlights = activeTab === 'departures' ? timeFilteredDepartures : timeFilteredArrivals;
-    if (!debouncedSearchQuery) {
-      return currentFlights;
-    }
-    const lowerCaseSearchQuery = debouncedSearchQuery.toLowerCase();
-    return currentFlights.filter(flight => {
-      const flightNumberMatch = flight.ident.toLowerCase().includes(lowerCaseSearchQuery);
-      const iataCodeMatch = flight.Kompanija?.toLowerCase().includes(lowerCaseSearchQuery);
-      const destinationMatch = flight.grad?.toLowerCase().includes(lowerCaseSearchQuery);
-      const destinationCodeMatch = flight.destination.code?.toLowerCase().includes(lowerCaseSearchQuery);
-      return flightNumberMatch || iataCodeMatch || destinationMatch || destinationCodeMatch;
-    });
-  }, [activeTab, timeFilteredDepartures, timeFilteredArrivals, debouncedSearchQuery]);
-
-  // Memoize all flights for airline distribution
-  const allFlights = useMemo(
-    () => [...(flights?.departures || []), ...(flights?.arrivals || [])],
-    [flights?.departures, flights?.arrivals]
-  );
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 overflow-x-hidden">
@@ -582,4 +556,55 @@ export default function Page() {
       </div>
     </div>
   );
+}
+
+// Loading component
+function LoadingScreen() {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900 p-4">
+      <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg p-8 max-w-md w-full text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+        <h2 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">
+          Checking Authentication...
+        </h2>
+        <p className="text-gray-600 dark:text-gray-300">
+          Please wait while we verify your session...
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// Main page component - samo auth logika
+export default function Page() {
+  const { user } = useUser();
+  const router = useRouter();
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    // Ako user postoji, možemo prikazati sadržaj
+    if (user) {
+      setAuthChecked(true);
+      return;
+    }
+
+    // Ako user ne postoji, sačekaj malo pa proveri ponovo
+    // Ovo daje vremena useUser hooku da se inicijalizuje
+    const timer = setTimeout(() => {
+      if (!user) {
+        console.log('User not authenticated after delay, redirecting to sign-in...');
+        router.push('/sign-in');
+      }
+    }, 500); // Povećan delay na 500ms da bi se sigurno dobili user podaci
+
+    return () => clearTimeout(timer);
+  }, [user, router]);
+
+  // Ako se još uvek proverava autentifikacija, prikaži loading
+  if (!authChecked && !user) {
+    return <LoadingScreen />;
+  }
+
+  // Ako je korisnik logovan, prikaži glavni sadržaj
+  return <TimetableContent user={user} />;
 }

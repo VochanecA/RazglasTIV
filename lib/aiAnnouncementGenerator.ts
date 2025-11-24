@@ -139,6 +139,37 @@ function calculateDuration(text: string): number {
   return Math.max(5000, baseDuration + 2000); // Minimum 5 sekundi + 2 sekunde pauze
 }
 
+// U lib\aiAnnouncementGenerator.ts dodajte:
+
+export function shouldGenerateAIAnnouncement(
+  flight: any, 
+  announcementType: string, 
+  context: any
+): boolean {
+  const delay = flight.delay ?? 0;
+  
+  switch (announcementType) {
+    case 'ai-delay-reason':
+      return delay > 15 && context.passengerSentiment < -0.1;
+    
+    case 'ai-weather-update':
+      return delay > 45 && context.weatherConditions;
+    
+    case 'ai-passenger-assistance':
+      return delay > 75 || context.passengerCount > 200;
+    
+    case 'ai-gate-change':
+      return true; // Uvijek koristi AI za gate change
+    
+    case 'ai-baggage-info':
+      return context.isPeakHours || context.previousAnnouncements.length === 0;
+    
+    default:
+      return false;
+  }
+}
+
+
 // Utility funkcija za analizu sentimenta
 export function analyzePassengerSentiment(
   delayDuration: number,

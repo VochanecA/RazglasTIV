@@ -2,7 +2,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { Cloud, CloudRain, CloudSnow, Droplets, Sun, Wind, CloudLightning, CloudFog, CloudDrizzle, CloudSun, RefreshCw } from 'lucide-react';
 import { getWeather, WeatherData, getWeatherDescription, getWeatherIcon, getWindDirection } from '@/lib/weather';
 
-export function WeatherCard() {
+// Komponenta mora biti definirana
+function WeatherCard() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -183,3 +184,6 @@ export function WeatherCard() {
     </div>
   );
 }
+
+// OBAVEZNO dodajte export
+export default WeatherCard;

@@ -143,24 +143,13 @@ INSTRUCTIONS:
 `,
 
   'passenger-assistance': (request: AIAnnouncementRequest) => `
-Create an announcement for passengers needing special assistance during delays.
+Napravi kratku i korisnu objavu za putnike koji se ukrcavaju.
 
-FLIGHT: ${request.flight.airline} ${request.flight.flightNumber}
-DELAY: ${request.flight.delay} minutes
-DESTINATION: ${request.flight.destination}
+Let: ${request.flight.airline} ${request.flight.flightNumber}
+Destinacija: ${request.flight.destination}
+Gejt: ${request.flight.gate}
 
-SITUATION:
-- Extended delay situation
-- Passengers may need assistance
-- Time: ${request.context.timeOfDay}
-
-GUIDELINES:
-- Be helpful and supportive
-- Direct passengers to assistance points
-- Mention available services
-- Show understanding of inconvenience
-- Professional but caring tone
-- 60-80 words maximum
+Objavu ograniči na 2-3 rečenice. Budi prijatan i koristan.
 `,
 
   'gate-change': (request: AIAnnouncementRequest) => `

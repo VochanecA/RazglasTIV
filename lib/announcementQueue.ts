@@ -1013,6 +1013,10 @@ const processFlightAnnouncements = async (flight: Flight, now: Date): Promise<An
       type: 'ai-passenger-assistance',
       condition: (flightStatus === 'delay' || flightStatus === 'delayed') && (flight.delay ?? 0) > 90,
     },
+     {
+    type: 'ai-passenger-assistance',
+    condition: flightStatus === 'boarding' && isInArray(BOARDING_INTERVALS, timeDiff),
+  },
   ];
 
   for (const check of announcementChecks) {

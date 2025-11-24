@@ -1,7 +1,7 @@
 // components/ui/FlightDelayCalculator.tsx
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { WeatherCard } from './WeatherCard'; // Adjust the import path as needed
+import WeatherCard from './WeatherCard';
 
 import { 
   Clock, 
