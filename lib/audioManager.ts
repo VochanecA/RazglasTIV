@@ -138,8 +138,8 @@ const shouldPlayBackgroundMusic = (): boolean => {
   
   console.log(`Background music check - Hour: ${currentHour}, Has flights: ${hasActiveFlightsToday}`);
   
-  if (currentHour < 7 || currentHour >= 21) {
-    console.log('Background music: Outside allowed hours (7:00-21:00)');
+  if (currentHour < 6 || (currentHour === 6 && now.getMinutes() < 30) || currentHour >= 21) {
+    console.log('Background music: Outside allowed hours (6:30-21:00)');
     return false;
   }
   
