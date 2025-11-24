@@ -519,7 +519,7 @@ const generateDefaultOnTimeAnnouncement = (flight: Flight): string => {
   return (
     `Attention please. ${flight.KompanijaNaziv} flight ${parseFlightNumber(flight.ident)} ` +
     `from ${flight.grad} is scheduled to arrive on time. ` +
-    `Expected arrival time is approximately ${flight.scheduled_out}. ` +
+    `Expected arrival time is approximately ${flight.estimated_out || flight.scheduled_out}. ` +
     'Thank you.'
   );
 };
