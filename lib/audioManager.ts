@@ -69,33 +69,17 @@ const checkMP3Exists = async (path: string): Promise<boolean> => {
 // Helper function to get MP3 path for a flight announcement
 const getMP3Path = (flightInfo: FlightMP3Info): string => {
   const { type, airline, flightNumber, announcement, originCODE } = flightInfo;
-  console.log('Flight info:', flightInfo);
+  console.log('Flight info for MP3 path:', flightInfo);
 
-  // For arrival flights
-  if (type === 'ARR') {
-    const path = `/sounds/ARR/${airline}/${flightNumber}/${airline}${flightNumber}${originCODE}ARR_sr_en.mp3`;
-    console.log('Generated MP3 path for arrival flight:', path);
-    return path;
-  }
-
-  // For departure flights with multiple gates
-  if (announcement.includes('Gate') && announcement.includes(',')) {
-    const gatePart = announcement.split('Gate')[1];
-    if (gatePart) {
-      const individualGates = gatePart.split(',');
-
-      const paths = individualGates.map(gate => {
-        const baseAnnouncement = announcement.split('Gate')[0];
-        return `/sounds/DEP/${airline}/${flightNumber}/${originCODE}${type}_${baseAnnouncement}Gate${gate.trim()}_sr_en.mp3`;
-      }).join('|');
-
-      console.log('Generated MP3 paths for multiple gates:', paths);
-      return paths;
-    }
-  }
-
-  // For single gate departures or other announcements
-  const path = `/sounds/${type}/${airline}/${flightNumber}/${originCODE}${type}_${announcement}_sr_en.mp3`;
+  // Kreiraj osnovni naziv fajla
+  // Primer: Za "4O", "4O152", "BEG", "DEP", "_1st_Gate3"
+  // Treba: 4O152BEGDEP_1st_Gate3_sr_en.mp3
+  
+  const baseFilename = `${airline}${flightNumber}${originCODE}${type}`;
+  const fullFilename = `${baseFilename}${announcement}_sr_en.mp3`;
+  
+  const path = `/mp3/${type}/${airline}/${airline}${flightNumber}/${fullFilename}`;
+  
   console.log('Generated MP3 path:', path);
   return path;
 };
@@ -171,7 +155,7 @@ const manageBackgroundMusicBasedOnFlights = (): void => {
   
   if (shouldPlay && !isPlaying) {
     console.log('Auto-starting background music (active flights + correct time)');
-    playBackgroundMusic();
+    void playBackgroundMusic();
   } else if (!shouldPlay && isPlaying) {
     console.log('Auto-stopping background music (no active flights or outside hours)');
     stopBackgroundMusic();
@@ -1094,6 +1078,230 @@ export const testStreamUrl = async (): Promise<boolean> => {
   }
 };
 
+// ==============================================
+// AUTO-PLAY FUNCTIONS - DODAJ OVE FUNKCIJE
+// ==============================================
+
+// Audio unlock strategies for auto-play
+export const unlockAudioContext = async (): Promise<boolean> => {
+  if (typeof window === 'undefined') return false;
+  
+  try {
+    // Strategy 1: Create and play silent audio
+    const silentAudio = new Audio();
+    silentAudio.src = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgYZrXp8sVvIAUfZqzh57trFgUZX6fb5rVlEAUYWqTZ5bNjDgUXVqHX5LBhDAUWVZ/Y465fCgUVVJ7X4q1dCAUUU53W4axbCAUTUpzW4KtaCAUSUZvV36pZCAURUJrU3qlYCAUQUJnT3ahXCAUPUJjS3KdWCAUOUJfR26ZVCAUNUJbQ2qVUCAUMUJXP2aRTCAULUJTO2KNSCAUKUJPN16JRCAUJUJLM1qFQCAUIUJHL1aBPCAAFAgEEAAIBAQIB';
+    silentAudio.volume = 0.001;
+    
+    const playPromise = silentAudio.play();
+    if (playPromise !== undefined) {
+      await playPromise;
+      await new Promise(resolve => setTimeout(resolve, 100));
+      silentAudio.pause();
+      silentAudio.remove();
+    }
+    
+    console.log('Audio context unlocked successfully');
+    return true;
+  } catch (error) {
+    console.log('Audio context unlock failed:', error);
+    return false;
+  }
+};
+
+// Force audio start with multiple strategies
+export const forceAudioStart = async (): Promise<boolean> => {
+  if (typeof window === 'undefined') return false;
+  
+  console.log('Starting forced audio initialization...');
+  
+  // Prvo setup kiosk audio
+  await setupBackgroundMusicForKiosk();
+  
+  // Strategy 1: Direct unlock and play
+  try {
+    await unlockAudioContext();
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    const success = await playBackgroundMusicForKiosk();
+    if (success) {
+      console.log('Audio started successfully via direct play');
+      return true;
+    }
+  } catch (error) {
+    console.log('Direct play failed:', error);
+  }
+  
+  // Strategy 2: User gesture simulation
+  try {
+    console.log('Attempting user gesture simulation...');
+    
+    // Simuliraj click event na documentu
+    const clickEvent = new MouseEvent('click', {
+      view: window,
+      bubbles: true,
+      cancelable: true
+    });
+    document.dispatchEvent(clickEvent);
+    
+    // Simuliraj touch event
+    const touchEvent = new TouchEvent('touchstart', {
+      touches: [new Touch({ identifier: 0, target: document.body })]
+    } as any);
+    document.dispatchEvent(touchEvent);
+    
+    // Sačekaj malo
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    const success = await playBackgroundMusicForKiosk();
+    if (success) {
+      console.log('Audio started after gesture simulation');
+      return true;
+    }
+  } catch (error) {
+    console.log('Gesture simulation failed:', error);
+  }
+  
+  // Strategy 3: Multiple retry with increasing delays
+  for (let i = 0; i < 5; i++) {
+    try {
+      console.log(`Retry attempt ${i + 1}/5...`);
+      
+      // Povećavaj delay sa svakim pokušajem
+      if (i > 0) {
+        await new Promise(resolve => setTimeout(resolve, i * 1000));
+      }
+      
+      // Ponovno unlock
+      await unlockAudioContext();
+      
+      // Pokušaj play
+      const success = await playBackgroundMusicForKiosk();
+      if (success) {
+        console.log(`Audio started on retry ${i + 1}`);
+        return true;
+      }
+    } catch (error) {
+      console.log(`Retry ${i + 1} failed:`, error);
+    }
+  }
+  
+  console.log('All audio start attempts failed');
+  return false;
+};
+
+// Silent audio warmup function
+export const warmupAudioSystem = async (): Promise<void> => {
+  if (typeof window === 'undefined') return;
+  
+  try {
+    console.log('Warming up audio system...');
+    
+    // Create multiple silent audio elements
+    const silentAudios = [];
+    for (let i = 0; i < 3; i++) {
+      const audio = new Audio();
+      audio.src = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgYZrXp8sVvIAUfZqzh57trFgUZX6fb5rVlEAUYWqTZ5bNjDgUXVqHX5LBhDAUWVZ/Y465fCgUVVJ7X4q1dCAUUU53W4axbCAUTUpzW4KtaCAUSUZvV36pZCAURUJrU3qlYCAUQUJnT3ahXCAUPUJjS3KdWCAUOUJfR26ZVCAUNUJbQ2qVUCAUMUJXP2aRTCAULUJTO2KNSCAUKUJPN16JRCAUJUJLM1qFQCAUIUJHL1aBPCAAFAgEEAAIBAQIB';
+      audio.volume = 0.001;
+      silentAudios.push(audio);
+    }
+    
+    // Play them in sequence
+    for (const audio of silentAudios) {
+      try {
+        await audio.play();
+        await new Promise(resolve => setTimeout(resolve, 50));
+        audio.pause();
+        audio.remove();
+      } catch (error) {
+        // Ignore errors, just continue
+      }
+    }
+    
+    console.log('Audio system warmed up');
+  } catch (error) {
+    console.log('Audio warmup failed:', error);
+  }
+};
+
+// Progressive delay audio start (private function)
+const startAudioWithProgressiveDelay = async (): Promise<boolean> => {
+  const delays = [500, 1000, 2000, 3000, 5000]; // Progressively longer delays
+  
+  for (const delay of delays) {
+    try {
+      console.log(`Trying audio start after ${delay}ms delay...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      
+      const success = await playBackgroundMusicForKiosk();
+      if (success) {
+        console.log(`Audio started after ${delay}ms delay`);
+        return true;
+      }
+    } catch (error) {
+      console.log(`Audio start failed after ${delay}ms:`, error);
+    }
+  }
+  
+  return false;
+};
+
+// Auto-initialize audio on page load
+export const autoInitializeAudio = async (): Promise<boolean> => {
+  if (typeof window === 'undefined') return false;
+  
+  console.log('Auto-initializing audio system...');
+  
+  try {
+    // Warm up audio system
+    await warmupAudioSystem();
+    
+    // Setup kiosk audio
+    await setupBackgroundMusicForKiosk();
+    
+    // Wait a bit
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Try to start with force
+    const success = await forceAudioStart();
+    
+    if (success) {
+      console.log('Audio auto-initialized successfully');
+      return true;
+    }
+    
+    // If force start fails, try with progressive delay
+    return await startAudioWithProgressiveDelay();
+    
+  } catch (error) {
+    console.log('Auto-initialization failed:', error);
+    return false;
+  }
+};
+
+// Check if audio is allowed by browser
+export const isAudioAllowed = async (): Promise<boolean> => {
+  if (typeof window === 'undefined') return false;
+  
+  try {
+    const audio = new Audio();
+    audio.volume = 0.001;
+    
+    // Try to play silent audio
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      await playPromise;
+      audio.pause();
+      audio.remove();
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.log('Audio not allowed:', error);
+    return false;
+  }
+};
+
 // Type declarations for window.audioManager
 declare global {
   interface Window {
@@ -1112,6 +1320,25 @@ declare global {
       playBackgroundMusicForKiosk: () => Promise<boolean>;
       startKioskAudioWithRetry: (maxRetries?: number) => Promise<boolean>;
       autoStartKioskAudio: () => Promise<void>;
+      // New auto-play functions
+      unlockAudioContext: () => Promise<boolean>;
+      forceAudioStart: () => Promise<boolean>;
+      warmupAudioSystem: () => Promise<void>;
+      autoInitializeAudio: () => Promise<boolean>;
+      isAudioAllowed: () => Promise<boolean>;
     };
   }
+}
+
+// Update the window.audioManager interface with new functions
+if (typeof window !== 'undefined') {
+  // Re-initialize with all functions
+  window.audioManager = {
+    ...window.audioManager,
+    unlockAudioContext,
+    forceAudioStart,
+    warmupAudioSystem,
+    autoInitializeAudio,
+    isAudioAllowed
+  };
 }

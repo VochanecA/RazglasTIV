@@ -72,7 +72,8 @@ const usePASystem = () => {
     const flightNumber = flight.ident.replace(/[^0-9]/g, '');
     const airlineCode = flight.Kompanija;
     
-    return `/mp3/DEP/${airlineCode}/${flightNumber}/${flightNumber}${flight.destination.code}DEP_${callType}_Gate${flight.gate}_sr_en.mp3`;
+    return `/mp3/DEP/${airlineCode}/${airlineCode}${flightNumber}/${airlineCode}${flightNumber}${flight.destination.code}DEP_${callType}_Gate${flight.gate}_sr_en.mp3`;
+  console.log(`/mp3/DEP/${airlineCode}/${airlineCode}${flightNumber}/${airlineCode}${flightNumber}${flight.destination.code}DEP_${callType}_Gate${flight.gate}_sr_en.mp3`);
   };
 
   const scheduleAnnouncements = (flight: Flight) => {
@@ -101,7 +102,7 @@ const usePASystem = () => {
     if (flight.status === 'Arrived') {
       const flightNumber = flight.ident.replace(/[^0-9]/g, '');
       const airlineCode = flight.Kompanija;
-      const audioPath = `/mp3/ARR/${airlineCode}/${flightNumber}/${flightNumber}${flight.origin.code}ARR_sr_en.mp3`;
+      const audioPath = `/mp3/ARR/${airlineCode}/${airlineCode}${flightNumber}/${airlineCode}${flightNumber}${flight.origin.code}ARR_sr_en.mp3`;
       addToQueue(audioPath, 5);
     }
   };

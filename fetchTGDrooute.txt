@@ -1,0 +1,364 @@
+// app/api/fetchFlights/route.ts
+import { NextResponse } from 'next/server';
+
+interface PadsFlight {
+  ID: string;
+  FlightType: string;
+  ScheduledDateTime: string;
+  EstimatedDateTime: string;
+  ActualDateTime: string;
+  FlightNumberIATA: string;
+  FlightNumberICAO: string | null;
+  StatusID: string | null;
+  PrivateRemarkID: string | null;
+  PrivateRemarkAdhoc: string | null;
+  PublicRemarkID: string | null;
+  PublicRemarkAdhoc: string | null;
+  Airline: string;
+  Airport: string;
+  Checkins: any[];
+  Gates: any[];
+  BaggageBelts: any[];
+  Codeshares: any[];
+}
+
+const mapStatus = (statusID: string | null): string => {
+  if (!statusID) return 'Scheduled';
+  
+  const statusMap: { [key: string]: string } = {
+    'Departed': 'Departed',
+    'Arrived': 'Arrived',
+    'Expected': 'Scheduled',
+    'Cancelled': 'Cancelled',
+    'Delayed': 'Delayed',
+    'Boarding': 'Boarding',
+    'Final Call': 'Final Call',
+    'Processing': 'Processing',
+    'Closed': 'Close'
+  };
+  
+  return statusMap[statusID] || statusID || 'Scheduled';
+};
+
+const formatTime = (dateTimeString: string): string => {
+  if (!dateTimeString || dateTimeString.trim() === '') return '';
+  
+  try {
+    const date = new Date(dateTimeString);
+    return date.toLocaleTimeString('en-GB', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: false 
+    });
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return '';
+  }
+};
+
+// Funkcija za razdvajanje IATA koda i broja leta
+// Funkcija za razdvajanje IATA koda i broja leta
+const parseFlightNumber = (flightNumberIATA: string) => {
+  if (!flightNumberIATA) return { airlineCode: '', flightNumber: '' };
+  
+  // Ukloni sve razmake
+  const cleanNumber = flightNumberIATA.replace(/\s/g, '');
+  
+  // Lista poznatih IATA kodova koji sadrže brojeve
+  const numericAirlineCodes = ['4O', 'W6', 'OS','LO','W4','JU','RK', 'TK','PC','FR', 'U2', '4U', '8Q', '3O'];
+  
+  // Prvo provjeri da li počinje sa poznatim kodom koji sadrži brojeve
+  for (const code of numericAirlineCodes) {
+    if (cleanNumber.startsWith(code)) {
+      const flightNumber = cleanNumber.substring(code.length);
+      return { airlineCode: code, flightNumber };
+    }
+  }
+  
+  // Standardno razdvajanje - pronađi gdje počinju SAMO brojevi (bez slova)
+  const numberMatch = cleanNumber.match(/^\D*(\d+)/);
+  
+  if (numberMatch) {
+    const airlineCode = cleanNumber.substring(0, numberMatch.index! + numberMatch[1].length - numberMatch[1].length);
+    const flightNumber = numberMatch[1];
+    return { airlineCode, flightNumber };
+  }
+  
+  // Ako nema brojeva, vrati cijeli string kao airlineCode
+  return { airlineCode: cleanNumber, flightNumber: '' };
+};
+
+// Funkcija za mapiranje airline kodova na standardne IATA kodove
+const mapToStandardAirlineCode = (airlineCode: string): string => {
+  const airlineCodeMap: { [key: string]: string } = {
+    'RK': 'FR', // Ryanair flight codes to IATA code
+    'W6': 'W6', // Wizz Air
+    '4O': '4O', // Air Montenegro
+    'TK': 'TK', // Turkish Airlines
+    'JU': 'JU', // Air Serbia
+    'OS': 'OS', // Austrian Airlines
+    // Dodajte ostale kodove po potrebi
+  };
+  
+  return airlineCodeMap[airlineCode] || airlineCode;
+};
+
+// Funkcija za dohvaćanje svih letova sa različitim parametrima
+async function fetchAllFlights() {
+  const baseUrl = 'https://montenegroairports.com/aerodromixs/cache-flights.php?airport=pg';
+  
+  // Pokušaj različite URL kombinacije
+  const urlAttempts = [
+    baseUrl,
+    `${baseUrl}&$top=1000`,
+    `${baseUrl}&$top=500`,
+  ];
+
+  for (const url of urlAttempts) {
+    try {
+      console.log(`Trying URL: ${url}`);
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/json',
+        },
+        cache: 'no-store' as RequestCache,
+      });
+
+      if (!response.ok) {
+        console.warn(`URL ${url} failed with status: ${response.status}`);
+        continue;
+      }
+
+      const responseData = await response.json();
+      
+      let rawData: PadsFlight[] = [];
+      
+      if (responseData.value && Array.isArray(responseData.value)) {
+        rawData = responseData.value;
+      } else if (Array.isArray(responseData)) {
+        rawData = responseData;
+      }
+
+      if (rawData.length > 0) {
+        console.log(`Successfully fetched ${rawData.length} flights from: ${url}`);
+        return rawData;
+      }
+      
+      console.warn(`No data received from: ${url}`);
+      
+    } catch (error) {
+      console.warn(`Error fetching from ${url}:`, error);
+    }
+  }
+  
+  throw new Error('All URL attempts failed or returned no data');
+}
+
+export async function GET() {
+  try {
+    console.log('Starting flight data fetch from Montenegro Airports API');
+
+    const rawData = await fetchAllFlights();
+
+    if (!rawData || rawData.length === 0) {
+      console.warn('No flight data received from API');
+      throw new Error('No flight data available');
+    }
+
+    console.log(`Processing ${rawData.length} total flights`);
+
+    // Grupiši letove po tipu za bolji pregled
+    const departuresCount = rawData.filter(f => f.FlightType === 'Departure').length;
+    const arrivalsCount = rawData.filter(f => f.FlightType === 'Arrival').length;
+    
+    console.log(`Found ${departuresCount} departures and ${arrivalsCount} arrivals`);
+
+    // Prikaži prvih 5 letova za debugging
+    console.log('Sample flights with parsed numbers:');
+    rawData.slice(0, 5).forEach((flight, index) => {
+      const { airlineCode, flightNumber } = parseFlightNumber(flight.FlightNumberIATA);
+      console.log(`  ${index + 1}. ${flight.FlightNumberIATA} -> Airline: ${airlineCode}, Flight: ${flightNumber} - ${flight.FlightType} - ${flight.Airline} to ${flight.Airport}`);
+    });
+
+const processedData = {
+  departures: rawData
+    .filter((flight) => flight.FlightType === 'Departure')
+    .map((flight) => {
+      const { airlineCode, flightNumber } = parseFlightNumber(flight.FlightNumberIATA);
+      const standardAirlineCode = mapToStandardAirlineCode(airlineCode);
+      
+      return {
+        ident: flightNumber,
+        airlineCode: standardAirlineCode, // KORISTITE STANDARDNI KOD
+        status: mapStatus(flight.StatusID),
+        scheduled_out: formatTime(flight.ScheduledDateTime),
+        estimated_out: formatTime(flight.EstimatedDateTime),
+        actual_out: formatTime(flight.ActualDateTime),
+        origin: { code: 'TGD' },
+        destination: { code: flight.Airport },
+        grad: flight.Airport,
+        Kompanija: flight.Airline,
+        KompanijaICAO: flight.FlightNumberICAO || '',
+        KompanijaNaziv: flight.Airline,
+        checkIn: flight.Checkins.length > 0 ? flight.Checkins.join(', ') : '',
+        gate: flight.Gates.length > 0 ? flight.Gates.join(', ') : '',
+        TipLeta: 'O',
+      };
+    }),
+  arrivals: rawData
+    .filter((flight) => flight.FlightType === 'Arrival')
+    .map((flight) => {
+      const { airlineCode, flightNumber } = parseFlightNumber(flight.FlightNumberIATA);
+      const standardAirlineCode = mapToStandardAirlineCode(airlineCode);
+      
+      return {
+        ident: flightNumber,
+        airlineCode: standardAirlineCode, // KORISTITE STANDARDNI KOD
+        status: mapStatus(flight.StatusID),
+        scheduled_out: formatTime(flight.ScheduledDateTime),
+        estimated_out: formatTime(flight.EstimatedDateTime),
+        actual_out: formatTime(flight.ActualDateTime),
+        origin: { code: flight.Airport },
+        grad: flight.Airport,
+        destination: { code: 'TGD' },
+        Kompanija: flight.Airline,
+        KompanijaICAO: flight.FlightNumberICAO || '',
+        KompanijaNaziv: flight.Airline,
+        checkIn: flight.Checkins.length > 0 ? flight.Checkins.join(', ') : '',
+        gate: flight.Gates.length > 0 ? flight.Gates.join(', ') : '',
+        TipLeta: 'I'
+      };
+    }),
+  timestamp: new Date().toISOString(),
+  totalFlights: rawData.length,
+};
+
+// DODATNI DEBUG: Provjeri sve letove sa praznim airlineCode
+const allProcessedFlights = [...processedData.departures, ...processedData.arrivals];
+const flightsWithEmptyAirlineCode = allProcessedFlights.filter(flight => 
+  !flight.airlineCode || flight.airlineCode === ''
+);
+
+if (flightsWithEmptyAirlineCode.length > 0) {
+  console.log('⚠️ FLIGHTS WITH EMPTY AIRLINE CODE:', flightsWithEmptyAirlineCode.length);
+  flightsWithEmptyAirlineCode.forEach(flight => {
+    console.log('  - Flight:', flight.ident, 'Airline:', flight.Kompanija);
+  });
+}
+
+// DODATNI DEBUG: Provjeri sve TK letove
+const tkFlights = allProcessedFlights.filter(flight => 
+  flight.airlineCode === 'TK' || 
+  flight.Kompanija.includes('Turkish') ||
+  flight.KompanijaICAO === 'THY'
+);
+
+console.log('✈️ TK FLIGHTS FOUND:', tkFlights.length);
+tkFlights.forEach(flight => {
+  console.log('  - TK Flight:', {
+    ident: flight.ident,
+    airlineCode: flight.airlineCode,
+    airline: flight.Kompanija,
+    //flightNumber: flight.FlightNumberIATA // Ovo možda ne postoji, zavisno od vaše strukture
+  });
+});
+
+// DODATNI DEBUG: Provjeri prvih 10 letova za pregled
+console.log('📊 SAMPLE OF FIRST 10 FLIGHTS:');
+allProcessedFlights.slice(0, 10).forEach((flight, index) => {
+  console.log(`  ${index + 1}. ${flight.airlineCode}${flight.ident} - ${flight.Kompanija} - ${flight.status}`);
+});
+
+console.log(`✅ Successfully processed ${processedData.departures.length} departures and ${processedData.arrivals.length} arrivals`);
+
+    console.log(`Successfully processed ${processedData.departures.length} departures and ${processedData.arrivals.length} arrivals`);
+
+    return NextResponse.json(processedData);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Error in fetchFlights API:', errorMessage);
+    
+    // Return fallback data with parsed flight numbers
+    const fallbackData = {
+      departures: [
+        {
+          ident: "738", // Samo broj leta
+          airlineCode: "OS", // IATA kod
+          status: "Departed",
+          scheduled_out: "07:20",
+          estimated_out: "07:22",
+          actual_out: "07:22",
+          origin: { code: "TGD" },
+          destination: { code: "VIE" },
+          grad: "Vienna",
+          Kompanija: "Austrian Airlines",
+          KompanijaICAO: "AUA",
+          KompanijaNaziv: "Austrian Airlines",
+          checkIn: "",
+          gate: "",
+          TipLeta: "O",
+        },
+        {
+          ident: "100", // Samo broj leta
+          airlineCode: "4O", // IATA kod
+          status: "Departed",
+          scheduled_out: "07:30",
+          estimated_out: "07:39",
+          actual_out: "07:39",
+          origin: { code: "TGD" },
+          destination: { code: "BEG" },
+          grad: "Belgrade",
+          Kompanija: "Air Montenegro",
+          KompanijaICAO: "AMN",
+          KompanijaNaziv: "Air Montenegro",
+          checkIn: "",
+          gate: "",
+          TipLeta: "O",
+        }
+      ],
+      arrivals: [
+        {
+          ident: "2231", // Samo broj leta
+          airlineCode: "W6", // IATA kod
+          status: "Arrived",
+          scheduled_out: "07:30",
+          estimated_out: "07:35",
+          actual_out: "07:35",
+          origin: { code: "BUD" },
+          grad: "Budapest",
+          destination: { code: "TGD" },
+          Kompanija: "Wizz Air",
+          KompanijaICAO: "WZZ",
+          KompanijaNaziv: "Wizz Air",
+          checkIn: "",
+          gate: "",
+          TipLeta: "I"
+        },
+        {
+          ident: "103", // Samo broj leta
+          airlineCode: "4O", // IATA kod
+          status: "Scheduled",
+          scheduled_out: "20:40",
+          estimated_out: "20:40",
+          actual_out: "",
+          origin: { code: "BEG" },
+          grad: "Belgrade",
+          destination: { code: "TGD" },
+          Kompanija: "Air Montenegro",
+          KompanijaICAO: "AMN",
+          KompanijaNaziv: "Air Montenegro",
+          checkIn: "",
+          gate: "",
+          TipLeta: "I"
+        }
+      ],
+      timestamp: new Date().toISOString(),
+      isFallback: true
+    };
+
+    return NextResponse.json(fallbackData);
+  }
+}

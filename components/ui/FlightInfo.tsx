@@ -145,7 +145,8 @@ const FlightInfo = () => {
     const airlineCode = flightNumber.slice(0, 2);
     const destinationCode = flight.destination.code;
     const gateNumber = flight.gate;
-    return `/mp3/DEP/${airlineCode}/${flightNumber}/${flightNumber}${destinationCode}DEP_${callType}_Gate${gateNumber}_sr_en.mp3`;
+    return `/mp3/DEP/${airlineCode}/${airlineCode}${flightNumber}/${flightNumber}${destinationCode}DEP_${callType}_Gate${gateNumber}_sr_en.mp3`;
+ console.log(`/mp3/DEP/${airlineCode}/${airlineCode}${flightNumber}/${flightNumber}${destinationCode}DEP_${callType}_Gate${gateNumber}_sr_en.mp3`);
   };
 
   const hasAnnouncementBeenPlayed = (flightId: string, callType: string): boolean => {

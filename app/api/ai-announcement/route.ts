@@ -60,7 +60,7 @@ class OpenRouterClient {
           messages: [
             {
               role: 'system',
-              content: 'You are an airport announcement system AI. Create clear, professional, and concise announcements for passengers. Always respond with just the announcement text without any additional explanations, labels, or markdown.'
+              content: 'You are an airport announcement system AI. Create clear, professional, and concise announcements for passengers. Always respond with just the announcement text without any additional explanations, labels, or markdown. Be polite and professional. Use standard airport terminology. Speak in present tense. Make it easy to understand for non-native speakers'
             },
             {
               role: 'user',

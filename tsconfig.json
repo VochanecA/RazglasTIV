@@ -10,6 +10,7 @@
     "module": "esnext",
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
+    "downlevelIteration": true, // ovo rešava problem sa for..of petljama
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,

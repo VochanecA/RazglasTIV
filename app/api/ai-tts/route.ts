@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
       headers: {
         'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://your-domain.com', // Zamijenite sa vašim domenom
+        'HTTP-Referer': 'https://razglas-tiv.vercel.app', // Zamijenite sa vašim domenom
         'X-Title': 'Airport PA System'
       },
       body: JSON.stringify({

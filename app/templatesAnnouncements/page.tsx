@@ -1,7 +1,26 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Trash, Pencil, PlusCircle, Search, Save, XCircle, Plane } from 'lucide-react';
+import { 
+  Trash, 
+  Pencil, 
+  PlusCircle, 
+  Search, 
+  Save, 
+  XCircle, 
+  Plane,
+  Download,
+  Upload,
+  Copy,
+  CheckCircle,
+  AlertCircle,
+  Filter,
+  Globe,
+  FileText,
+  Mic,
+  Volume2
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface Airline {
   id: number;
@@ -23,6 +42,7 @@ const AnnouncementPage: React.FC = () => {
   const [templates, setTemplates] = useState<AnnouncementTemplate[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const [successMessage, setSuccessMessage] = useState<string>('');
   const [newTemplate, setNewTemplate] = useState<{
     id?: number;
     airlineId: number | '';
@@ -47,8 +67,10 @@ const AnnouncementPage: React.FC = () => {
     code: '',
     icaoCode: '',
   });
+  const [filterType, setFilterType] = useState<string>('all');
+  const [copiedId, setCopiedId] = useState<number | null>(null);
 
-  // Fetch data for airlines and templates
+  // Fetch data
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -104,8 +126,8 @@ const AnnouncementPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
+    setSuccessMessage('');
 
-    // Validate required fields
     if (!newTemplate.airlineId || !newTemplate.type || !newTemplate.language || !newTemplate.template) {
       setErrorMessage('All template fields are required.');
       return;
@@ -140,13 +162,16 @@ const AnnouncementPage: React.FC = () => {
         return [savedTemplate, ...prev];
       });
 
-      // Reset form
+      setSuccessMessage(newTemplate.id ? 'Template updated successfully!' : 'Template created successfully!');
       setNewTemplate({
         airlineId: '',
         type: '',
         language: '',
         template: ''
       });
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error) {
       console.error('Error saving template:', error);
       setErrorMessage(error instanceof Error ? error.message : 'Failed to save template.');
@@ -163,6 +188,7 @@ const AnnouncementPage: React.FC = () => {
         language: templateToEdit.language,
         template: templateToEdit.template,
       });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -173,16 +199,20 @@ const AnnouncementPage: React.FC = () => {
       language: '',
       template: '',
     });
-    setErrorMessage(''); // Clear error message when canceling
+    setErrorMessage('');
+    setSuccessMessage('');
   };
 
   const handleDelete = async (id: number) => {
     if (!confirm('Are you sure you want to delete this template?')) return;
     setErrorMessage('');
+    
     try {
       const response = await fetch(`/api/announcements/${id}`, { method: 'DELETE' });
       if (response.ok) {
         setTemplates(prev => prev.filter(t => t.id !== id));
+        setSuccessMessage('Template deleted successfully!');
+        setTimeout(() => setSuccessMessage(''), 3000);
       } else {
         const errorData = await response.json().catch(() => null);
         throw new Error(errorData?.data || response.statusText || 'Failed to delete template.');
@@ -212,14 +242,14 @@ const AnnouncementPage: React.FC = () => {
       if (response.ok) {
         const { data: addedAirline } = await response.json();
         setAirlines(prev => [...prev, addedAirline]);
-
-        // Reset form
         setNewAirline({
           name: '',
           fullName: '',
           code: '',
           icaoCode: '',
         });
+        setSuccessMessage('Airline added successfully!');
+        setTimeout(() => setSuccessMessage(''), 3000);
       } else {
         const errorData = await response.json().catch(() => null);
         throw new Error(errorData?.data || response.statusText || 'Failed to add airline.');
@@ -230,280 +260,492 @@ const AnnouncementPage: React.FC = () => {
     }
   };
 
+  const handleCopyTemplate = (template: string, id: number) => {
+    navigator.clipboard.writeText(template);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
   const filteredTemplates = templates.filter(template => {
     const airlineName = airlines.find(a => a.id === template.airlineId)?.name || '';
-    return (
+    const matchesSearch = (
       template.template.toLowerCase().includes(searchTerm.toLowerCase()) ||
       template.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
       template.language.toLowerCase().includes(searchTerm.toLowerCase()) ||
       airlineName.toLowerCase().includes(searchTerm.toLowerCase())
     );
+    const matchesFilter = filterType === 'all' || template.type === filterType;
+    return matchesSearch && matchesFilter;
   });
 
-  return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 p-4 sm:p-6 lg:p-8">
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl sm:text-4xl font-bold text-center mb-10 text-blue-700 dark:text-teal-400">
-          Manage Announcement Templates
-        </h1>
+  const getTypeColor = (type: string) => {
+    const colors: Record<string, string> = {
+      cancelled: 'bg-red-500/10 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800',
+      boarding: 'bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800',
+      delay: 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800',
+      arrived: 'bg-green-500/10 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800',
+      checkin: 'bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800',
+      gate_change: 'bg-orange-500/10 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800',
+      default: 'bg-gray-500/10 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-800',
+    };
+    return colors[type] || colors.default;
+  };
 
-        {errorMessage && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between mb-6 shadow-sm dark:bg-red-900 dark:bg-opacity-20 dark:text-red-300 dark:border-red-700">
-            <span>{errorMessage}</span>
-            <button onClick={() => setErrorMessage('')} className="text-red-700 dark:text-red-300 hover:text-red-900 dark:hover:text-red-100 ml-4">
-              <XCircle className="h-5 w-5" />
+  return (
+    <div className="space-y-6">
+      {/* Header Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="rounded-2xl p-6 bg-gradient-to-r from-blue-500/10 to-purple-600/10 backdrop-blur-sm border border-white/30 dark:border-gray-700/50">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Total Templates</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">{templates.length}</p>
+            </div>
+            <FileText className="h-8 w-8 text-blue-500 dark:text-blue-400" />
+          </div>
+        </div>
+        <div className="rounded-2xl p-6 bg-gradient-to-r from-green-500/10 to-blue-600/10 backdrop-blur-sm border border-white/30 dark:border-gray-700/50">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Airlines</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">{airlines.length}</p>
+            </div>
+            <Plane className="h-8 w-8 text-green-500 dark:text-green-400" />
+          </div>
+        </div>
+        <div className="rounded-2xl p-6 bg-gradient-to-r from-purple-500/10 to-pink-600/10 backdrop-blur-sm border border-white/30 dark:border-gray-700/50">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Languages</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">
+                {new Set(templates.map(t => t.language)).size}
+              </p>
+            </div>
+            <Globe className="h-8 w-8 text-purple-500 dark:text-purple-400" />
+          </div>
+        </div>
+        <div className="rounded-2xl p-6 bg-gradient-to-r from-orange-500/10 to-red-600/10 backdrop-blur-sm border border-white/30 dark:border-gray-700/50">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Active Types</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">
+                {new Set(templates.map(t => t.type)).size}
+              </p>
+            </div>
+            <Mic className="h-8 w-8 text-orange-500 dark:text-orange-400" />
+          </div>
+        </div>
+      </div>
+
+      {/* Messages */}
+      {errorMessage && (
+        <div className="rounded-2xl p-4 bg-gradient-to-r from-red-500/10 to-pink-600/10 backdrop-blur-sm border border-red-200 dark:border-red-800">
+          <div className="flex items-center">
+            <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 mr-3" />
+            <span className="text-red-700 dark:text-red-300">{errorMessage}</span>
+            <button onClick={() => setErrorMessage('')} className="ml-auto">
+              <XCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
             </button>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Search Bar */}
-        <div className="relative mb-8">
-          <input
-            type="text"
-            placeholder="Search templates by text, type, language, or airline..."
-            value={searchTerm}
-            onChange={handleSearch}
-            className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:focus:ring-teal-500 dark:focus:border-teal-500 transition-colors shadow-sm"
-          />
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 h-5 w-5" />
+      {successMessage && (
+        <div className="rounded-2xl p-4 bg-gradient-to-r from-green-500/10 to-teal-600/10 backdrop-blur-sm border border-green-200 dark:border-green-800">
+          <div className="flex items-center">
+            <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 mr-3" />
+            <span className="text-green-700 dark:text-green-300">{successMessage}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Search and Filter */}
+      <div className="rounded-2xl p-6 bg-gradient-to-r from-white/80 to-white/60 dark:from-gray-800/80 dark:to-gray-900/60 backdrop-blur-xl border border-white/30 dark:border-gray-700/50 shadow-xl">
+        <div className="flex flex-col md:flex-row md:items-center gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 h-5 w-5" />
+            <input
+              type="text"
+              placeholder="Search templates by text, type, language, or airline..."
+              value={searchTerm}
+              onChange={handleSearch}
+              className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700/50 dark:border-gray-600 dark:text-gray-200 dark:focus:ring-blue-500 dark:focus:border-blue-500 transition-all duration-300 backdrop-blur-sm"
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500/10 to-purple-600/10 backdrop-blur-sm border border-white/30 dark:border-gray-700/50">
+              <Filter className="h-4 w-4 text-blue-500 dark:text-blue-400" />
+              <select
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+                className="bg-transparent text-sm text-gray-700 dark:text-gray-300 focus:outline-none"
+              >
+                <option value="all">All Types</option>
+                {Array.from(new Set(templates.map(t => t.type))).map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+            </div>
+            <Button variant="outline" className="rounded-xl border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30">
+              <Download className="h-4 w-4 mr-2" />
+              Export
+            </Button>
+            <Button variant="outline" className="rounded-xl border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30">
+              <Upload className="h-4 w-4 mr-2" />
+              Import
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Create/Edit Template Card */}
+      <div className="rounded-2xl bg-gradient-to-r from-white/80 to-white/60 dark:from-gray-800/80 dark:to-gray-900/60 backdrop-blur-xl border border-white/30 dark:border-gray-700/50 shadow-xl overflow-hidden">
+        <div className="p-6 border-b border-white/30 dark:border-gray-700/50">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white mr-3">
+                {newTemplate.id ? <Pencil className="h-5 w-5" /> : <PlusCircle className="h-5 w-5" />}
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                  {newTemplate.id ? 'Edit Template' : 'Create New Template'}
+                </h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {newTemplate.id ? 'Update your announcement template' : 'Add a new announcement template'}
+                </p>
+              </div>
+            </div>
+            {newTemplate.id && (
+              <Button
+                variant="outline"
+                onClick={handleCancelEdit}
+                className="rounded-xl border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                <XCircle className="h-4 w-4 mr-2" />
+                Cancel
+              </Button>
+            )}
+          </div>
         </div>
 
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="relative">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Airline
+              </label>
+              <select
+                name="airlineId"
+                value={newTemplate.airlineId}
+                onChange={handleChange}
+                required
+                className="w-full p-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700/50 dark:border-gray-600 dark:text-gray-200 dark:focus:ring-blue-500 dark:focus:border-blue-500 transition-all duration-300 backdrop-blur-sm appearance-none"
+              >
+                <option value="" disabled>Select Airline</option>
+                {airlines.map(airline => (
+                  <option key={airline.id} value={airline.id}>
+                    {airline.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-        {/* ## Add/Edit Template Section */}
+            <div className="relative">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Type
+              </label>
+              <select
+                name="type"
+                value={newTemplate.type}
+                onChange={handleChange}
+                required
+                className="w-full p-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700/50 dark:border-gray-600 dark:text-gray-200 dark:focus:ring-blue-500 dark:focus:border-blue-500 transition-all duration-300 backdrop-blur-sm appearance-none"
+              >
+                <option value="" disabled>Select Type</option>
+                <option value="cancelled">Cancelled</option>
+                <option value="diverted">Diverted</option>
+                <option value="earlier">Earlier</option>
+                <option value="arrived">Arrived</option>
+                <option value="checkin">Check-in</option>
+                <option value="boarding">Boarding</option>
+                <option value="close">Close</option>
+                <option value="delay">Delay</option>
+                <option value="gate_change">Gate Change</option>
+                <option value="security">Security</option>
+                <option value="assistance">Assistance</option>
+              </select>
+            </div>
 
-        <section className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-8 border border-gray-200 dark:border-gray-700">
-          <h2 className="text-2xl font-semibold mb-6 text-gray-800 dark:text-gray-100 flex items-center">
-            <PlusCircle className="h-6 w-6 mr-2 text-blue-500 dark:text-teal-400" />
-            {newTemplate.id ? 'Edit Announcement Template' : 'Create New Announcement Template'}
-          </h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Airline Select */}
-              <div className="relative">
-                <select
-                  name="airlineId"
-                  value={newTemplate.airlineId}
-                  onChange={handleChange}
-                  required
-                  className="w-full p-3 pr-10 rounded-lg border border-gray-300 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 dark:focus:ring-teal-500 dark:focus:border-teal-500 appearance-none"
-                >
-                  <option value="" disabled>Select Airline</option>
-                  {airlines.map(airline => (
-                    <option key={airline.id} value={airline.id}>
-                      {airline.name}
-                    </option>
-                  ))}
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 dark:text-gray-300">
-                  <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
-                </div>
-              </div>
-
-              {/* Type Select */}
-              <div className="relative">
-                <select
-                  name="type"
-                  value={newTemplate.type}
-                  onChange={handleChange}
-                  required
-                  className="w-full p-3 pr-10 rounded-lg border border-gray-300 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 dark:focus:ring-teal-500 dark:focus:border-teal-500 appearance-none"
-                >
-                  <option value="" disabled>Select Type</option>
-                  <option value="cancelled">Cancelled</option>
-                  <option value="diverted">Diverted</option>
-                  <option value="earlier">Earlier</option>
-                  <option value="arrived">Arrived</option>
-                  <option value="checkin">Check-in</option>
-                  <option value="boarding">Boarding</option>
-                  <option value="close">Close</option>
-                  <option value="delay">Delay</option>
-                  <option value="gate_change">Gate Change</option>
-                  <option value="security">Security</option>
-                  <option value="assistance">Assistance</option>
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 dark:text-gray-300">
-                  <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
-                </div>
-              </div>
-
-              {/* Language Input */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Language
+              </label>
               <input
                 type="text"
                 name="language"
-                placeholder="Language (e.g., EN, SR, RU)"
+                placeholder="EN, SR, RU"
                 value={newTemplate.language}
                 onChange={handleChange}
                 required
-                className="w-full p-3 rounded-lg border border-gray-300 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 dark:focus:ring-teal-500 dark:focus:border-teal-500"
+                className="w-full p-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700/50 dark:border-gray-600 dark:text-gray-200 dark:focus:ring-blue-500 dark:focus:border-blue-500 transition-all duration-300 backdrop-blur-sm"
               />
             </div>
 
-            {/* Template Textarea */}
+            <div className="md:col-span-2 lg:col-span-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Action
+              </label>
+              <Button
+                type="submit"
+                className="w-full rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 h-[50px]"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                {newTemplate.id ? 'Update Template' : 'Save Template'}
+              </Button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Template Text
+            </label>
             <textarea
               name="template"
               placeholder="Enter announcement template text here..."
               value={newTemplate.template}
               onChange={handleChange}
               required
-              className="w-full p-3 rounded-lg border border-gray-300 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 dark:focus:ring-teal-500 dark:focus:border-teal-500 resize-y"
+              className="w-full p-4 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700/50 dark:border-gray-600 dark:text-gray-200 dark:focus:ring-blue-500 dark:focus:border-blue-500 transition-all duration-300 backdrop-blur-sm resize-y min-h-[120px]"
               rows={4}
             />
-
-            <div className="flex gap-3 mt-4">
-              <button
-                type="submit"
-                className="flex items-center justify-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:bg-teal-600 dark:hover:bg-teal-700 dark:focus:ring-teal-500 dark:focus:ring-offset-gray-800 transition-colors shadow-md"
-              >
-                <Save className="h-5 w-5 mr-2" />
-                {newTemplate.id ? 'Update Template' : 'Save Template'}
-              </button>
-              {newTemplate.id && (
-                <button
-                  type="button"
-                  onClick={handleCancelEdit}
-                  className="flex items-center justify-center px-6 py-3 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500 dark:focus:ring-gray-400 dark:focus:ring-offset-gray-800 transition-colors shadow-md"
-                >
-                  <XCircle className="h-5 w-5 mr-2" />
-                  Cancel Edit
-                </button>
-              )}
+            <div className="flex items-center justify-between mt-2">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Supports variables like {`{flight_number}`}, {`{destination}`}, {`{gate}`}
+              </p>
+              <div className="flex items-center gap-2">
+                <Volume2 className="h-4 w-4 text-gray-400" />
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  {newTemplate.template.length} characters
+                </span>
+              </div>
             </div>
-          </form>
-        </section>
-{/* 
-        ---
+          </div>
+        </form>
+      </div>
 
-        ## Add New Airline Section */}
+      {/* Add Airline Card */}
+      <div className="rounded-2xl bg-gradient-to-r from-white/80 to-white/60 dark:from-gray-800/80 dark:to-gray-900/60 backdrop-blur-xl border border-white/30 dark:border-gray-700/50 shadow-xl overflow-hidden">
+        <div className="p-6 border-b border-white/30 dark:border-gray-700/50">
+          <div className="flex items-center">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-green-500 to-teal-600 flex items-center justify-center text-white mr-3">
+              <Plane className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                Add New Airline
+              </h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Register a new airline for announcement templates
+              </p>
+            </div>
+          </div>
+        </div>
 
-        <section className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-8 border border-gray-200 dark:border-gray-700">
-          <h2 className="text-2xl font-semibold mb-6 text-gray-800 dark:text-gray-100 flex items-center">
-            <Plane className="h-6 w-6 mr-2 text-green-500 dark:text-lime-400" />
-            Add New Airline
-          </h2>
-          <form onSubmit={handleAddAirline} className="space-y-4">
-            <input
-              type="text"
-              name="name"
-              placeholder="Airline Name (e.g., Air Montenegro)"
-              value={newAirline.name}
-              onChange={handleAirlineChange}
-              required
-              className="w-full p-3 rounded-lg border border-gray-300 focus:ring-1 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 dark:focus:ring-lime-500 dark:focus:border-lime-500"
-            />
-            <input
-              type="text"
-              name="fullName"
-              placeholder="Full Airline Name (Optional)"
-              value={newAirline.fullName || ''}
-              onChange={handleAirlineChange}
-              className="w-full p-3 rounded-lg border border-gray-300 focus:ring-1 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 dark:focus:ring-lime-500 dark:focus:border-lime-500"
-            />
-            <input
-              type="text"
-              name="code"
-              placeholder="Airline 2-letter Code (e.g., YM)"
-              value={newAirline.code}
-              onChange={handleAirlineChange}
-              required
-              maxLength={2}
-              className="w-full p-3 rounded-lg border border-gray-300 focus:ring-1 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 dark:focus:ring-lime-500 dark:focus:border-lime-500"
-            />
-            <input
-              type="text"
-              name="icaoCode"
-              placeholder="ICAO 3-letter Code (e.g., MNE)"
-              value={newAirline.icaoCode}
-              onChange={handleAirlineChange}
-              required
-              maxLength={3}
-              className="w-full p-3 rounded-lg border border-gray-300 focus:ring-1 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 dark:focus:ring-lime-500 dark:focus:border-lime-500"
-            />
+        <form onSubmit={handleAddAirline} className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Airline Name *
+              </label>
+              <input
+                type="text"
+                name="name"
+                placeholder="Air Montenegro"
+                value={newAirline.name}
+                onChange={handleAirlineChange}
+                required
+                className="w-full p-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700/50 dark:border-gray-600 dark:text-gray-200 dark:focus:ring-green-500 dark:focus:border-green-500 transition-all duration-300 backdrop-blur-sm"
+              />
+            </div>
 
-            <button
-              type="submit"
-              className="flex items-center justify-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:bg-lime-600 dark:hover:bg-lime-700 dark:focus:ring-lime-500 dark:focus:ring-offset-gray-800 transition-colors shadow-md"
-            >
-              <PlusCircle className="h-5 w-5 mr-2" />
-              Add New Airline
-            </button>
-          </form>
-        </section>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Full Name
+              </label>
+              <input
+                type="text"
+                name="fullName"
+                placeholder="Air Montenegro National Airlines"
+                value={newAirline.fullName || ''}
+                onChange={handleAirlineChange}
+                className="w-full p-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700/50 dark:border-gray-600 dark:text-gray-200 dark:focus:ring-green-500 dark:focus:border-green-500 transition-all duration-300 backdrop-blur-sm"
+              />
+            </div>
 
-        {/* ---
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                2-Letter Code *
+              </label>
+              <input
+                type="text"
+                name="code"
+                placeholder="YM"
+                value={newAirline.code}
+                onChange={handleAirlineChange}
+                required
+                maxLength={2}
+                className="w-full p-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700/50 dark:border-gray-600 dark:text-gray-200 dark:focus:ring-green-500 dark:focus:border-green-500 transition-all duration-300 backdrop-blur-sm"
+              />
+            </div>
 
-        ## Templates List */}
+            <div className="flex items-end">
+              <Button
+                type="submit"
+                className="w-full rounded-xl bg-gradient-to-r from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 h-[50px]"
+              >
+                <PlusCircle className="h-4 w-4 mr-2" />
+                Add Airline
+              </Button>
+            </div>
 
-        <section className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-          <h2 className="text-2xl font-semibold mb-6 text-gray-800 dark:text-gray-100">
-            Available Templates
-          </h2>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                ICAO Code *
+              </label>
+              <input
+                type="text"
+                name="icaoCode"
+                placeholder="MNE"
+                value={newAirline.icaoCode}
+                onChange={handleAirlineChange}
+                required
+                maxLength={3}
+                className="w-full p-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700/50 dark:border-gray-600 dark:text-gray-200 dark:focus:ring-green-500 dark:focus:border-green-500 transition-all duration-300 backdrop-blur-sm"
+              />
+            </div>
+          </div>
+        </form>
+      </div>
+
+      {/* Templates List */}
+      <div className="rounded-2xl bg-gradient-to-r from-white/80 to-white/60 dark:from-gray-800/80 dark:to-gray-900/60 backdrop-blur-xl border border-white/30 dark:border-gray-700/50 shadow-xl overflow-hidden">
+        <div className="p-6 border-b border-white/30 dark:border-gray-700/50">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                Available Templates
+              </h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {filteredTemplates.length} templates found
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-xl border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export All
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6">
           {filteredTemplates.length === 0 ? (
-            <p className="text-center text-gray-500 dark:text-gray-400 py-8">No templates found. Try adjusting your search or add a new template!</p>
+            <div className="text-center py-12">
+              <FileText className="h-12 w-12 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                No templates found
+              </h3>
+              <p className="text-gray-500 dark:text-gray-400">
+                Try adjusting your search or create a new template
+              </p>
+            </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-700">
-                  <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">
-                      Airline
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">
-                      Type
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">
-                      Language
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">
-                      Template Text
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {filteredTemplates.map((template) => (
-                    <tr key={template.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {airlines.find(a => a.id === template.airlineId)?.name || 'N/A'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                        {template.type}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                        {template.language}
-                      </td>
-                      {/* REMOVED 'max-w-xs truncate' from this line */}
-                      <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-300">
-                        {template.template}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex flex-col space-y-2">
-                          <button
-                            onClick={() => handleEdit(template.id)}
-                            className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-yellow-700 bg-yellow-100 hover:bg-yellow-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 dark:bg-yellow-800 dark:text-yellow-100 dark:hover:bg-yellow-700 dark:focus:ring-yellow-400"
-                            title="Edit Template"
-                          >
-                            <Pencil className="h-4 w-4" />
-                            <span className="sr-only sm:not-sr-only ml-1">Edit</span>
-                          </button>
-                          <button
-                            onClick={() => handleDelete(template.id)}
-                            className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 dark:bg-red-800 dark:text-red-100 dark:hover:bg-red-700 dark:focus:ring-red-400"
-                            title="Delete Template"
-                          >
-                            <Trash className="h-4 w-4" />
-                            <span className="sr-only sm:not-sr-only ml-1">Delete</span>
-                          </button>
+            <div className="space-y-4">
+              {filteredTemplates.map((template) => {
+                const airline = airlines.find(a => a.id === template.airlineId);
+                return (
+                  <div
+                    key={template.id}
+                    className="group rounded-2xl p-6 bg-gradient-to-r from-white/50 to-white/30 dark:from-gray-800/50 dark:to-gray-900/30 backdrop-blur-sm border border-white/30 dark:border-gray-700/50 hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-300 hover:shadow-lg"
+                  >
+                    <div className="flex flex-col lg:flex-row lg:items-start gap-6">
+                      {/* Left side: Metadata */}
+                      <div className="lg:w-1/4 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold">
+                                {airline?.code || '??'}
+                              </div>
+                              <span className="font-semibold text-gray-900 dark:text-white">
+                                {airline?.name || 'Unknown Airline'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getTypeColor(template.type)}`}>
+                                {template.type}
+                              </span>
+                              <span className="px-3 py-1 rounded-full text-xs font-medium bg-gradient-to-r from-blue-500/10 to-purple-600/10 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                                {template.language}
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => handleEdit(template.id)}
+                            className="flex-1 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
+                          >
+                            <Pencil className="h-3 w-3 mr-1.5" />
+                            Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleCopyTemplate(template.template, template.id)}
+                            className="rounded-xl border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30"
+                          >
+                            {copiedId === template.id ? (
+                              <CheckCircle className="h-3 w-3" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDelete(template.id)}
+                            className="rounded-xl border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/30"
+                          >
+                            <Trash className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Right side: Template text */}
+                      <div className="lg:w-3/4">
+                        <div className="relative">
+                          <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl blur opacity-10 group-hover:opacity-20 transition-opacity"></div>
+                          <div className="relative p-4 rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
+                            <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                              {template.template}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
-        </section>
+        </div>
       </div>
     </div>
   );
