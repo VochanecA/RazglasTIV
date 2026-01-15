@@ -182,6 +182,8 @@ const getActiveEmergencyAnnouncements = () => {
     isActive: entry.isActive,
     currentRepeats: entry.currentRepeats,
     maxRepeats: entry.maxRepeats,
+    lastAnnouncementTime: entry.lastAnnouncementTime,
+    repeatInterval: entry.repeatInterval,
   }));
 };
 
@@ -214,19 +216,20 @@ export async function POST(request: NextRequest) {
       case 'deactivate-emergency':
         deactivateEmergencyAnnouncement(data.id);
         return NextResponse.json({ success: true });
-        case 'update-timestamp':
-  const entry = emergencyAnnouncements.get(data.id);
-  if (entry) {
-    entry.lastAnnouncementTime = new Date();
-    entry.currentRepeats += 1;
-    
-    if (entry.currentRepeats >= entry.maxRepeats) {
-      entry.isActive = false;
-    }
-    
-    console.log(`[Server] Updated timestamp for: ${data.id}, repeats: ${entry.currentRepeats}/${entry.maxRepeats}`);
-  }
-  return NextResponse.json({ success: true });
+
+      case 'update-timestamp':
+        const entry = emergencyAnnouncements.get(data.id);
+        if (entry) {
+          entry.lastAnnouncementTime = new Date();
+          entry.currentRepeats += 1;
+          
+          if (entry.currentRepeats >= entry.maxRepeats) {
+            entry.isActive = false;
+          }
+          
+          console.log(`[Server] Updated timestamp for: ${data.id}, repeats: ${entry.currentRepeats}/${entry.maxRepeats}`);
+        }
+        return NextResponse.json({ success: true });
 
       case 'clear-all-emergencies':
         clearAllEmergencyAnnouncements();
@@ -260,20 +263,3 @@ export async function GET() {
     );
   }
 }
-
-// Export funkcija za integraciju sa announcementQueue.ts
-export const serverEmergencyAnnouncements = {
-  getAll: () => Array.from(emergencyAnnouncements.values()),
-  getActive: () => Array.from(emergencyAnnouncements.values()).filter(e => e.isActive),
-  update: (id: string, time: Date) => {
-    const entry = emergencyAnnouncements.get(id);
-    if (entry) {
-      entry.lastAnnouncementTime = time;
-      entry.currentRepeats += 1;
-      
-      if (entry.currentRepeats >= entry.maxRepeats) {
-        entry.isActive = false;
-      }
-    }
-  },
-};
