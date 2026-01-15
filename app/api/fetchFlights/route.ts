@@ -26,7 +26,8 @@ interface NaisApiFlight {
 
 // Tipovi za naš response
 interface FlightResponse {
-  ident: string;
+  ident: string; // Full ident za FlightAware (npr. "4O150")
+  flightNumber: string; // Samo broj leta (npr. "150")
   status: string;
   scheduled_out: string;
   estimated_out: string;
@@ -34,7 +35,7 @@ interface FlightResponse {
   origin: { code: string };
   destination: { code: string };
   grad: string;
-  Kompanija: string;
+  Kompanija: string; // IATA kod kompanije (npr. "4O")
   KompanijaICAO: string;
   KompanijaNaziv: string;
   checkIn: string;
@@ -55,7 +56,7 @@ const mapStatus = (statusEN: string, status: string): string => {
   if (status === 'C03LST') return 'Final Call';
   if (status === 'A09DEP') return 'Departed';
   if (status === 'A06ARR') return 'Arrived';
-  if (status === 'G02GCL') return 'Close';
+  if (status === 'G02GCL') return 'Closed';
   if (status === 'A01DLY') return 'Delayed';
   
   return statusEN || 'Scheduled';
@@ -187,35 +188,31 @@ const convertToFlightResponse = (flight: NaisApiFlight): FlightResponse | null =
     const { status, statusEN } = mapCommentToStatus(flight.comment);
     const { datum, dan } = extractDateInfo(flight.schdate);
     
-    // Određivanje tipa leta
     const tipLeta = flight.AD === 'DEPARTURE' ? 'O' : 'I';
-    
-    // Izvlačenje grada iz fromto polja
     const grad = extractCity(flight.fromto);
     
-    // Određivanje vremena
     let planirano = isoToHHMM(flight.schtime);
     let predvidjeno = isoToHHMM(flight.esttime);
     const aktuelno = isoToHHMM(flight.acttime);
     
-    // Ako nema estimated time, koristi scheduled
     if (!predvidjeno && planirano) {
       predvidjeno = planirano;
     }
 
-    // RAZLAŽENJE brlet NA AIRLINE CODE I BROJ LETA
-    let brojLeta = flight.brlet;
+    // RAZLAŽENJE brlet NA IATA KOD I BROJ LETA
+    let flightNumber = flight.brlet;
     
     // Ukloni airlineCode iz početka broja leta ako postoji
     if (flight.airlineCode && flight.brlet.startsWith(flight.airlineCode)) {
-      brojLeta = flight.brlet.slice(flight.airlineCode.length);
+      flightNumber = flight.brlet.slice(flight.airlineCode.length);
     }
 
-    // Konstruisanje identa
-    const ident = flight.airlineCode ? `${flight.airlineCode}${brojLeta}` : brojLeta;
+    // Konstruisanje identa (IATA kod + broj leta) za FlightAware link
+    const ident = flight.airlineCode ? `${flight.airlineCode}${flightNumber}` : flightNumber;
 
     const result: FlightResponse = {
-      ident,
+      ident, // Full ident za FlightAware (npr. "4O150")
+      flightNumber, // Samo broj leta (npr. "150")
       status: mapStatus(statusEN, status),
       scheduled_out: formatTime(planirano),
       estimated_out: formatTime(predvidjeno),
@@ -231,7 +228,7 @@ const convertToFlightResponse = (flight: NaisApiFlight): FlightResponse | null =
       TipLeta: tipLeta,
     };
 
-    // Postavi origin i destination zavisno od tipa leta
+    // Postavi origin i destination
     if (tipLeta === 'O') {
       result.origin = { code: 'TIV' };
       result.destination = { code: flight.sifFromto || '' };
@@ -341,6 +338,7 @@ const getMockFlights = (): ProcessedData => {
     departures: [
       {
         ident: "4O150",
+        flightNumber: "150",
         status: "Scheduled",
         scheduled_out: `${currentHour}:${currentMinute}`,
         estimated_out: `${currentHour}:${(parseInt(currentMinute) + 15).toString().padStart(2, '0')}`,
@@ -357,6 +355,7 @@ const getMockFlights = (): ProcessedData => {
       },
       {
         ident: "JU466",
+        flightNumber: "466",
         status: "Boarding",
         scheduled_out: `${currentHour}:${(parseInt(currentMinute) + 30).toString().padStart(2, '0')}`,
         estimated_out: `${currentHour}:${(parseInt(currentMinute) + 35).toString().padStart(2, '0')}`,
@@ -375,6 +374,7 @@ const getMockFlights = (): ProcessedData => {
     arrivals: [
       {
         ident: "JU465",
+        flightNumber: "465",
         status: "Arrived",
         scheduled_out: `${currentHour}:${(parseInt(currentMinute) - 20).toString().padStart(2, '0')}`,
         estimated_out: `${currentHour}:${(parseInt(currentMinute) - 15).toString().padStart(2, '0')}`,
@@ -391,6 +391,7 @@ const getMockFlights = (): ProcessedData => {
       },
       {
         ident: "W61832",
+        flightNumber: "1832",
         status: "Delayed",
         scheduled_out: `${currentHour}:${(parseInt(currentMinute) - 10).toString().padStart(2, '0')}`,
         estimated_out: `${currentHour}:${(parseInt(currentMinute) + 5).toString().padStart(2, '0')}`,
