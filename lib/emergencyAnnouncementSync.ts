@@ -1,6 +1,7 @@
 // lib/emergencyAnnouncementSync.ts
 // Ovaj fajl sinhronizuje emergency announcements između server-side i client-side
 
+// Import samo addAnnouncement funkcije iz audioManager
 import { addAnnouncement } from './audioManager';
 
 interface EmergencyAnnouncementEntry {
@@ -25,6 +26,7 @@ const processEmergencyAnnouncement = async (announcement: EmergencyAnnouncementE
     console.log('[Emergency Sync] Processing announcement:', announcement.id);
     
     // Add to audio manager queue with high priority
+    // audioManager.addAnnouncement prima samo text, bez flightInfo parametra
     await addAnnouncement(announcement.text);
     
     console.log('[Emergency Sync] Added to audio queue:', announcement.text.substring(0, 50));
@@ -38,42 +40,42 @@ const checkEmergencyAnnouncements = async (): Promise<void> => {
   try {
     const response = await fetch('/api/emergency-announcements');
     const data = await response.json();
-    
+
     if (!data.success || !data.emergencies) {
       return;
     }
-    
+
     const now = new Date();
-    
+
     for (const emergency of data.emergencies) {
       // Skip inactive announcements
       if (!emergency.isActive) {
         lastProcessedIds.delete(emergency.id);
         continue;
       }
-      
+
       // Calculate time since last announcement
       const lastTime = emergency.lastAnnouncementTime 
-        ? new Date(emergency.lastAnnouncementTime).getTime()
+        ? new Date(emergency.lastAnnouncementTime).getTime() 
         : 0;
-      
       const timeSince = now.getTime() - lastTime;
-      
+
       // Check if it's time to play this announcement
-      const shouldPlay = !lastProcessedIds.has(emergency.id) || 
-                        (timeSince >= emergency.repeatInterval);
-      
+      const shouldPlay = 
+        !lastProcessedIds.has(emergency.id) || 
+        (timeSince >= emergency.repeatInterval);
+
       if (shouldPlay && emergency.currentRepeats < emergency.maxRepeats) {
         await processEmergencyAnnouncement(emergency);
         lastProcessedIds.add(emergency.id);
-        
+
         // Update server-side timestamp
         await fetch('/api/emergency-announcements', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            action: 'update-timestamp', 
-            id: emergency.id 
+          body: JSON.stringify({
+            action: 'update-timestamp',
+            id: emergency.id
           }),
         }).catch(err => console.error('[Emergency Sync] Failed to update timestamp:', err));
       }
@@ -89,7 +91,7 @@ export const startEmergencyAnnouncementPolling = (intervalMs: number = 10000): v
     console.log('[Emergency Sync] Polling already started');
     return;
   }
-  
+
   console.log('[Emergency Sync] Starting polling every', intervalMs, 'ms');
   
   // Check immediately
@@ -120,4 +122,20 @@ export const triggerEmergencyAnnouncementCheck = async (): Promise<void> => {
 export const resetProcessedAnnouncements = (): void => {
   lastProcessedIds.clear();
   console.log('[Emergency Sync] Cleared processed announcement history');
+};
+
+// Get current polling status
+export const getPollingStatus = (): { 
+  isPolling: boolean; 
+  processedCount: number;
+} => {
+  return {
+    isPolling: pollingInterval !== null,
+    processedCount: lastProcessedIds.size
+  };
+};
+
+// Export for debugging
+export const getLastProcessedIds = (): string[] => {
+  return Array.from(lastProcessedIds);
 };

@@ -1039,47 +1039,8 @@ export const getFlightStatus = (): { hasActiveFlights: boolean; lastCheck: Date 
   };
 };
 
-// Initialize audio manager interface for the component
-export const initializeAudioManagerInterface = (): void => {
-  if (typeof window !== 'undefined') {
-    window.audioManager = {
-      getBackgroundMusicVolume,
-      setBackgroundMusicVolume,
-      isBackgroundMusicPlaying: () => {
-        const playing = isBackgroundMusicPlaying();
-        return playing !== null ? playing : false;
-      },
-      playBackgroundMusic,
-      pauseBackgroundMusic,
-      toggleBackgroundMusic,
-      stopBackgroundMusic,
-      getFlightStatus,
-      updateFlightStatus,
-      debugAudioStatus,
-      // Kiosk functions
-      setupBackgroundMusicForKiosk,
-      playBackgroundMusicForKiosk,
-      startKioskAudioWithRetry,
-      autoStartKioskAudio
-    };
-  }
-};
-
-// Test stream URL function
-export const testStreamUrl = async (): Promise<boolean> => {
-  try {
-    const streamUrl = process.env.NEXT_PUBLIC_STREAM_URL || 'https://jking.cdnstream1.com/b22139_128mp3';
-    const response = await fetch(streamUrl, { method: 'HEAD' });
-    console.log('Stream URL test result:', response.ok);
-    return response.ok;
-  } catch (error) {
-    console.error('Stream URL test failed:', error);
-    return false;
-  }
-};
-
 // ==============================================
-// AUTO-PLAY FUNCTIONS - DODAJ OVE FUNKCIJE
+// AUTO-PLAY FUNCTIONS
 // ==============================================
 
 // Audio unlock strategies for auto-play
@@ -1302,6 +1263,51 @@ export const isAudioAllowed = async (): Promise<boolean> => {
   }
 };
 
+// Initialize audio manager interface for the component
+export const initializeAudioManagerInterface = (): void => {
+  if (typeof window !== 'undefined') {
+    window.audioManager = {
+      getBackgroundMusicVolume,
+      setBackgroundMusicVolume,
+      isBackgroundMusicPlaying: () => {
+        const playing = isBackgroundMusicPlaying();
+        return playing !== null ? playing : false;
+      },
+      playBackgroundMusic,
+      pauseBackgroundMusic,
+      toggleBackgroundMusic,
+      stopBackgroundMusic,
+      getFlightStatus,
+      updateFlightStatus,
+      debugAudioStatus,
+      // Kiosk functions
+      setupBackgroundMusicForKiosk,
+      playBackgroundMusicForKiosk,
+      startKioskAudioWithRetry,
+      autoStartKioskAudio,
+      // Auto-play functions - SVE FUNKCIJE NA JEDNOM MESTU
+      unlockAudioContext,
+      forceAudioStart,
+      warmupAudioSystem,
+      autoInitializeAudio,
+      isAudioAllowed
+    };
+  }
+};
+
+// Test stream URL function
+export const testStreamUrl = async (): Promise<boolean> => {
+  try {
+    const streamUrl = process.env.NEXT_PUBLIC_STREAM_URL || 'https://jking.cdnstream1.com/b22139_128mp3';
+    const response = await fetch(streamUrl, { method: 'HEAD' });
+    console.log('Stream URL test result:', response.ok);
+    return response.ok;
+  } catch (error) {
+    console.error('Stream URL test failed:', error);
+    return false;
+  }
+};
+
 // Type declarations for window.audioManager
 declare global {
   interface Window {
@@ -1320,7 +1326,7 @@ declare global {
       playBackgroundMusicForKiosk: () => Promise<boolean>;
       startKioskAudioWithRetry: (maxRetries?: number) => Promise<boolean>;
       autoStartKioskAudio: () => Promise<void>;
-      // New auto-play functions
+      // Auto-play functions
       unlockAudioContext: () => Promise<boolean>;
       forceAudioStart: () => Promise<boolean>;
       warmupAudioSystem: () => Promise<void>;
@@ -1328,17 +1334,4 @@ declare global {
       isAudioAllowed: () => Promise<boolean>;
     };
   }
-}
-
-// Update the window.audioManager interface with new functions
-if (typeof window !== 'undefined') {
-  // Re-initialize with all functions
-  window.audioManager = {
-    ...window.audioManager,
-    unlockAudioContext,
-    forceAudioStart,
-    warmupAudioSystem,
-    autoInitializeAudio,
-    isAudioAllowed
-  };
 }

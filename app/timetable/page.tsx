@@ -32,12 +32,13 @@ import {
   pauseBackgroundMusic, 
   setBackgroundMusicVolume, 
   updateFlightStatus,
-  debugAudioStatus
-} from '@/lib/audioManager';
-import { 
+  debugAudioStatus,
+  // Dodaj sve auto-play funkcije ovde
   autoInitializeAudio,
   forceAudioStart,
-  forceStartAudioSystem
+  unlockAudioContext,
+  warmupAudioSystem,
+  isAudioAllowed
 } from '@/lib/audioManager';
 import { 
   startEmergencyAnnouncementPolling, 
@@ -906,7 +907,7 @@ function TimetableContent({ user }: { user: any }) {
                   setIsAudioLoading(true);
                   setAudioError(null);
                   try {
-                    const success = await forceStartAudioSystem();
+                    const success = await forceAudioStart();
                     if (success) {
                       setAudioInitialized(true);
                       setIsAudioPlaying(true);
