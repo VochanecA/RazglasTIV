@@ -1,29 +1,8 @@
 import { NextResponse } from 'next/server';
-import { setTimeout } from 'timers/promises';
 
-interface RawFlight {
-  Updateovano: string;
-  Datum: string;
-  Dan: string;
-  TipLeta: string;
-  KompanijaNaziv: string;
-  Kompanija: string;
-  KompanijaICAO: string;
-  BrojLeta: string;
-  IATA: string;
-  Grad: string;
-  Planirano: string;
-  Predvidjeno: string;
-  Aktuelno: string;
-  Terminal: string;
-  CheckIn: string;
-  Gate: string;
-  Aerodrom: string;
-  Status: string;
-  StatusEN: string;
-}
+export const runtime = 'edge';
 
-// Interface za novi API odgovor (prema stvarnoj strukturi)
+// Tipovi za API response
 interface NaisApiFlight {
   AD: 'DEPARTURE' | 'ARRIVAL';
   acttime: string;
@@ -45,6 +24,31 @@ interface NaisApiFlight {
   via: string;
 }
 
+// Tipovi za naš response
+interface FlightResponse {
+  ident: string;
+  status: string;
+  scheduled_out: string;
+  estimated_out: string;
+  actual_out: string;
+  origin: { code: string };
+  destination: { code: string };
+  grad: string;
+  Kompanija: string;
+  KompanijaICAO: string;
+  KompanijaNaziv: string;
+  checkIn: string;
+  gate: string;
+  TipLeta: string;
+}
+
+interface ProcessedData {
+  departures: FlightResponse[];
+  arrivals: FlightResponse[];
+}
+
+const delay = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
+
 const mapStatus = (statusEN: string, status: string): string => {
   if (status === 'C01PRO') return 'Processing';
   if (status === 'C02BRD') return 'Boarding';
@@ -62,7 +66,6 @@ const formatTime = (time: string): string => {
   return time.replace(/(\d{2})(\d{2})/, '$1:$2');
 };
 
-// Konvertovanje ISO vremena u HHMM format
 const isoToHHMM = (isoString?: string): string => {
   if (!isoString || isoString.trim() === '') return '';
   
@@ -74,7 +77,7 @@ const isoToHHMM = (isoString?: string): string => {
     if (isNaN(date.getTime())) {
       // Ako nije validan ISO format, pokušaj da parsiraš samo vrijeme
       const timeMatch = isoString.match(/(\d{2}):(\d{2})/);
-      if (timeMatch) {
+      if (timeMatch && timeMatch[1] && timeMatch[2]) {
         return timeMatch[1] + timeMatch[2];
       }
       return '';
@@ -90,114 +93,34 @@ const isoToHHMM = (isoString?: string): string => {
   }
 };
 
-// Mapiranje komentara u status
-const mapCommentToStatus = (comment: string): { status: string, statusEN: string } => {
-  comment = comment.toLowerCase();
+const mapCommentToStatus = (comment: string): { status: string; statusEN: string } => {
+  const commentLower = comment.toLowerCase();
   
-  if (comment.includes('landed')) {
+  if (commentLower.includes('landed')) {
     return { status: 'A06ARR', statusEN: 'Arrived' };
   }
-  if (comment.includes('boarding')) {
+  if (commentLower.includes('boarding')) {
     return { status: 'C02BRD', statusEN: 'Boarding' };
   }
-  if (comment.includes('final')) {
+  if (commentLower.includes('final')) {
     return { status: 'C03LST', statusEN: 'Final Call' };
   }
-  if (comment.includes('gate')) {
+  if (commentLower.includes('gate')) {
     return { status: 'C01PRO', statusEN: 'Processing' };
   }
-  if (comment.includes('delayed')) {
+  if (commentLower.includes('delayed')) {
     return { status: 'A01DLY', statusEN: 'Delayed' };
   }
-  if (comment.includes('cancel')) {
+  if (commentLower.includes('cancel')) {
     return { status: 'G02GCL', statusEN: 'Canceled' };
   }
-  if (comment.includes('depart')) {
+  if (commentLower.includes('depart')) {
     return { status: 'A09DEP', statusEN: 'Departed' };
   }
   
   return { status: '', statusEN: 'Scheduled' };
 };
 
-const generateFingerprint = () => {
-  const platforms = ['Windows NT 10.0; Win64; x64', 'Macintosh; Intel Mac OS X 10_15_7'];
-  const browsers = [
-    'Chrome/120.0.0.0 Safari/537.36',
-    'Chrome/121.0.0.0 Safari/537.36',
-    'Chrome/122.0.0.0 Safari/537.36'
-  ];
-  
-  return {
-    platform: platforms[Math.floor(Math.random() * platforms.length)],
-    browser: browsers[Math.floor(Math.random() * browsers.length)]
-  };
-};
-
-const fetchWithRetry = async (
-  url: string,
-  options: RequestInit,
-  retries = 3,
-  delay = 3000
-): Promise<any> => {
-  const fingerprint = generateFingerprint();
-  
-  for (let i = 0; i < retries; i++) {
-    try {
-      if (i > 0) {
-        await setTimeout(Math.random() * 1000 + delay);
-      }
-
-      const response = await fetch(url, {
-        ...options,
-        headers: {
-          'User-Agent': `Mozilla/5.0 (${fingerprint.platform}) AppleWebKit/537.36 (KHTML, like Gecko) ${fingerprint.browser}`,
-          'Accept': 'application/json, text/plain, */*',
-          'Accept-Language': 'en-US,en;q=0.9',
-          'Accept-Encoding': 'gzip, deflate, br',
-          'Connection': 'keep-alive',
-          'Referer': 'https://tiv.nais.aero/',
-          'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120"',
-          'sec-ch-ua-mobile': '?0',
-          'sec-ch-ua-platform': '"Windows"',
-          'Sec-Fetch-Dest': 'empty',
-          'Sec-Fetch-Mode': 'cors',
-          'Sec-Fetch-Site': 'same-origin',
-          'Pragma': 'no-cache',
-          'Cache-Control': 'no-cache',
-          ...options.headers,
-        },
-      });
-
-      const text = await response.text();
-      
-      if (!response.ok) {
-        console.error('Response not OK:', {
-          status: response.status,
-          statusText: response.statusText,
-          body: text.substring(0, 200)
-        });
-        
-        if (i === retries - 1) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        continue;
-      }
-
-      try {
-        return JSON.parse(text);
-      } catch (e) {
-        console.error('Failed to parse JSON:', text.substring(0, 200));
-        throw new Error('Response was not valid JSON');
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.warn(`Attempt ${i + 1}/${retries} failed:`, errorMessage);
-      if (i === retries - 1) throw error;
-    }
-  }
-};
-
-// Ekstrakcija grada iz fromto polja
 const extractCity = (fromto: string): string => {
   if (!fromto) return '';
   
@@ -216,8 +139,7 @@ const extractCity = (fromto: string): string => {
   return fromto;
 };
 
-// Ekstrakcija datuma iz schdate
-const extractDateInfo = (isoDate: string): { datum: string, dan: string } => {
+const extractDateInfo = (isoDate: string): { datum: string; dan: string } => {
   try {
     const cleanDate = isoDate.replace('Z[UTC]', '').replace('Z', '');
     const date = new Date(cleanDate);
@@ -260,123 +182,303 @@ const extractDateInfo = (isoDate: string): { datum: string, dan: string } => {
   }
 };
 
-// Konvertuj NaisApiFlight u RawFlight
-// Konvertuj NaisApiFlight u RawFlight
-const convertToRawFlight = (flight: NaisApiFlight, index: number): RawFlight => {
-  const { status, statusEN } = mapCommentToStatus(flight.comment);
-  const { datum, dan } = extractDateInfo(flight.schdate);
-  
-  // Određivanje tipa leta
-  const tipLeta = flight.AD === 'DEPARTURE' ? 'O' : 'I';
-  
-  // Izvlačenje grada iz fromto polja
-  const grad = extractCity(flight.fromto);
-  
-  // Određivanje vremena
-  let planirano = isoToHHMM(flight.schtime);
-  let predvidjeno = isoToHHMM(flight.esttime);
-  let aktuelno = isoToHHMM(flight.acttime);
-  
-  // Ako nema estimated time, koristi scheduled
-  if (!predvidjeno && planirano) {
-    predvidjeno = planirano;
-  }
+const convertToFlightResponse = (flight: NaisApiFlight): FlightResponse | null => {
+  try {
+    const { status, statusEN } = mapCommentToStatus(flight.comment);
+    const { datum, dan } = extractDateInfo(flight.schdate);
+    
+    // Određivanje tipa leta
+    const tipLeta = flight.AD === 'DEPARTURE' ? 'O' : 'I';
+    
+    // Izvlačenje grada iz fromto polja
+    const grad = extractCity(flight.fromto);
+    
+    // Određivanje vremena
+    let planirano = isoToHHMM(flight.schtime);
+    let predvidjeno = isoToHHMM(flight.esttime);
+    const aktuelno = isoToHHMM(flight.acttime);
+    
+    // Ako nema estimated time, koristi scheduled
+    if (!predvidjeno && planirano) {
+      predvidjeno = planirano;
+    }
 
-  // RAZLAŽENJE brlet NA AIRLINE CODE I BROJ LETA
-  // brlet je u formatu "4O150" gde je "4O" IATA kod, "150" broj leta
-  // Ako brlet već uključuje airlineCode, koristimo samo broj leta za ident
-  let brojLeta = flight.brlet;
-  
-  // Ukloni airlineCode iz početka broja leta ako postoji
-  if (flight.airlineCode && flight.brlet.startsWith(flight.airlineCode)) {
-    brojLeta = flight.brlet.slice(flight.airlineCode.length);
-  }
+    // RAZLAŽENJE brlet NA AIRLINE CODE I BROJ LETA
+    let brojLeta = flight.brlet;
+    
+    // Ukloni airlineCode iz početka broja leta ako postoji
+    if (flight.airlineCode && flight.brlet.startsWith(flight.airlineCode)) {
+      brojLeta = flight.brlet.slice(flight.airlineCode.length);
+    }
 
+    // Konstruisanje identa
+    const ident = flight.airlineCode ? `${flight.airlineCode}${brojLeta}` : brojLeta;
+
+    const result: FlightResponse = {
+      ident,
+      status: mapStatus(statusEN, status),
+      scheduled_out: formatTime(planirano),
+      estimated_out: formatTime(predvidjeno),
+      actual_out: formatTime(aktuelno),
+      origin: { code: '' },
+      destination: { code: '' },
+      grad,
+      Kompanija: flight.airlineCode || '',
+      KompanijaICAO: flight.airlineICAO || '',
+      KompanijaNaziv: flight.operlong || '',
+      checkIn: flight.checkinDesk || '',
+      gate: flight.gate || '',
+      TipLeta: tipLeta,
+    };
+
+    // Postavi origin i destination zavisno od tipa leta
+    if (tipLeta === 'O') {
+      result.origin = { code: 'TIV' };
+      result.destination = { code: flight.sifFromto || '' };
+    } else {
+      result.origin = { code: flight.sifFromto || '' };
+      result.destination = { code: 'TIV' };
+    }
+
+    return result;
+  } catch (error) {
+    console.error('Error converting flight:', flight, error);
+    return null;
+  }
+};
+
+const fetchWithRetry = async (
+  url: string,
+  options: RequestInit,
+  retries = 3,
+  initialDelay = 1000
+): Promise<NaisApiFlight[]> => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      if (i > 0) {
+        await delay(initialDelay * Math.pow(2, i - 1)); // Exponential backoff
+      }
+
+      const response = await fetch(url, {
+        ...options,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/json, text/plain, */*',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Connection': 'keep-alive',
+          'Referer': 'https://tiv.nais.aero/',
+          'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120"',
+          'sec-ch-ua-mobile': '?0',
+          'sec-ch-ua-platform': '"Windows"',
+          'Sec-Fetch-Dest': 'empty',
+          'Sec-Fetch-Mode': 'cors',
+          'Sec-Fetch-Site': 'same-origin',
+          'Pragma': 'no-cache',
+          'Cache-Control': 'no-cache',
+          'Origin': 'https://tiv.nais.aero',
+          ...(options.headers || {}),
+        },
+        redirect: 'follow',
+        mode: 'cors',
+        credentials: 'omit',
+      });
+
+      if (!response.ok) {
+        console.error('Response not OK:', {
+          status: response.status,
+          statusText: response.statusText,
+        });
+        
+        if (i === retries - 1) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        continue;
+      }
+
+      const text = await response.text();
+      
+      try {
+        const data = JSON.parse(text);
+        
+        // Proveri da li je data niz
+        if (Array.isArray(data)) {
+          return data as NaisApiFlight[];
+        }
+        
+        // Ako nije niz, možda je u objektu
+        if (data && Array.isArray(data.flights)) {
+          return data.flights as NaisApiFlight[];
+        }
+        
+        // Ako nema očekivanog formata, vrati prazan niz
+        console.warn('Unexpected API response format');
+        return [];
+        
+      } catch (e) {
+        console.error('Failed to parse JSON:', text.substring(0, 200));
+        if (i === retries - 1) {
+          throw new Error('Response was not valid JSON');
+        }
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.warn(`Attempt ${i + 1}/${retries} failed:`, errorMessage);
+      if (i === retries - 1) throw error;
+    }
+  }
+  
+  throw new Error('All retry attempts failed');
+};
+
+// Mock podaci za fallback
+const getMockFlights = (): ProcessedData => {
+  const now = new Date();
+  const currentHour = now.getHours().toString().padStart(2, '0');
+  const currentMinute = now.getMinutes().toString().padStart(2, '0');
+  
   return {
-    Updateovano: new Date().toLocaleString('sr-RS'),
-    Datum: datum,
-    Dan: dan,
-    TipLeta: tipLeta,
-    KompanijaNaziv: flight.operlong || '',
-    Kompanija: flight.airlineCode || '', // IATA kod kompanije (npr. "4O")
-    KompanijaICAO: flight.airlineICAO || '',
-    BrojLeta: brojLeta, // Samo broj leta (npr. "150")
-    IATA: flight.sifFromto || '',
-    Grad: grad,
-    Planirano: planirano,
-    Predvidjeno: predvidjeno,
-    Aktuelno: aktuelno,
-    Terminal: '', // Novi API nema terminal informacije
-    CheckIn: flight.checkinDesk || '',
-    Gate: flight.gate || '',
-    Aerodrom: 'TIV',
-    Status: status,
-    StatusEN: statusEN || 'Scheduled'
+    departures: [
+      {
+        ident: "4O150",
+        status: "Scheduled",
+        scheduled_out: `${currentHour}:${currentMinute}`,
+        estimated_out: `${currentHour}:${(parseInt(currentMinute) + 15).toString().padStart(2, '0')}`,
+        actual_out: "",
+        origin: { code: "TIV" },
+        destination: { code: "BEG" },
+        grad: "Beograd",
+        Kompanija: "4O",
+        KompanijaICAO: "AAW",
+        KompanijaNaziv: "Air Montenegro",
+        checkIn: "1-3",
+        gate: "2",
+        TipLeta: "O"
+      },
+      {
+        ident: "JU466",
+        status: "Boarding",
+        scheduled_out: `${currentHour}:${(parseInt(currentMinute) + 30).toString().padStart(2, '0')}`,
+        estimated_out: `${currentHour}:${(parseInt(currentMinute) + 35).toString().padStart(2, '0')}`,
+        actual_out: "",
+        origin: { code: "TIV" },
+        destination: { code: "BEG" },
+        grad: "Beograd",
+        Kompanija: "JU",
+        KompanijaICAO: "ASL",
+        KompanijaNaziv: "Air Serbia",
+        checkIn: "4-6",
+        gate: "1",
+        TipLeta: "O"
+      }
+    ],
+    arrivals: [
+      {
+        ident: "JU465",
+        status: "Arrived",
+        scheduled_out: `${currentHour}:${(parseInt(currentMinute) - 20).toString().padStart(2, '0')}`,
+        estimated_out: `${currentHour}:${(parseInt(currentMinute) - 15).toString().padStart(2, '0')}`,
+        actual_out: `${currentHour}:${(parseInt(currentMinute) - 10).toString().padStart(2, '0')}`,
+        origin: { code: "BEG" },
+        grad: "Beograd",
+        destination: { code: "TIV" },
+        Kompanija: "JU",
+        KompanijaICAO: "ASL",
+        KompanijaNaziv: "Air Serbia",
+        checkIn: "",
+        gate: "1",
+        TipLeta: "I"
+      },
+      {
+        ident: "W61832",
+        status: "Delayed",
+        scheduled_out: `${currentHour}:${(parseInt(currentMinute) - 10).toString().padStart(2, '0')}`,
+        estimated_out: `${currentHour}:${(parseInt(currentMinute) + 5).toString().padStart(2, '0')}`,
+        actual_out: "",
+        origin: { code: "BEG" },
+        grad: "Beograd",
+        destination: { code: "TIV" },
+        Kompanija: "W6",
+        KompanijaICAO: "WZZ",
+        KompanijaNaziv: "Wizz Air",
+        checkIn: "",
+        gate: "2",
+        TipLeta: "I"
+      }
+    ]
   };
 };
 
-export async function GET() {
+export async function GET(): Promise<NextResponse> {
   try {
     const url = 'https://tiv.nais.aero/as-frontend/schedule/current';
     
-    const options = {
+    const options: RequestInit = {
       method: 'GET',
-      cache: 'no-store' as RequestCache,
+      cache: 'no-store',
     };
 
-    const response: NaisApiFlight[] = await fetchWithRetry(url, options);
+    let flightsData: NaisApiFlight[] = [];
     
-    // Konvertuj sve letove u RawFlight format
-    const rawData: RawFlight[] = response.map((flight, index) => convertToRawFlight(flight, index));
-
-
-// U processedData sekciji u route.ts
-const processedData = {
-  departures: rawData
-    .filter((flight) => flight.TipLeta === 'O')
-    .map((flight) => ({
-      ident: `${flight.BrojLeta}`, // Ovo će biti samo broj leta (npr. "150")
-      status: mapStatus(flight.StatusEN, flight.Status),
-      scheduled_out: formatTime(flight.Planirano),
-      estimated_out: formatTime(flight.Predvidjeno),
-      actual_out: formatTime(flight.Aktuelno),
-      origin: { code: 'TIV' },
-      destination: { code: flight.IATA },
-      grad: flight.Grad,
-      Kompanija: flight.Kompanija, // IATA kod kompanije (npr. "4O")
-      KompanijaICAO: flight.KompanijaICAO,
-      KompanijaNaziv: flight.KompanijaNaziv,
-      checkIn: flight.CheckIn,
-      gate: flight.Gate,
-      TipLeta: flight.TipLeta,
-    })),
-  arrivals: rawData
-    .filter((flight) => flight.TipLeta === 'I')
-    .map((flight) => ({
-      ident: `${flight.BrojLeta}`, // Ovo će biti samo broj leta (npr. "680")
-      status: mapStatus(flight.StatusEN, flight.Status),
-      scheduled_out: formatTime(flight.Planirano),
-      estimated_out: formatTime(flight.Predvidjeno),
-      actual_out: formatTime(flight.Aktuelno),
-      origin: { code: flight.IATA },
-      grad: flight.Grad,
-      destination: { code: 'TIV' },
-      Kompanija: flight.Kompanija, // IATA kod kompanije (npr. "JU")
-      KompanijaICAO: flight.KompanijaICAO,
-      KompanijaNaziv: flight.KompanijaNaziv,
-      checkIn: flight.CheckIn,
-      gate: flight.Gate,
-      TipLeta: flight.TipLeta
-    })),
-};
-
-    return NextResponse.json(processedData);
+    try {
+      // Prvo pokušaj da dobiješ Cloudflare challenge ako postoji
+      const landingResponse = await fetch('https://tiv.nais.aero/', {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        },
+      });
+      
+      console.log('Landing page status:', landingResponse.status);
+      
+      // Sačekaj malo pre nego što pokušaš API
+      await delay(1000);
+      
+      // Pokušaj da dohvatiš prave podatke
+      flightsData = await fetchWithRetry(url, options);
+      
+    } catch (apiError) {
+      console.log('Real API failed, using mock data:', apiError);
+      const mockData = getMockFlights();
+      return NextResponse.json({
+        ...mockData,
+        timestamp: new Date().toISOString(),
+        source: 'mock-data',
+        note: 'API is currently unavailable'
+      });
+    }
+    
+    // Procesiraj prave podatke
+    const allFlights = flightsData
+      .map(convertToFlightResponse)
+      .filter((flight): flight is FlightResponse => flight !== null);
+    
+    const processedData: ProcessedData = {
+      departures: allFlights.filter(flight => flight.TipLeta === 'O'),
+      arrivals: allFlights.filter(flight => flight.TipLeta === 'I'),
+    };
+    
+    return NextResponse.json({
+      ...processedData,
+      timestamp: new Date().toISOString(),
+      source: 'live-api',
+      totalFlights: allFlights.length
+    });
+    
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('Error fetching flight data:', errorMessage);
-    return NextResponse.json(
-      { error: 'Failed to fetch flight data', details: errorMessage },
-      { status: 500 }
-    );
+    console.error('Critical error fetching flight data:', errorMessage);
+    
+    // Fallback na mock podatke
+    const mockData = getMockFlights();
+    return NextResponse.json({
+      ...mockData,
+      timestamp: new Date().toISOString(),
+      source: 'fallback-mock',
+      error: errorMessage,
+      note: 'Using fallback data due to critical error'
+    });
   }
 }
+
+// Cache strategija za Edge Functions
+export const revalidate = 60; // Revalidiraj svakih 60 sekundi

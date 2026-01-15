@@ -10,13 +10,37 @@ import {
 } from 'lucide-react';
 import { Flight } from '@/types/flight';
 
-const FlightCard = ({ flight, type }: { flight: Flight; type: 'departure' | 'arrival' }) => {
+// Dodajte flightNumber u Flight type
+interface EnhancedFlight extends Flight {
+  flightNumber?: string;
+}
+
+const FlightCard = ({ flight, type }: { flight: EnhancedFlight; type: 'departure' | 'arrival' }) => {
   const [logoError, setLogoError] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [isDarkTheme, setIsDarkTheme] = useState(false);
   
   const logoUrl = `https://www.flightaware.com/images/airline_logos/180px/${flight.KompanijaICAO}.png`;
   const placeholderUrl = 'https://placehold.co/180x120/E0E0E0/333333?text=No+Logo';
+
+  // Koristite flightNumber ako postoji, u suprotnom pokušajte da izvučete iz ident
+  const displayFlightNumber = flight.flightNumber || extractFlightNumber(flight.ident);
+
+  // Pomoćna funkcija za ekstrakciju broja leta iz ident-a
+  function extractFlightNumber(ident: string): string {
+    if (!ident) return '';
+    
+    // Ukoloni IATA kod ako postoji na početku
+    // Pretpostavka: IATA kod je 2 karaktera (npr. "4O", "JU", "W6")
+    const airlineCode = flight.Kompanija || '';
+    if (airlineCode && ident.startsWith(airlineCode)) {
+      return ident.slice(airlineCode.length);
+    }
+    
+    // Ako nema IATA koda, probaj da pronađeš prvi broj
+    const match = ident.match(/\d+/);
+    return match ? match[0] : ident;
+  }
 
   useEffect(() => {
     const checkDarkMode = () => {
@@ -121,7 +145,7 @@ const FlightCard = ({ flight, type }: { flight: Flight; type: 'departure' | 'arr
         {/* Header Section */}
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-start gap-3 flex-1 min-w-0">
-            {/* Airline Logo - UVIJEK BIJELA POZADINA */}
+            {/* Airline Logo */}
             <div className="w-16 h-12 relative bg-white rounded-lg border border-gray-300 flex-shrink-0 overflow-hidden">
               <Image
                 src={logoError ? placeholderUrl : logoUrl}
@@ -142,10 +166,11 @@ const FlightCard = ({ flight, type }: { flight: Flight; type: 'departure' | 'arr
                 rel="noopener noreferrer"
                 className="block hover:opacity-80 transition-opacity"
               >
-                <Tooltip text={`Track ${flight.KompanijaICAO} ${flight.ident} on FlightAware`}>
+                <Tooltip text={`Track ${flight.KompanijaICAO} ${displayFlightNumber} on FlightAware`}>
                   <div className="flex items-center gap-2 mb-1">
+                    {/* PRIKAZ: IATA kod + SAMO BROJ LETA */}
                     <span className="text-xl font-bold text-gray-900 dark:text-white truncate">
-                      {flight.Kompanija} {flight.ident}
+                      {flight.Kompanija} {displayFlightNumber}
                     </span>
                     <PlaneTakeoff size={16} className="text-blue-500 flex-shrink-0" />
                   </div>
@@ -159,7 +184,7 @@ const FlightCard = ({ flight, type }: { flight: Flight; type: 'departure' | 'arr
                 </span>
               </div>
 
-              {/* Gate and Check-in - Always visible on mobile */}
+              {/* Gate and Check-in */}
               {type === 'departure' && (
                 <div className="flex flex-wrap gap-2 mt-2">
                   {flight.gate && (
@@ -227,7 +252,7 @@ const FlightCard = ({ flight, type }: { flight: Flight; type: 'departure' | 'arr
         {/* Expandable Content */}
         {isOpen && (
           <div className="pt-4 border-t border-gray-100 dark:border-gray-700 space-y-3 animate-in fade-in duration-200">
-            {/* Gate and Check-in Details - VEĆI I ISTAKNUTIJI */}
+            {/* Gate and Check-in Details */}
             {type === 'departure' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <InfoPill 
@@ -275,8 +300,16 @@ const FlightCard = ({ flight, type }: { flight: Flight; type: 'departure' | 'arr
                 <span className="text-gray-900 dark:text-white">{flight.KompanijaNaziv}</span>
               </div>
               <div className="flex items-center gap-2 p-2 rounded-lg bg-gray-50 dark:bg-gray-700/30">
+                <span className="font-medium text-gray-500 dark:text-gray-400">Flight:</span>
+                <span className="text-gray-900 dark:text-white">{flight.Kompanija} {displayFlightNumber}</span>
+              </div>
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-gray-50 dark:bg-gray-700/30">
                 <span className="font-medium text-gray-500 dark:text-gray-400">Type:</span>
                 <span className="text-gray-900 dark:text-white">{type}</span>
+              </div>
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-gray-50 dark:bg-gray-700/30">
+                <span className="font-medium text-gray-500 dark:text-gray-400">ICAO:</span>
+                <span className="text-gray-900 dark:text-white">{flight.KompanijaICAO}</span>
               </div>
             </div>
           </div>
